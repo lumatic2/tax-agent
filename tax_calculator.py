@@ -194,17 +194,157 @@ def calculate_financial_income(
         }
     else:
         # §14③6 초과 → 전액 종합과세
-        # §62 비교세액은 calculate_tax() 호출 시점에 적용 (종합소득 합산 후 판정)
+        # §62 비교세액은 종합소득 합산 후 compare_financial_income_tax()에서 판정
         return {
             '이자소득금액': interest_income,
             '배당소득금액': dividend_income,
             'Gross_up금액': gross_up,
             '금융소득합계': total,
             '종합과세여부': True,
+            '§62_비교필요': True,
             '분리과세세액': None,
             '종합과세편입금액': total,
-            '비고': f'이자+배당 {total:,}원 > 2,000만 → 종합과세. §62 비교세액: 2,000만×14%={int(THRESHOLD*WITHHOLDING_RATE):,}원 + 초과분 누진',
+            '비고': f'이자+배당 {total:,}원 > 2,000만 → 종합과세. §62 비교세액(방법① vs 방법②) 적용 필요',
         }
+
+
+def compare_financial_income_tax(
+    other_comprehensive_income: int,
+    financial_income: int,
+    total_deductions: int,
+) -> dict:
+    """§62 금융소득 종합과세 시 비교산출세액 계산.
+
+    금융소득(이자+배당)이 2,000만원을 초과하여 종합과세되는 경우,
+    산출세액은 아래 두 방법 중 큰 금액을 적용한다.
+
+    - 방법①: 전체 종합소득(금융소득 포함)에 기본 누진세율 적용
+    - 방법②: 2,000만원×14% + (금융소득 중 2,000만원 초과분 + 금융소득 외 종합소득) × 기본 누진세율
+
+    Args:
+        other_comprehensive_income: 금융소득 외 종합소득 금액(원)
+        financial_income: 금융소득 합계(이자+배당, 원)
+        total_deductions: 종합소득 소득공제 합계(원)
+
+    Returns:
+        dict: {
+            '방법①_산출세액': int,
+            '방법②_산출세액': int,
+            '최종산출세액': int,
+            '적용방법': str,  # '방법①' 또는 '방법②'
+        }
+    """
+    THRESHOLD = 20_000_000
+
+    other_comprehensive_income = int(other_comprehensive_income)
+    financial_income = int(financial_income)
+    total_deductions = int(total_deductions)
+
+    # 방법①: 전체 종합소득(금융소득 포함)에 기본 누진세율 적용
+    method1_base = max(other_comprehensive_income + financial_income - total_deductions, 0)
+    method1_tax = calculate_tax(method1_base)['산출세액']
+
+    # 방법②: 2,000만원×14% + (초과분 + 금융소득 외 종합소득) × 기본 누진세율
+    sep_tax = int(THRESHOLD * 0.14)
+    excess_financial = financial_income - THRESHOLD
+    progressive_base = max(other_comprehensive_income + excess_financial - total_deductions, 0)
+    progressive_tax = calculate_tax(progressive_base)['산출세액']
+    method2_tax = sep_tax + progressive_tax
+
+    final_tax = max(method1_tax, method2_tax)
+    applied = '방법①' if method1_tax >= method2_tax else '방법②'
+
+    return {
+        '방법①_산출세액': int(method1_tax),
+        '방법②_산출세액': int(method2_tax),
+        '최종산출세액': int(final_tax),
+        '적용방법': applied,
+    }
+
+
+def calculate_dividend_tax_credit(
+    gross_up: int,
+    dividend_income: int,
+    total_financial_income: int,
+) -> dict:
+    """배당세액공제 계산 (소득세법 §56, 법제처 API 확인 완료 2026-04-01).
+
+    [법령 근거]
+    §56①: 종합소득금액에 §17③ 단서가 적용되는 배당소득금액이 합산된 경우,
+           총수입금액에 더한 금액(= Gross-up 금액)을 산출세액에서 공제.
+    §56④: 배당세액공제 대상 = 종합과세기준금액(2,000만원) 초과분의 배당소득금액만 해당.
+           → 공제액 = Gross-up × (종합과세 대상 배당소득 / 전체 배당소득금액)
+
+    ※ 이 함수는 calculate_financial_income()이 종합과세여부=True를 반환한 경우에만 호출한다.
+       분리과세(2,000만 이하)면 배당세액공제 없음.
+
+    Args:
+        gross_up: §17③에 따라 배당소득금액에 가산된 Gross-up 금액 (= Gross-up 대상 배당 × 10%)
+        dividend_income: 배당소득금액 (총수입금액 + Gross-up, §17③ 적용 후)
+        total_financial_income: 금융소득 합계 (이자소득금액 + 배당소득금액)
+            — §56④ 적용: 2,000만 초과분 중 배당 비중 계산에 사용
+
+    Returns:
+        dict: {
+            '배당세액공제액': int,       # 산출세액에서 차감할 금액
+            '공제대상_배당소득': int,    # §56④ — 2,000만 초과분 중 배당 해당분
+            'Gross_up금액': int,
+            '근거': str,
+        }
+
+    사용 예시:
+        fin = calculate_financial_income(interest=5_000_000, dividend=20_000_000,
+                                         gross_up_eligible_dividend=20_000_000)
+        # gross_up = 2,000,000, dividend_income = 22,000,000, total = 27,000,000 → 종합과세
+        credit = calculate_dividend_tax_credit(
+            gross_up=fin['Gross_up금액'],
+            dividend_income=fin['배당소득금액'],
+            total_financial_income=fin['금융소득합계'],
+        )
+    """
+    THRESHOLD = 20_000_000  # §14③6 종합과세기준금액
+
+    if total_financial_income <= THRESHOLD or gross_up <= 0:
+        # 분리과세이거나 Gross-up 없으면 공제 없음
+        return {
+            '배당세액공제액': 0,
+            '공제대상_배당소득': 0,
+            'Gross_up금액': gross_up,
+            '근거': '종합과세기준금액 이하 또는 Gross-up 대상 배당 없음 — 배당세액공제 해당 없음',
+        }
+
+    # §56④: 2,000만 초과분 중 배당소득이 차지하는 비율로 안분
+    # 종합과세 편입 금액 = total_financial_income (전액 종합과세)
+    # 이 중 배당소득 비중 = dividend_income / total_financial_income
+    # 2,000만 초과분 = total_financial_income - THRESHOLD
+    excess = total_financial_income - THRESHOLD
+
+    if dividend_income <= 0 or total_financial_income <= 0:
+        return {
+            '배당세액공제액': 0,
+            '공제대상_배당소득': 0,
+            'Gross_up금액': gross_up,
+            '근거': '배당소득금액 0 — 배당세액공제 해당 없음',
+        }
+
+    # 초과분 중 배당에 귀속되는 금액 (배당 비중으로 안분)
+    dividend_ratio = dividend_income / total_financial_income
+    eligible_dividend = int(excess * dividend_ratio)  # §56④ 공제 대상 배당소득
+
+    # 공제액 = Gross-up × (공제대상 배당소득 / 배당소득금액)
+    # = 공제대상 배당소득의 Gross-up 해당분
+    credit = int(gross_up * (eligible_dividend / dividend_income))
+
+    return {
+        '배당세액공제액': credit,
+        '공제대상_배당소득': eligible_dividend,
+        'Gross_up금액': gross_up,
+        '근거': (
+            f'§56①④: 금융소득 {total_financial_income:,}원 중 2,000만 초과분 {excess:,}원 × '
+            f'배당비중 {dividend_ratio:.1%} = 공제대상 배당소득 {eligible_dividend:,}원, '
+            f'Gross-up 안분공제액 {credit:,}원'
+        ),
+    }
 
 
 def calculate_business_income(
@@ -468,12 +608,15 @@ def calculate_personal_deductions(persons: list) -> dict:
             - disabled: bool
             - single_parent: bool (본인에만 적용)
             - female_head: bool (본인에만 적용)
+            - annual_income: int (기본값 0)
+            - wage_only: bool (기본값 False)
     """
     basic_count = 0
     elderly_amount = 0      # 경로우대 (70세 이상) 1인당 100만
     disabled_amount = 0     # 장애인 1인당 200만
     female_head_amount = 0  # 부녀자 50만
     single_parent_amount = 0  # 한부모 100만
+    warnings = []
 
     has_single_parent = any(p.get("single_parent") for p in persons)
 
@@ -481,6 +624,20 @@ def calculate_personal_deductions(persons: list) -> dict:
         relation = p.get("relation", "")
         age = int(p.get("age", 0))
         disabled = bool(p.get("disabled", False))
+        annual_income = int(p.get("annual_income", 0) or 0)
+        wage_only = bool(p.get("wage_only", False))
+
+        # 소득요건 (§50①3): 본인은 소득요건 없음
+        if relation != "본인":
+            if relation in {"배우자", "직계존속", "직계비속", "형제자매", "위탁아동"}:
+                income_ok = True
+                if annual_income > 1_000_000:
+                    income_ok = bool(wage_only and annual_income <= 5_000_000)
+                if not income_ok:
+                    warnings.append(
+                        f"부양가족 소득요건 미충족으로 기본공제 제외: relation={relation}, annual_income={annual_income}, wage_only={wage_only}"
+                    )
+                    continue
 
         # 기본공제 (§50): 본인·배우자·부양가족 1인당 150만
         basic_count += 1
@@ -523,6 +680,7 @@ def calculate_personal_deductions(persons: list) -> dict:
         "추가공제_내역": additional_detail,
         "추가공제액": additional_total,
         "인적공제_합계": basic_amount + additional_total,
+        "warnings": warnings,
     }
 
 
@@ -557,6 +715,11 @@ def calculate_special_deductions(income_data: dict) -> dict:
     medical_deduction = min(max(medical_expense - medical_threshold, 0), 7_000_000)
 
     total = insurance_deduction + housing_fund + medical_deduction + education_expense + donation
+    original_total = total
+    apply_method = "특별공제"
+    if total < 1_300_000:
+        total = 1_300_000
+        apply_method = "표준공제"
 
     return {
         "보험료공제": insurance_deduction,
@@ -565,6 +728,8 @@ def calculate_special_deductions(income_data: dict) -> dict:
         "교육비공제": education_expense,
         "기부금공제": donation,
         "특별공제_합계": total,
+        "적용방식": apply_method,
+        "특별공제_합계_원래": original_total,
     }
 
 
@@ -890,4 +1055,1003 @@ def simulate_comprehensive_vs_separate(income_data):
             "합계": sep_total,
         },
         "총합(종합+분리)": comp_total + sep_total,
+    }
+
+
+def calculate_loss_netting(incomes: dict, loss: int, loss_type: str) -> dict:
+    """결손금 당기 통산 계산 (소득세법 §45).
+
+    법령 근거:
+        - 소득세법 §45①: 사업소득 결손금은 당해 과세기간 종합소득과세표준 계산 시
+          근로→연금→기타→이자→배당 순서로 통산
+        - 소득세법 §45②: 부동산임대업(주거용 제외) 결손금은 타소득과 통산 불가 (이월만 가능)
+
+    Note:
+        - 소득세법 §45⑤(금융소득 분리과세 관련) 세부 로직은 §62 통합 시 처리 예정이며,
+          본 함수에서는 별도 파라미터/분기 없이 주석으로만 명시한다.
+
+    Args:
+        incomes: 당기 소득금액 dict.
+            키: '사업소득', '근로소득', '연금소득', '기타소득', '이자소득', '배당소득'
+            (부동산임대업 소득은 '부동산임대소득' 키 사용)
+            값: int (원)
+        loss: 결손금 금액 (양수 입력). 예) 적자 500만원이면 5_000_000
+        loss_type: 'general' | 'real_estate'
+            - 'general': §45① 적용 (근로→연금→기타→이자→배당 순 통산)
+            - 'real_estate': §45② (당기 타소득 통산 불가; 이월만 가능)
+
+    Returns:
+        {
+          '통산후소득': dict,
+          '통산완료여부': bool,
+          '잔여결손금': int,
+          '공제내역': list[dict],
+          '근거': str,
+        }
+
+    Example:
+        incomes = {
+            "사업소득": 0,
+            "근로소득": 10_000_000,
+            "연금소득": 3_000_000,
+            "기타소득": 0,
+            "이자소득": 1_000_000,
+            "배당소득": 0,
+        }
+        result = calculate_loss_netting(incomes, loss=5_000_000, loss_type="general")
+        # 근로소득에서 5,000,000 공제 → 잔여결손금 0, 통산완료여부 True
+    """
+    incomes = incomes or {}
+    if not isinstance(incomes, dict):
+        raise ValueError("incomes must be a dict")
+
+    remaining_loss = int(loss or 0)
+    if remaining_loss < 0:
+        raise ValueError("loss must be a non-negative int")
+
+    if loss_type not in ("general", "real_estate"):
+        raise ValueError("loss_type must be 'general' or 'real_estate'")
+
+    net_incomes = {k: max(int(v or 0), 0) for k, v in incomes.items()}
+
+    if remaining_loss == 0:
+        return {
+            "통산후소득": net_incomes,
+            "통산완료여부": True,
+            "잔여결손금": 0,
+            "공제내역": [],
+            "근거": "소득세법 §45 (결손금 통산)",
+        }
+
+    if loss_type == "real_estate":
+        rent_income = max(int(net_incomes.get("부동산임대소득", 0) or 0), 0)
+        deduct = min(rent_income, remaining_loss)
+        net_incomes["부동산임대소득"] = rent_income - deduct
+        remaining_loss -= deduct
+
+        deductions = []
+        if deduct > 0:
+            deductions.append({"소득유형": "부동산임대소득", "공제액": deduct})
+
+        return {
+            "통산후소득": net_incomes,
+            "통산완료여부": remaining_loss == 0,
+            "잔여결손금": max(remaining_loss, 0),
+            "공제내역": deductions,
+            "근거": "소득세법 §45② (부동산임대업 결손금은 타소득 통산 불가; 부동산임대소득 내에서만 공제)",
+        }
+
+    deduction_order = ["근로소득", "연금소득", "기타소득", "이자소득", "배당소득"]
+    deductions = []
+    for income_type in deduction_order:
+        if remaining_loss <= 0:
+            break
+        available = max(int(net_incomes.get(income_type, 0) or 0), 0)
+        if available <= 0:
+            continue
+        deduct = min(available, remaining_loss)
+        net_incomes[income_type] = available - deduct
+        remaining_loss -= deduct
+        if deduct > 0:
+            deductions.append({"소득유형": income_type, "공제액": deduct})
+
+    return {
+        "통산후소득": net_incomes,
+        "통산완료여부": remaining_loss == 0,
+        "잔여결손금": max(remaining_loss, 0),
+        "공제내역": deductions,
+        "근거": "소득세법 §45①, §45② (결손금 통산 순서 및 부동산임대업 결손금 통산 제한)",
+    }
+
+
+def calculate_loss_carryforward(
+    incomes: dict,
+    carryforward_losses: list[dict],
+    loss_type: str = "general",
+) -> dict:
+    """이월결손금 공제 계산 (소득세법 §45).
+
+    법령 근거:
+        - 소득세법 §45③: 이월결손금은 발생일로부터 15년 이내, 선발생분 우선 공제
+          (일반이월결손금 공제 순: 사업→근로→연금→기타→이자→배당)
+          부동산임대업 이월결손금은 부동산임대업 소득에서만 공제
+        - 소득세법 §45⑥: 당기 결손금과 이월결손금이 동시에 있으면 당기 결손금 먼저 공제
+
+    Note:
+        - 소득세법 §45⑤(금융소득 분리과세 관련) 원천징수세율(14%) 부분 공제 제외 등
+          세부 로직은 §62 통합 시 처리 예정이며, 본 함수에서는 별도 파라미터 처리 생략.
+        - 일반이월결손금 공제 순서에서 '부동산임대소득'은 별도 관리되어 '사업소득' 앞에 위치한다.
+
+    Args:
+        incomes: 당기 소득금액 dict (calculate_loss_netting 통산 후 결과 사용 권장)
+        carryforward_losses: 이월결손금 목록.
+            [{'연도': int, 'loss_type': str, '금액': int}, ...]
+            연도 오름차순 정렬(선발생 우선 공제 — §45③)되어 있다고 가정한다.
+        loss_type: 'general' | 'real_estate' (항목에 loss_type 누락 시 기본값으로 사용)
+
+    Returns:
+        {
+          '공제후소득': dict,
+          '공제내역': list[dict],
+          '미공제이월결손금': list[dict],
+          '근거': str,
+        }
+
+    Example:
+        incomes = {"근로소득": 8_000_000, "사업소득": 2_000_000, "부동산임대소득": 1_000_000}
+        carry = [
+            {"연도": 2016, "loss_type": "general", "금액": 3_000_000},
+            {"연도": 2010, "loss_type": "general", "금액": 1_000_000},  # 15년 초과 시 미공제
+            {"연도": 2024, "loss_type": "real_estate", "금액": 700_000},
+        ]
+        result = calculate_loss_carryforward(incomes, carry)
+        # 2016 일반이월: 부동산임대→사업→근로 순으로 공제
+        # 2024 부동산임대 이월: 부동산임대소득에서만 공제
+    """
+    from datetime import date
+
+    incomes = incomes or {}
+    if not isinstance(incomes, dict):
+        raise ValueError("incomes must be a dict")
+
+    if carryforward_losses is None:
+        carryforward_losses = []
+    if not isinstance(carryforward_losses, list):
+        raise ValueError("carryforward_losses must be a list")
+
+    if loss_type not in ("general", "real_estate"):
+        raise ValueError("loss_type must be 'general' or 'real_estate'")
+
+    current_year = date.today().year
+    deducted_incomes = {k: max(int(v or 0), 0) for k, v in incomes.items()}
+
+    deduction_details = []
+    remaining_carry = []
+
+    for item in carryforward_losses:
+        if not isinstance(item, dict):
+            raise ValueError("carryforward_losses items must be dicts")
+
+        year = int(item.get("연도"))
+        item_type = item.get("loss_type", loss_type) or loss_type
+        if item_type not in ("general", "real_estate"):
+            raise ValueError("loss_type in carryforward_losses must be 'general' or 'real_estate'")
+
+        amount = int(item.get("금액", 0) or 0)
+        if amount <= 0:
+            continue
+
+        age = current_year - year
+        if age < 0 or age > 15:
+            remaining_carry.append({"연도": year, "loss_type": item_type, "금액": amount})
+            continue
+
+        remaining_amount = amount
+        deducted_total = 0
+
+        if item_type == "real_estate":
+            targets = ["부동산임대소득"]
+        else:
+            targets = ["부동산임대소득", "사업소득", "근로소득", "연금소득", "기타소득", "이자소득", "배당소득"]
+
+        for income_key in targets:
+            if remaining_amount <= 0:
+                break
+            available = max(int(deducted_incomes.get(income_key, 0) or 0), 0)
+            if available <= 0:
+                continue
+            deduct = min(available, remaining_amount)
+            deducted_incomes[income_key] = available - deduct
+            remaining_amount -= deduct
+            deducted_total += deduct
+
+        deduction_details.append(
+            {
+                "연도": year,
+                "loss_type": item_type,
+                "공제액": deducted_total,
+                "잔액": remaining_amount,
+            }
+        )
+
+        if remaining_amount > 0:
+            remaining_carry.append({"연도": year, "loss_type": item_type, "금액": remaining_amount})
+
+    return {
+        "공제후소득": deducted_incomes,
+        "공제내역": deduction_details,
+        "미공제이월결손금": remaining_carry,
+        "근거": "소득세법 §45③, §45⑥ (이월결손금 15년/선발생 우선 및 당기 결손금 우선 공제)",
+    }
+
+
+def calculate_long_term_deduction(
+    gain: int,
+    holding_years: float,
+    asset_type: str = 'general',
+    residence_years: float = 0.0
+) -> dict:
+    """장기보유특별공제액 계산 (소득세법 §95②, 2026-04-01 법제처 API 확인 완료).
+
+    §95②: 보유기간 3년 이상 토지·건물(미등기·단기중과 제외)에 대해 장기보유특별공제 적용.
+      - 표1(일반 부동산): 보유기간 3년 이상 구간별 6%~30%
+      - 표2(1세대1주택): 보유기간 공제율 + 거주기간 공제율 합산
+          * 보유기간: 연 4% (최대 40%)
+          * 거주기간: 연 4% (최대 40%)
+          * 합계 최대 80%
+
+    Args:
+        gain: 양도차익 (원, 양수)
+        holding_years: 보유기간 (연수, float. 예: 3.5)
+        asset_type: 'general' | 'one_house'
+        residence_years: 거주기간 (연수, float). asset_type='one_house'일 때만 사용.
+
+    Returns:
+        {
+            '공제율_보유': float,
+            '공제율_거주': float,
+            '공제율_합계': float,
+            '장기보유특별공제액': int,
+            '근거': str,
+        }
+
+    사용 예시:
+        # 1세대1주택, 보유 10.2년/거주 6.0년, 양도차익 5억원
+        calculate_long_term_deduction(
+            gain=500_000_000,
+            holding_years=10.2,
+            asset_type="one_house",
+            residence_years=6.0,
+        )
+    """
+    import math
+
+    gain = int(gain)
+    holding_years = float(holding_years)
+    residence_years = float(residence_years)
+
+    if gain < 0:
+        raise ValueError("gain은 0 이상이어야 합니다.")
+    if holding_years < 0 or residence_years < 0:
+        raise ValueError("holding_years/residence_years는 0 이상이어야 합니다.")
+    if asset_type not in ("general", "one_house"):
+        raise ValueError("asset_type은 'general' 또는 'one_house'여야 합니다.")
+
+    def _general_holding_rate(years: float) -> float:
+        if years < 3:
+            return 0.0
+        if years < 4:
+            return 0.06
+        if years < 5:
+            return 0.08
+        if years < 6:
+            return 0.10
+        if years < 7:
+            return 0.12
+        if years < 8:
+            return 0.14
+        if years < 9:
+            return 0.16
+        if years < 10:
+            return 0.18
+        if years < 11:
+            return 0.20
+        if years < 12:
+            return 0.22
+        if years < 13:
+            return 0.24
+        if years < 14:
+            return 0.26
+        if years < 15:
+            return 0.28
+        return 0.30
+
+    def _one_house_holding_rate(years: float) -> float:
+        if years < 3:
+            return 0.0
+        if years < 4:
+            return 0.12
+        if years < 5:
+            return 0.16
+        if years < 6:
+            return 0.20
+        if years < 7:
+            return 0.24
+        if years < 8:
+            return 0.28
+        if years < 9:
+            return 0.32
+        if years < 10:
+            return 0.36
+        return 0.40
+
+    def _one_house_residence_rate(years: float) -> float:
+        if years < 2:
+            return 0.0
+        if years < 3:
+            return 0.08
+        if years < 4:
+            return 0.12
+        if years < 5:
+            return 0.16
+        if years < 6:
+            return 0.20
+        if years < 7:
+            return 0.24
+        if years < 8:
+            return 0.28
+        if years < 9:
+            return 0.32
+        if years < 10:
+            return 0.36
+        return 0.40
+
+    rate_holding = 0.0
+    rate_residence = 0.0
+    if asset_type == "general":
+        rate_holding = _general_holding_rate(holding_years)
+        basis = "소득세법 §95② 표1(일반 부동산) - 보유기간 3년 이상 구간별 6%~30%"
+    else:
+        rate_holding = _one_house_holding_rate(holding_years)
+        rate_residence = _one_house_residence_rate(residence_years)
+        rate_holding = min(rate_holding, 0.40)
+        rate_residence = min(rate_residence, 0.40)
+        basis = "소득세법 §95② 표2(1세대1주택) - 보유+거주 합산(각 최대 40%, 합계 최대 80%)"
+
+    rate_total = min(rate_holding + rate_residence, 0.80)
+    deduction_amount = int(math.floor(gain * rate_total))
+
+    return {
+        "공제율_보유": float(rate_holding),
+        "공제율_거주": float(rate_residence),
+        "공제율_합계": float(rate_total),
+        "장기보유특별공제액": int(max(deduction_amount, 0)),
+        "근거": basis,
+    }
+
+
+def calculate_transfer_income_tax(
+    transfer_price: int,
+    acquisition_price: int,
+    necessary_expenses: int = 0,
+    holding_years: float = 0.0,
+    asset_type: str = 'general',
+    house_type: str = 'none',
+    residence_years: float = 0.0,
+    multi_house_count: int = 1,
+    is_adjusted_area: bool = False,
+    is_unregistered: bool = False
+) -> dict:
+    """양도소득세 원스톱 계산 (소득세법 §94~§97, §104, §89①3, §103; 2026-04-01 법제처 API 확인 완료).
+
+    [핵심 법령 근거]
+    §96: 양도가액 = 실지거래가액
+    §97①: 필요경비 = 취득가액 + 자본적지출액 + 양도비용
+    §95①: 양도소득금액 = 양도차익 - 장기보유특별공제액
+    §103: 양도소득기본공제 250만원
+    §104①: 세율(단기/미등기/일반)
+      - 보유 2년 이상 일반: §55 기본 누진세율
+      - 보유 1년 이상 2년 미만: 40% (주택/조합원입주권/분양권: 60%)
+      - 보유 1년 미만: 50% (주택/조합원입주권/분양권: 70%)
+      - 미등기양도: 70%
+    §104⑦: 다주택 중과(조정대상지역)
+      - 1세대 2주택: 기본세율 + 20%p
+      - 1세대 3주택 이상: 기본세율 + 30%p
+      - 2년 미만 보유 시 중과세율과 단기세율 중 큰 것 적용
+    §89①3: 1세대1주택 비과세(요건 충족 + 양도가액 12억 이하), 12억 초과는 고가주택 과세
+
+    사용 예시:
+        # 일반 토지/건물, 보유 6.2년, 양도가 5억, 취득가 3억, 비용 2천만원
+        calculate_transfer_income_tax(
+            transfer_price=500_000_000,
+            acquisition_price=300_000_000,
+            necessary_expenses=20_000_000,
+            holding_years=6.2,
+            asset_type="general",
+        )
+
+        # 1세대1주택, 보유 11년/거주 8년, 양도가 15억(고가주택)
+        calculate_transfer_income_tax(
+            transfer_price=1_500_000_000,
+            acquisition_price=700_000_000,
+            necessary_expenses=30_000_000,
+            holding_years=11.0,
+            residence_years=8.0,
+            asset_type="one_house",
+            house_type="house",
+        )
+    """
+    import math
+
+    transfer_price = int(transfer_price)
+    acquisition_price = int(acquisition_price)
+    necessary_expenses = int(necessary_expenses)
+    holding_years = float(holding_years)
+    residence_years = float(residence_years)
+    multi_house_count = int(multi_house_count)
+
+    if transfer_price < 0 or acquisition_price < 0 or necessary_expenses < 0:
+        raise ValueError("transfer_price/acquisition_price/necessary_expenses는 0 이상이어야 합니다.")
+    if holding_years < 0 or residence_years < 0:
+        raise ValueError("holding_years/residence_years는 0 이상이어야 합니다.")
+    if asset_type not in ("general", "one_house"):
+        raise ValueError("asset_type은 'general' 또는 'one_house'여야 합니다.")
+    if house_type not in ("none", "house", "apt_right", "presale"):
+        raise ValueError("house_type은 'none'|'house'|'apt_right'|'presale'여야 합니다.")
+    if multi_house_count < 1:
+        raise ValueError("multi_house_count는 1 이상이어야 합니다.")
+
+    THRESHOLD_ONE_HOUSE_EXEMPT = 1_200_000_000  # §89①3 12억
+    BASIC_DEDUCTION = 2_500_000  # §103
+
+    total_cost = acquisition_price + necessary_expenses  # §97①
+    gain_raw = transfer_price - total_cost
+    gain = int(max(gain_raw, 0))
+    note = ""
+    if gain_raw <= 0:
+        note = "양도차익이 0 이하이므로 산출세액은 0원입니다."
+
+    is_exempt = False
+    taxable_gain = gain
+    if asset_type == "one_house" and gain > 0:
+        cond_hold = holding_years >= 2.0
+        cond_res = (not is_adjusted_area) or (residence_years >= 2.0)
+        if cond_hold and cond_res:
+            if transfer_price <= THRESHOLD_ONE_HOUSE_EXEMPT:
+                is_exempt = True
+                note = "1세대1주택 비과세(§89①3): 2년 보유(조정대상지역은 2년 거주 추가) + 양도가액 12억 이하"
+            else:
+                ratio = (transfer_price - THRESHOLD_ONE_HOUSE_EXEMPT) / transfer_price
+                taxable_gain = int(math.floor(gain * ratio))
+                note = (
+                    "고가주택 과세(§89①3): 과세 양도차익 = 양도차익 × (양도가액-12억) / 양도가액"
+                )
+
+    if is_exempt:
+        return {
+            "양도가액": transfer_price,
+            "취득가액": acquisition_price,
+            "필요경비": int(total_cost),
+            "양도차익": int(gain),
+            "과세_양도차익": 0,
+            "장기보유특별공제액": 0,
+            "양도소득금액": 0,
+            "양도소득기본공제": BASIC_DEDUCTION,
+            "양도소득과세표준": 0,
+            "적용세율": 0.0,
+            "세율_설명": "비과세(§89①3)",
+            "산출세액": 0,
+            "지방소득세": 0,
+            "총납부세액": 0,
+            "비과세여부": True,
+            "비고": note,
+        }
+
+    if is_unregistered:
+        ltd_amount = 0
+        ltd_basis = "미등기양도(§104①): 장기보유특별공제 적용 없음"
+    else:
+        ltd_res = calculate_long_term_deduction(
+            gain=taxable_gain,
+            holding_years=holding_years,
+            asset_type=asset_type,
+            residence_years=residence_years,
+        )
+        ltd_amount = int(ltd_res["장기보유특별공제액"])
+        ltd_basis = str(ltd_res["근거"])
+
+    transfer_income_amount = int(max(taxable_gain - ltd_amount, 0))  # §95①
+    tax_base = int(max(transfer_income_amount - BASIC_DEDUCTION, 0))  # §103
+
+    def _short_term_rate(years: float, ht: str) -> float | None:
+        is_house_like = ht in ("house", "apt_right", "presale")
+        if years < 1:
+            return 0.70 if is_house_like else 0.50
+        if years < 2:
+            return 0.60 if is_house_like else 0.40
+        if ht == "presale":
+            return 0.60
+        return None
+
+    add_rate = 0.0
+    if is_adjusted_area and multi_house_count >= 2 and house_type in ("house", "apt_right", "presale"):
+        add_rate = 0.20 if multi_house_count == 2 else 0.30
+
+    applied_rate = 0.0
+    rate_desc = ""
+    income_tax = 0
+
+    if tax_base <= 0:
+        applied_rate = 0.0
+        rate_desc = "과세표준이 0원입니다."
+        income_tax = 0
+    elif is_unregistered:
+        applied_rate = 0.70
+        rate_desc = "미등기양도(§104①): 70% 비례세율"
+        income_tax = int(tax_base * applied_rate)
+    else:
+        short_rate = _short_term_rate(holding_years, house_type)
+        if short_rate is not None and holding_years < 2:
+            short_tax = int(tax_base * short_rate)
+            if add_rate > 0:
+                base = calculate_tax(tax_base)
+                multi_tax = int(base["산출세액"] + tax_base * add_rate)
+                if multi_tax >= short_tax:
+                    applied_rate = float(base["적용세율"] + add_rate)
+                    rate_desc = (
+                        f"다주택 중과(§104⑦): 기본 누진세율 + {int(add_rate*100)}%p "
+                        f"(2년 미만: 단기세율 {int(short_rate*100)}%와 비교 후 큰 세액 적용)"
+                    )
+                    income_tax = multi_tax
+                else:
+                    applied_rate = float(short_rate)
+                    rate_desc = (
+                        f"단기양도(§104①): {int(short_rate*100)}% 비례세율 "
+                        f"(2년 미만: 중과세액과 비교 후 큰 세액 적용)"
+                    )
+                    income_tax = short_tax
+            else:
+                applied_rate = float(short_rate)
+                rate_desc = f"단기양도(§104①): {int(short_rate*100)}% 비례세율"
+                income_tax = short_tax
+        else:
+            base_rate = _short_term_rate(holding_years, house_type)
+            if house_type == "presale" and base_rate is not None:
+                applied_rate = float(base_rate + add_rate)
+                rate_desc = (
+                    f"분양권(§104①): {int(base_rate*100)}% 비례세율"
+                    + (f" + 다주택중과 {int(add_rate*100)}%p(§104⑦)" if add_rate > 0 else "")
+                )
+                income_tax = int(tax_base * applied_rate)
+            else:
+                base = calculate_tax(tax_base)
+                applied_rate = round(base["적용세율"] + add_rate, 4)
+                rate_desc = (
+                    "기본 누진세율(§55) 적용"
+                    + (f" + 다주택중과 {int(add_rate*100)}%p(§104⑦)" if add_rate > 0 else "")
+                )
+                income_tax = int(base["산출세액"] + tax_base * add_rate)
+
+    local_tax = calculate_local_tax(income_tax)
+    total_tax = int(income_tax + local_tax)
+
+    return {
+        "양도가액": transfer_price,
+        "취득가액": acquisition_price,
+        "필요경비": int(total_cost),
+        "양도차익": int(gain),
+        "과세_양도차익": int(taxable_gain),
+        "장기보유특별공제액": int(ltd_amount),
+        "양도소득금액": int(transfer_income_amount),
+        "양도소득기본공제": int(BASIC_DEDUCTION),
+        "양도소득과세표준": int(tax_base),
+        "적용세율": float(applied_rate),
+        "세율_설명": str(rate_desc),
+        "산출세액": int(max(income_tax, 0)),
+        "지방소득세": int(local_tax),
+        "총납부세액": int(max(total_tax, 0)),
+        "비과세여부": False,
+        "비고": "; ".join([s for s in [note, ltd_basis] if s]),
+    }
+
+
+def calculate_interim_prepayment(prev_year_tax: int) -> dict:
+    """중간예납세액 계산 (소득세법 §65).
+
+    직전 과세기간 종합소득세액(결정세액 기준)의 50%를 중간예납기준액으로 산정한다.
+    다만, 중간예납기준액이 50만원 미만이면 징수하지 않는다(§65③).
+
+    Args:
+        prev_year_tax: 직전 과세기간 종합소득세액 (결정세액 기준, 원)
+
+    Returns:
+        {
+          '중간예납기준액': int,   # prev_year_tax × 50%
+          '납부의무여부': bool,    # 기준액 50만원 미만이면 False
+          '납부기한': str,         # '매년 11월 30일'
+          '근거': str,
+        }
+
+    사용 예시:
+        calculate_interim_prepayment(3_000_000)
+        # {'중간예납기준액': 1500000, '납부의무여부': True, '납부기한': '매년 11월 30일', ...}
+    """
+    prev_year_tax = int(prev_year_tax)
+    기준액 = int(prev_year_tax * 0.5)
+    납부의무여부 = not (int(prev_year_tax * 0.5) < 500_000)
+
+    return {
+        "중간예납기준액": int(기준액),
+        "납부의무여부": bool(납부의무여부),
+        "납부기한": "매년 11월 30일",
+        "근거": "소득세법 제65조(중간예납) 및 같은 조 제3항(중간예납기준액 50만원 미만 징수하지 않음)",
+    }
+
+
+def calculate_penalty_tax(
+    base_tax: int,
+    penalty_type: str,
+    days_late: int = 0,
+    is_fraudulent: bool = False,
+    is_offshore: bool = False,
+) -> dict:
+    """가산세 계산 (국세기본법 §47의2~§47의4).
+
+    - 무신고(§47의2): 무신고납부세액 × 20% (부정행위 40%, 역외거래 부정 60%)
+    - 과소신고(§47의3): 과소신고납부세액 × 10% (부정행위분 40% + 일반분 10%)
+      * 단순화: 이 함수에서는 base_tax 전액을 부정행위분으로 가정한다(부정행위=True일 때).
+    - 납부지연(§47의4): 미납세액 × 경과일수 × 0.022%/일
+
+    Args:
+        base_tax: 기준 세액 (원)
+            - penalty_type='no_filing': 무신고납부세액
+            - penalty_type='under_filing': 과소신고납부세액
+            - penalty_type='late_payment': 미납세액
+        penalty_type: 'no_filing' | 'under_filing' | 'late_payment'
+        days_late: 경과일수 (penalty_type='late_payment'일 때 사용)
+        is_fraudulent: 부정행위 여부 (no_filing/under_filing에만 적용)
+        is_offshore: 역외거래 부정행위 여부 (is_fraudulent=True일 때만 의미)
+
+    Returns:
+        {
+          '가산세액': int,
+          '적용세율_또는_일수': str,   # 예: '20%', '0.022%/일 × 30일'
+          '근거': str,
+          '비고': str,
+        }
+
+    사용 예시:
+        calculate_penalty_tax(10_000_000, 'no_filing')  # 일반 무신고
+        calculate_penalty_tax(10_000_000, 'under_filing', is_fraudulent=True)  # 부정 과소신고(단순화)
+        calculate_penalty_tax(5_000_000, 'late_payment', days_late=30)  # 납부지연
+    """
+    LATE_PAYMENT_RATE_DAILY = 0.00022  # 0.022%/일 (국세기본법 시행령 §27의4)
+
+    base_tax = int(base_tax)
+    days_late = int(days_late)
+
+    if base_tax < 0:
+        raise ValueError("base_tax must be >= 0")
+    if days_late < 0:
+        raise ValueError("days_late must be >= 0")
+    if penalty_type not in ("no_filing", "under_filing", "late_payment"):
+        raise ValueError("penalty_type must be one of: 'no_filing', 'under_filing', 'late_payment'")
+
+    if penalty_type == "no_filing":
+        if is_fraudulent:
+            rate = 0.60 if is_offshore else 0.40
+            applied = "60%" if is_offshore else "40%"
+            note = "부정행위 무신고" + ("(역외거래)" if is_offshore else "")
+        else:
+            rate = 0.20
+            applied = "20%"
+            note = "일반 무신고"
+
+        penalty = int(base_tax * rate)
+        return {
+            "가산세액": int(penalty),
+            "적용세율_또는_일수": applied,
+            "근거": "국세기본법 제47의2(무신고가산세)",
+            "비고": note,
+        }
+
+    if penalty_type == "under_filing":
+        if is_fraudulent:
+            rate = 0.40
+            applied = "40%"
+            note = "부정행위 과소신고(단순화: base_tax 전액을 부정행위분으로 가정)"
+        else:
+            rate = 0.10
+            applied = "10%"
+            note = "일반 과소신고"
+
+        penalty = int(base_tax * rate)
+        return {
+            "가산세액": int(penalty),
+            "적용세율_또는_일수": applied,
+            "근거": "국세기본법 제47의3(과소신고가산세)",
+            "비고": note,
+        }
+
+    penalty = int(base_tax * days_late * LATE_PAYMENT_RATE_DAILY)
+    return {
+        "가산세액": int(penalty),
+        "적용세율_또는_일수": f"0.022%/일 × {days_late}일",
+        "근거": "국세기본법 제47의4(납부지연가산세) 및 국세기본법 시행령 제27의4(일할 이자율)",
+        "비고": "",
+    }
+
+
+def calculate_joint_business_income(total_income: int, partners: list[dict]) -> dict:
+    """공동사업장 손익 배분 (소득세법 §43).
+
+    - §43①: 공동사업장을 1거주자로 보아 소득금액을 계산
+    - §43②: 소득금액을 손익분배비율(없으면 지분비율)로 각 공동사업자에게 배분
+
+    Args:
+        total_income: 공동사업장 총 소득금액 (원, 양수=이익, 음수=결손)
+        partners: 공동사업자 목록
+            [{'이름': str, '분배비율': float}, ...]  # 분배비율 합계 = 1.0
+            분배비율 미입력 시 지분비율(예: '지분비율')로 대체 (이 함수에선 동일하게 처리)
+
+    Returns:
+        {
+          '총소득금액': int,
+          '배분내역': list[dict],  # [{'이름': str, '분배비율': float, '배분소득': int}, ...]
+          '근거': str,
+        }
+
+    사용 예시:
+        calculate_joint_business_income(
+            10_000_000,
+            [{'이름': 'A', '분배비율': 0.6}, {'이름': 'B', '분배비율': 0.4}],
+        )
+        # {'총소득금액': 10000000, '배분내역': [...], '근거': ...}
+    """
+    total_income = int(total_income)
+
+    배분내역: list[dict] = []
+    분배비율_합계 = 0.0
+
+    정규화_파트너: list[dict] = []
+    for p in partners:
+        if not isinstance(p, dict):
+            raise ValueError("partners must be a list of dict")
+        이름 = p.get("이름")
+        비율 = p.get("분배비율", p.get("지분비율"))
+        if 이름 is None or 비율 is None:
+            raise ValueError("each partner must include '이름' and '분배비율' (or '지분비율')")
+        비율 = float(비율)
+        if 비율 < 0:
+            raise ValueError("분배비율 must be >= 0")
+        분배비율_합계 += 비율
+        정규화_파트너.append({"이름": str(이름), "분배비율": 비율})
+
+    if abs(분배비율_합계 - 1.0) > 1e-9:
+        raise ValueError("분배비율 합계는 1.0이어야 합니다.")
+
+    누적배분 = 0
+    for idx, p in enumerate(정규화_파트너):
+        이름 = p["이름"]
+        비율 = float(p["분배비율"])
+
+        if idx == len(정규화_파트너) - 1:
+            배분소득 = int(total_income - 누적배분)
+        else:
+            배분소득 = int(round(total_income * 비율))
+            누적배분 += int(배분소득)
+
+        배분내역.append({"이름": 이름, "분배비율": float(비율), "배분소득": int(배분소득)})
+
+    return {
+        "총소득금액": int(total_income),
+        "배분내역": 배분내역,
+        "근거": "소득세법 제43조(공동사업장 소득금액 계산 및 배분)",
+    }
+
+
+def calculate_sme_employment_tax_reduction(
+    income_tax: int,
+    worker_type: str,
+    years_employed: float,
+) -> dict:
+    """중소기업취업자 소득세 감면 (조세특례제한법 §30).
+
+    - 청년(만 15~34세): 감면율 90%, 감면기간 5년, 한도 200만원/년
+    - 일반(60세 이상·장애인·경력단절 여성): 감면율 70%, 감면기간 3년, 한도 200만원/년
+    - 감면세액 = min(산출세액 × 감면율, 2,000,000원)
+    - 취업일부터 감면기간 내 근로소득에만 적용 (이 함수는 경과연수로 단순 판정)
+
+    Args:
+        income_tax: 근로소득 산출세액 (원)
+        worker_type: 'youth' | 'general'
+            'youth': 청년(만 15~34세) — 감면율 90%, 5년
+            'general': 60세이상·장애인·경력단절 — 감면율 70%, 3년
+        years_employed: 취업 후 경과 연수 (float)
+            감면 기간 초과 시 감면 없음
+
+    Returns:
+        {
+          '산출세액': int,
+          '감면율': float,
+          '감면한도': int,           # 200만원/년
+          '감면세액': int,           # min(산출세액 × 감면율, 200만원)
+          '감면후세액': int,
+          '감면기간_초과여부': bool,
+          '근거': str,
+        }
+
+    사용 예시:
+        calculate_sme_employment_tax_reduction(3_000_000, 'youth', 1.2)
+        # {'산출세액': 3000000, '감면율': 0.9, '감면세액': 2000000, ...}
+    """
+    감면한도 = 2_000_000
+
+    income_tax = int(income_tax)
+    years_employed = float(years_employed)
+
+    if income_tax < 0:
+        raise ValueError("income_tax must be >= 0")
+    if years_employed < 0:
+        raise ValueError("years_employed must be >= 0")
+    if worker_type not in ("youth", "general"):
+        raise ValueError("worker_type must be one of: 'youth', 'general'")
+
+    if worker_type == "youth":
+        감면율 = 0.90
+        감면율_정수 = 90
+        감면기간 = 5.0
+    else:
+        감면율 = 0.70
+        감면율_정수 = 70
+        감면기간 = 3.0
+
+    감면기간_초과여부 = bool(years_employed >= 감면기간)
+
+    if 감면기간_초과여부:
+        감면세액 = 0
+    else:
+        감면세액 = min(int(income_tax * 감면율_정수 // 100), int(감면한도))
+
+    감면후세액 = int(max(income_tax - 감면세액, 0))
+
+    return {
+        "산출세액": int(income_tax),
+        "감면율": float(감면율),
+        "감면한도": int(감면한도),
+        "감면세액": int(감면세액),
+        "감면후세액": int(감면후세액),
+        "감면기간_초과여부": bool(감면기간_초과여부),
+        "근거": "조세특례제한법 제30조(중소기업 취업자에 대한 소득세 감면)",
+    }
+
+
+def calculate_foreign_tax_credit(
+    income_tax: int,
+    total_income: int,
+    foreign_income: int,
+    foreign_tax_paid: int,
+) -> dict:
+    """외국납부세액공제 (소득세법 §57).
+
+    - 공제한도금액 = 산출세액 × (국외원천소득 / 종합소득금액)
+    - 공제세액 = min(공제한도금액, 실제 외국납부세액)
+    - 초과납부세액은 이월공제(5년) 가능하나 이 함수는 당기 공제만 계산
+
+    Args:
+        income_tax: 종합소득 산출세액 (원)
+        total_income: 종합소득금액 (원)
+        foreign_income: 국외원천소득 (원)
+        foreign_tax_paid: 실제 외국에서 납부한 세액 (원)
+
+    Returns:
+        {
+          '공제한도금액': int,   # 산출세액 × (국외원천소득 / 종합소득금액)
+          '실외국납부세액': int,
+          '공제세액': int,       # min(공제한도금액, 실외국납부세액)
+          '초과납부세액': int,   # 한도 초과분 (이월 가능)
+          '근거': str,
+        }
+
+    사용 예시:
+        calculate_foreign_tax_credit(10_000_000, 100_000_000, 20_000_000, 3_000_000)
+        # {'공제한도금액': 2000000, '공제세액': 2000000, '초과납부세액': 1000000, ...}
+    """
+    income_tax = int(income_tax)
+    total_income = int(total_income)
+    foreign_income = int(foreign_income)
+    foreign_tax_paid = int(foreign_tax_paid)
+
+    if income_tax < 0:
+        raise ValueError("income_tax must be >= 0")
+    if total_income < 0:
+        raise ValueError("total_income must be >= 0")
+    if foreign_income < 0:
+        raise ValueError("foreign_income must be >= 0")
+    if foreign_tax_paid < 0:
+        raise ValueError("foreign_tax_paid must be >= 0")
+
+    if total_income == 0:
+        공제한도금액 = 0
+    else:
+        공제한도금액 = int(income_tax * (foreign_income / total_income))
+
+    공제세액 = int(min(int(공제한도금액), int(foreign_tax_paid)))
+    초과납부세액 = int(max(int(foreign_tax_paid) - int(공제한도금액), 0))
+
+    return {
+        "공제한도금액": int(공제한도금액),
+        "실외국납부세액": int(foreign_tax_paid),
+        "공제세액": int(공제세액),
+        "초과납부세액": int(초과납부세액),
+        "근거": "소득세법 제57조(외국납부세액공제)",
+    }
+
+
+def calculate_non_business_land_tax(taxable_income: int) -> dict:
+    """비사업용 토지 양도소득세 계산 (소득세법 §104①8).
+
+    - 기본세율(소득세법 §55) + 10%p 가산 누진세율 적용
+    - 누진공제액 방식으로 산출세액 계산
+
+    세율표(기본세율 + 10%p, 누진공제액 포함):
+        1,400만 이하: 16% (누진공제 0)
+        1,400만~5,000만: 25% (누진공제 1,260,000)
+        5,000만~8,800만: 34% (누진공제 5,760,000)
+        8,800만~1.5억: 45% (누진공제 15,440,000)
+        1.5억~3억: 48% (누진공제 19,940,000)
+        3억~5억: 50% (누진공제 25,940,000)
+        5억~10억: 52% (누진공제 35,940,000)
+        10억 초과: 55% (누진공제 65,940,000)
+
+    Args:
+        taxable_income: 양도소득과세표준 (원)
+
+    Returns:
+        {
+          '과세표준': int,
+          '산출세액': int,
+          '적용세율': float,   # 예: 0.16
+          '근거': str,
+        }
+
+    사용 예시:
+        calculate_non_business_land_tax(10_000_000)
+        # {'과세표준': 10000000, '산출세액': 1600000, '적용세율': 0.16, ...}
+    """
+    과세표준 = int(taxable_income)
+
+    if 과세표준 <= 0:
+        return {
+            "과세표준": int(과세표준),
+            "산출세액": 0,
+            "적용세율": 0.0,
+            "근거": "소득세법 제104조 제1항 제8호(비사업용 토지)",
+        }
+
+    구간표 = [
+        (14_000_000, 0.16, 0),
+        (50_000_000, 0.25, 1_260_000),
+        (88_000_000, 0.34, 5_760_000),
+        (150_000_000, 0.45, 15_440_000),
+        (300_000_000, 0.48, 19_940_000),
+        (500_000_000, 0.50, 25_940_000),
+        (1_000_000_000, 0.52, 35_940_000),
+        (float("inf"), 0.55, 65_940_000),
+    ]
+
+    적용세율 = 0.0
+    누진공제 = 0
+    for 상한, 세율, 공제 in 구간표:
+        if 과세표준 <= 상한:
+            적용세율 = float(세율)
+            누진공제 = int(공제)
+            break
+
+    산출세액 = int(max(int(과세표준 * 적용세율) - 누진공제, 0))
+    return {
+        "과세표준": int(과세표준),
+        "산출세액": int(산출세액),
+        "적용세율": float(적용세율),
+        "근거": "소득세법 제104조 제1항 제8호(비사업용 토지)",
     }

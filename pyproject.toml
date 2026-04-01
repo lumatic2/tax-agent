@@ -1,0 +1,15 @@
+[project]
+name = "tax-agent"
+version = "0.1.0"
+description = "개인소득세 AI 세무 에이전트 (CLI)"
+readme = "CLAUDE.md"
+requires-python = ">=3.12"
+dependencies = [
+  "pdfplumber>=0.11.0",
+  "python-dotenv>=1.0.0",
+  "httpx>=0.27.0",
+  "rich>=13.7.0",
+]
+
+[project.scripts]
+tax-agent = "main:main"

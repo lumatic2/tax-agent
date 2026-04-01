@@ -60,13 +60,13 @@ def init_db():
         """)
 
 
-def save_user_profile(data):
-    """사용자 프로필 저장 (id=1 고정, upsert)."""
+def save_user_profile(data, user_id=1):
+    """사용자 프로필 저장 (upsert). user_id 기본값 1."""
     with _conn() as conn:
         conn.execute(
             """
             INSERT INTO users (id, name, tax_year, income_type, flags, created_at)
-            VALUES (1, :name, :tax_year, :income_type, :flags, :created_at)
+            VALUES (:id, :name, :tax_year, :income_type, :flags, :created_at)
             ON CONFLICT(id) DO UPDATE SET
                 name=excluded.name,
                 tax_year=excluded.tax_year,
@@ -74,6 +74,7 @@ def save_user_profile(data):
                 flags=excluded.flags
             """,
             {
+                "id": user_id,
                 "name": data.get("name", ""),
                 "tax_year": data.get("tax_year", datetime.now().year - 1),
                 "income_type": json.dumps(data.get("income_type", []), ensure_ascii=False),
@@ -83,16 +84,31 @@ def save_user_profile(data):
         )
 
 
-def get_user_profile():
+def get_user_profile(user_id=1):
     """사용자 프로필 조회. 없으면 None 반환."""
     with _conn() as conn:
-        row = conn.execute("SELECT * FROM users WHERE id=1").fetchone()
+        row = conn.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
         if row is None:
             return None
         d = dict(row)
         d["income_type"] = json.loads(d["income_type"] or "[]")
         d["flags"] = json.loads(d["flags"] or "{}")
         return d
+
+
+def list_users():
+    """저장된 사용자 목록 반환."""
+    with _conn() as conn:
+        rows = conn.execute("SELECT id, name, tax_year, created_at FROM users ORDER BY id").fetchall()
+        return [dict(row) for row in rows]
+
+
+def delete_user(user_id):
+    """사용자 및 관련 데이터 전체 삭제."""
+    with _conn() as conn:
+        for table in ("tax_documents", "tax_strategies", "tax_calculations"):
+            conn.execute(f"DELETE FROM {table} WHERE user_id=?", (user_id,))
+        conn.execute("DELETE FROM users WHERE id=?", (user_id,))
 
 
 def save_document(doc_data):

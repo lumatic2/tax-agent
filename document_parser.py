@@ -16,19 +16,22 @@ except ImportError:
 
 # 간소화 서비스 PDF에서 파싱할 항목 패턴
 _PATTERNS = {
-    "근로소득": r"근로\s*소득[^\d]*([\d,]+)",
-    "사업소득": r"사업\s*소득[^\d]*([\d,]+)",
-    "기타소득": r"기타\s*소득[^\d]*([\d,]+)",
-    "이자소득": r"이자\s*소득[^\d]*([\d,]+)",
-    "배당소득": r"배당\s*소득[^\d]*([\d,]+)",
+    # 소득 금액은 최소 6자리(100만원 이상)인 경우만 인식 — 연도(4자리) 오인식 방지
+    "근로소득": r"근로\s*소득[^\d]*([\d,]{7,})",
+    "사업소득": r"사업\s*소득[^\d]*([\d,]{7,})",
+    "기타소득": r"기타\s*소득[^\d]*([\d,]{7,})",
+    "이자소득": r"이자\s*소득[^\d]*([\d,]{7,})",
+    "배당소득": r"배당\s*소득[^\d]*([\d,]{7,})",
     "의료비": r"의료비[^\d]*([\d,]+)",
     "교육비": r"교육비[^\d]*([\d,]+)",
     "연금저축": r"연금\s*저축[^\d]*([\d,]+)",
     "IRP": r"IRP[^\d]*([\d,]+)",
     "기부금": r"기부금[^\d]*([\d,]+)",
-    "신용카드": r"신용\s*카드[^\d]*([\d,]+)",
-    "체크카드": r"직불(?:카드)?[^\d]*([\d,]+)",
-    "월세": r"월세[^\d]*([\d,]+)",
+    # 신용카드·직불카드는 간소화 전용 패턴이 우선 처리 — fallback은 7자리 이상만
+    "신용카드": r"신용\s*카드[^\d]*([\d,]{5,})",
+    "체크카드": r"직불(?:카드)?[^\d]*([\d,]{5,})",
+    # 월세는 7자리 이상(연간 100만 이상), 줄 안에서만 매칭 — 일련번호 오인식 방지
+    "월세": r"월세\s*납입[^\d\n]*([\d,]{6,})",
     "주택청약": r"주택\s*청약[^\d]*([\d,]+)",
 }
 
@@ -50,9 +53,55 @@ def _classify_doc_type(text):
 
 
 def _parse_amounts(text):
-    """텍스트에서 항목별 금액 추출."""
+    """텍스트에서 항목별 금액 추출. 간소화서비스 포맷 우선 적용."""
     amounts = {}
+
+    # ── 간소화서비스 전용 패턴 (인별합계금액 / 합계금액 기준) ──────────────
+    # 의료비: "의료비 인별합계금액 32,800"
+    m = re.search(r"의료비\s*인별합계금액\s+([\d,]+)", text)
+    if m:
+        amounts["의료비"] = _to_int(m.group(1).replace(",", ""))
+
+    # 교육비: "일반교육비 합계금액 5,675,000"
+    m = re.search(r"일반교육비\s*합계금액\s+([\d,]+)", text)
+    if m:
+        amounts["교육비"] = _to_int(m.group(1).replace(",", ""))
+
+    # 연금저축: "순납입금액 합계 6,000,000"
+    m = re.search(r"순납입금액\s*합계\s+([\d,]+)", text)
+    if m:
+        amounts["연금저축"] = _to_int(m.group(1).replace(",", ""))
+
+    # 신용카드 집계: [ 신용카드 ] 섹션의 합계금액 행 (공백 허용)
+    m = re.search(r"\[\s*신용카드\s*\].*?합계금액\s*\n\s*([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)", text, re.DOTALL)
+    if m:
+        amounts["신용카드"] = _to_int(m.group(5).replace(",", ""))
+        amounts["신용카드_전통시장"] = _to_int(m.group(2).replace(",", ""))
+        amounts["신용카드_대중교통"] = _to_int(m.group(3).replace(",", ""))
+    else:
+        # 전용 패턴 미매칭 시 fallback 방지용 — 0으로 초기화
+        amounts.setdefault("신용카드", 0)
+
+    # 직불카드 집계: [직불카드 등] 섹션의 합계금액 행
+    m = re.search(r"\[\s*직불카드\s*등\s*\].*?합계금액\s*\n\s*([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)", text, re.DOTALL)
+    if m:
+        amounts["체크카드"] = _to_int(m.group(5).replace(",", ""))
+        amounts["체크카드_전통시장"] = _to_int(m.group(2).replace(",", ""))
+        amounts["체크카드_대중교통"] = _to_int(m.group(3).replace(",", ""))
+    else:
+        amounts.setdefault("체크카드", 0)
+
+    # 현금영수증 집계: "일반 전통시장 대중교통 문화체육 주택임차료 합계금액\n숫자..."
+    m = re.search(r"현금영수증.*?주택임차료\s*합계금액\s*\n\s*([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)", text, re.DOTALL)
+    if m:
+        amounts["현금영수증"] = _to_int(m.group(6).replace(",", ""))
+        amounts["현금영수증_전통시장"] = _to_int(m.group(2).replace(",", ""))
+        amounts["현금영수증_대중교통"] = _to_int(m.group(3).replace(",", ""))
+
+    # ── 공통 패턴 (미매칭 항목 fallback) ────────────────────────────────────
     for label, pattern in _PATTERNS.items():
+        if label in amounts:
+            continue
         match = re.search(pattern, text)
         if match:
             raw = match.group(1).replace(",", "")
@@ -60,6 +109,7 @@ def _parse_amounts(text):
                 amounts[label] = int(raw)
             except ValueError:
                 pass
+
     return amounts
 
 
@@ -171,9 +221,18 @@ def map_to_pipeline_input(parsed_result) -> dict:
             },
             "card_usage_input": {
                 "credit_card": amt("신용카드"),
-                "debit_card": amt("체크카드"),
-                "traditional_market": _extract_first_int(raw_text, [r"전통\s*시장[^\d]*([\d,]+)"]),
-                "public_transit": _extract_first_int(raw_text, [r"대중\s*교통[^\d]*([\d,]+)"]),
+                "debit_card": amt("체크카드") + amt("현금영수증"),
+                # 전통시장·대중교통은 신용+직불+현금영수증 합산
+                "traditional_market": (
+                    amt("신용카드_전통시장")
+                    + amt("체크카드_전통시장")
+                    + amt("현금영수증_전통시장")
+                ),
+                "public_transit": (
+                    amt("신용카드_대중교통")
+                    + amt("체크카드_대중교통")
+                    + amt("현금영수증_대중교통")
+                ),
             },
             "tax_credits_input": {
                 "gross_salary": gross_salary,

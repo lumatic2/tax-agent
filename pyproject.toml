@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "tax-agent"
 version = "0.1.0"
@@ -14,3 +18,18 @@ dependencies = [
 
 [project.scripts]
 tax-agent = "main:main"
+tax-agent-smoke = "qa:smoke"
+
+[tool.setuptools]
+# 변경 이유:
+# - 현재 레포는 패키지 디렉터리(src/패키지명) 구조가 아닌 단일 모듈 파일 구조다.
+# - [project.scripts] 엔트리포인트가 동작하려면 실행 대상 모듈이 배포 메타데이터에 포함되어야 한다.
+py-modules = [
+  "main",
+  "qa",
+  "tax_calculator",
+  "tax_store",
+  "strategy_engine",
+  "document_parser",
+  "legal_search",
+]

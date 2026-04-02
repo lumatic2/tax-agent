@@ -44,6 +44,45 @@ def _request(endpoint, params):
         raise LegalSearchError(f"법제처 API 통신 오류: {e}") from e
 
 
+def _normalize_search_items(payload, root_key="LawSearch", item_candidates=None, alias="items"):
+    """법제처 검색 응답을 일관된 리스트 구조로 정규화한다.
+
+    변경 이유:
+    - 법제처 응답은 `LawSearch.law`처럼 중첩 구조를 사용한다.
+    - 상위 호출부(Claude/Codex 테스트 포함)에서는 `laws`/`cases` 같은 평탄 키가 있으면
+      후처리가 단순해지고, API 구조 변경에도 덜 취약하다.
+    """
+    item_candidates = item_candidates or []
+    root = {}
+    if isinstance(payload, dict):
+        root = payload.get(root_key) or {}
+
+        # root_key가 바뀌는 경우를 대비해 dict 타입 첫 번째 값을 fallback으로 사용
+        if not root:
+            for v in payload.values():
+                if isinstance(v, dict):
+                    root = v
+                    break
+
+    items = []
+    for key in item_candidates:
+        candidate = root.get(key)
+        if candidate is None:
+            continue
+        if isinstance(candidate, list):
+            items = candidate
+            break
+        if isinstance(candidate, dict):
+            items = [candidate]
+            break
+
+    normalized = dict(payload) if isinstance(payload, dict) else {"raw": payload}
+    normalized[alias] = items
+    normalized["total_count"] = int(root.get("totalCnt", 0) or 0) if isinstance(root, dict) else 0
+    normalized["query"] = root.get("키워드", "") if isinstance(root, dict) else ""
+    return normalized
+
+
 def search_law(query, display=20, page=1, search=1):
     """법령명으로 검색. 법령 목록 dict 반환."""
     oc = _get_oc()
@@ -56,7 +95,13 @@ def search_law(query, display=20, page=1, search=1):
         "display": int(display),
         "page": int(page),
     }
-    return _request("lawSearch.do", params)
+    payload = _request("lawSearch.do", params)
+    return _normalize_search_items(
+        payload,
+        root_key="LawSearch",
+        item_candidates=["law"],
+        alias="laws",
+    )
 
 
 def get_law_content(law_id):
@@ -83,4 +128,10 @@ def search_nts_interpretation(query, display=20, page=1, search=1):
         "display": int(display),
         "page": int(page),
     }
-    return _request("lawSearch.do", params)
+    payload = _request("lawSearch.do", params)
+    return _normalize_search_items(
+        payload,
+        root_key="LawSearch",
+        item_candidates=["ntsCgmExpc", "law"],
+        alias="cases",
+    )

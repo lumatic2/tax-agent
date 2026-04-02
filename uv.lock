@@ -506,7 +506,7 @@ wheels = [
 [[package]]
 name = "tax-agent"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "fpdf2" },
     { name = "httpx" },

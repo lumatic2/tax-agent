@@ -73,15 +73,18 @@ def scenario_1_employee():
     print(f"[2] 인적공제(기본공제 인원): {personal['기본공제_인원']}명")
     print(f"    인적공제 합계: {_won(personal['인적공제_합계'])}")
 
-    # 3. 특별공제 (사회보험료 + 의료비(3% 초과분) + 교육비)
+    # 3. 특별공제
+    # 변경 이유:
+    # - main.py의 실사용 파이프라인(_compute_wage_components)과 동일 기준을 맞춘다.
+    # - 의료비/교육비는 여기서 소득공제로 중복 반영하지 않고, 아래 8번 세액공제에서만 반영한다.
     special_in = {
         "gross_salary": gross_salary,
         "national_pension": national_pension,
         "health_insurance": health_insurance,
         "employment_insurance": 0,
         "housing_fund": 0,
-        "medical_expense": medical_expense,
-        "education_expense": education_expense,
+        "medical_expense": 0,
+        "education_expense": 0,
         "donation": 0,
     }
     special = calculate_special_deductions(special_in)
@@ -153,13 +156,13 @@ def scenario_1_employee():
     assert personal["기본공제_인원"] == 4, "scenario_1: personal['기본공제_인원']"
     assert personal["인적공제_합계"] == 6_000_000, "scenario_1: personal['인적공제_합계']"
     assert special["보험료공제"] == 4_800_000, "scenario_1: special['보험료공제']"
-    assert special["의료비공제"] == 700_000, "scenario_1: special['의료비공제']"
-    assert special["교육비공제"] == 3_000_000, "scenario_1: special['교육비공제']"
-    assert special["특별공제_합계"] == 8_500_000, "scenario_1: special['특별공제_합계']"
+    assert special["의료비공제"] == 0, "scenario_1: special['의료비공제']"
+    assert special["교육비공제"] == 0, "scenario_1: special['교육비공제']"
+    assert special["특별공제_합계"] == 4_800_000, "scenario_1: special['특별공제_합계']"
     assert card["최종공제액"] == 1_950_000, "scenario_1: card['최종공제액']"
-    assert total_deductions == 16_450_000, 'scenario_1: total_deductions'
-    assert tax_base == 30_800_000, 'scenario_1: tax_base'
-    assert tax["산출세액"] == 3_360_000, "scenario_1: tax['산출세액']"
+    assert total_deductions == 12_750_000, 'scenario_1: total_deductions'
+    assert tax_base == 34_500_000, 'scenario_1: tax_base'
+    assert tax["산출세액"] == 3_915_000, "scenario_1: tax['산출세액']"
     assert tax["적용세율"] == 0.15, "scenario_1: tax['적용세율']"
     assert earned_credit["최종공제액"] == 660_000, "scenario_1: earned_credit['최종공제액']"
     assert credits["자녀세액공제"] == 350_000, "scenario_1: credits['자녀세액공제']"
@@ -167,9 +170,9 @@ def scenario_1_employee():
     assert credits["교육비세액공제"] == 450_000, "scenario_1: credits['교육비세액공제']"
     assert credits["IRP연금세액공제"] == 396_000, "scenario_1: credits['IRP연금세액공제']"
     assert credits["세액공제_합계"] == 1_301_000, "scenario_1: credits['세액공제_합계']"
-    assert final_tax == 1_399_000, 'scenario_1: final_tax'
-    assert local_tax == 139_900, 'scenario_1: local_tax'
-    assert final_tax + local_tax == 1_538_900, 'scenario_1: final_tax + local_tax'
+    assert final_tax == 1_954_000, 'scenario_1: final_tax'
+    assert local_tax == 195_400, 'scenario_1: local_tax'
+    assert final_tax + local_tax == 2_149_400, 'scenario_1: final_tax + local_tax'
     print("✓ PASS")
 
 

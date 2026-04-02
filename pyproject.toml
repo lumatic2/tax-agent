@@ -19,6 +19,7 @@ dependencies = [
 [project.scripts]
 tax-agent = "main:main"
 tax-agent-smoke = "qa:smoke"
+tax-agent-law-watch = "law_watch:main"
 
 [tool.setuptools]
 # 변경 이유:
@@ -32,4 +33,5 @@ py-modules = [
   "strategy_engine",
   "document_parser",
   "legal_search",
+  "law_watch",
 ]

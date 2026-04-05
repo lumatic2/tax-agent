@@ -6,6 +6,7 @@
 """
 
 import json
+from datetime import datetime
 
 from dotenv import load_dotenv
 from rich.console import Console
@@ -28,7 +29,11 @@ def _parse_int(v, default=0):
     s = str(v).strip().replace(",", "")
     if s == "":
         return int(default)
-    return int(s)
+    try:
+        parsed = int(s)
+    except (TypeError, ValueError):
+        return int(default)
+    return max(parsed, 0)
 
 
 def _fmt(n):
@@ -36,7 +41,7 @@ def _fmt(n):
 
 
 def _ask_int(label, default="0"):
-    return _parse_int(Prompt.ask(label, default=str(default)))
+    return _parse_int(Prompt.ask(label, default=str(default)), default=default)
 
 
 def _ask_yes_no(label, default=False):
@@ -344,8 +349,87 @@ def _render_kv_table(title, rows, highlight_key=None):
     console.print(table)
 
 
+def _build_alerts(warnings):
+    alerts = []
+    for idx, msg in enumerate(warnings or [], start=1):
+        text = str(msg).strip()
+        if not text:
+            continue
+        alerts.append(
+            {
+                "level": "warning",
+                "code": f"W{idx:03d}",
+                "message": text,
+            }
+        )
+    return alerts
+
+
+def _legal_refs_by_income_type(income_type):
+    common_refs = [
+        {"section": "기본세율", "legal_ref": "소득세법 제55조"},
+        {"section": "지방소득세", "legal_ref": "지방세법(소득세의 10%)"},
+    ]
+    if income_type == "근로소득자":
+        return common_refs + [
+            {"section": "근로소득공제", "legal_ref": "소득세법 제47조"},
+            {"section": "인적공제", "legal_ref": "소득세법 제50조"},
+        ]
+    if income_type == "사업소득자":
+        return common_refs + [
+            {"section": "사업소득", "legal_ref": "소득세법 제19조"},
+            {"section": "인적공제", "legal_ref": "소득세법 제50조"},
+        ]
+    return common_refs + [
+        {"section": "금융소득", "legal_ref": "소득세법 제14조·제16조·제17조·제62조"},
+        {"section": "기타소득", "legal_ref": "소득세법 제21조"},
+        {"section": "배당세액공제", "legal_ref": "소득세법 제56조"},
+    ]
+
+
+def _normalize_result_schema(result, income_type):
+    result = result or {}
+    warnings = result.get("warnings", []) or []
+    alerts = _build_alerts(warnings)
+    report = result.get("report", {}) or {}
+    report.update(
+        {
+            "generated_at": datetime.now().isoformat(timespec="seconds"),
+            "income_type": income_type,
+            "legal_refs": _legal_refs_by_income_type(income_type),
+            "alerts": alerts,
+        }
+    )
+
+    result["income_rows"] = result.get("income_rows", []) or []
+    result["deduction_rows"] = result.get("deduction_rows", []) or []
+    result["credit_rows"] = result.get("credit_rows", []) or []
+    result["warnings"] = warnings
+    result["alerts"] = alerts
+    result["report"] = report
+
+    final = result.get("final", {}) or {}
+    normalized_final = {
+        "과세표준": int(final.get("과세표준", 0) or 0),
+        "산출세액": int(final.get("산출세액", 0) or 0),
+        "결정소득세": int(final.get("결정소득세", 0) or 0),
+        "지방소득세": int(final.get("지방소득세", 0) or 0),
+        "총결정세액": int(final.get("총결정세액", 0) or 0),
+        "기납부세액": int(final.get("기납부세액", 0) or 0),
+        "차감후": int(final.get("차감후", 0) or 0),
+    }
+    if "분리과세(확정) 합계" in final:
+        normalized_final["분리과세(확정) 합계"] = int(final.get("분리과세(확정) 합계", 0) or 0)
+    result["final"] = normalized_final
+    return result
+
+
 def _render_breakdown_tables(result):
-    if result.get("warnings"):
+    alerts = result.get("alerts", []) or []
+    if alerts:
+        alert_lines = [f"[{a.get('code', 'WARN')}] {a.get('message', '')}" for a in alerts]
+        console.print(Panel("\n".join(alert_lines), title="주의", style="yellow"))
+    elif result.get("warnings"):
         console.print(Panel("\n".join(result["warnings"]), title="주의", style="yellow"))
 
     _render_kv_table("소득금액 계산 내역", result.get("income_rows", []))
@@ -366,6 +450,15 @@ def _render_breakdown_tables(result):
     summary.add_row("기납부세액", _fmt(prepaid))
     summary.add_row(f"[bold]{diff_label}[/bold]", f"[bold {diff_style}]{_fmt(abs(diff))}[/bold {diff_style}]")
     console.print(summary)
+
+    legal_refs = ((result.get("report") or {}).get("legal_refs") or [])
+    if legal_refs:
+        ref_table = Table(title="법령 근거")
+        ref_table.add_column("구분")
+        ref_table.add_column("근거")
+        for ref in legal_refs:
+            ref_table.add_row(str(ref.get("section", "")), str(ref.get("legal_ref", "")))
+        console.print(ref_table)
 
 
 def _profile_to_strategy_user_data(profile):
@@ -806,12 +899,28 @@ def calculate_tax_flow():
         console.print("[yellow]저장된 입력값이 없습니다. '1. 내 정보 입력'을 다시 실행해 주세요.[/yellow]")
         return
 
-    if income_type == "근로소득자":
-        result = _calculate_wage_pipeline((inputs.get("wage") or {}))
-    elif income_type == "사업소득자":
-        result = _calculate_business_pipeline((inputs.get("business") or {}))
-    else:
-        result = _calculate_composite_pipeline((inputs.get("composite") or {}))
+    if income_type not in {"근로소득자", "사업소득자", "복합소득자"}:
+        console.print("[red]저장된 소득 유형이 올바르지 않습니다. '1. 내 정보 입력'을 다시 실행해 주세요.[/red]")
+        return
+
+    try:
+        if income_type == "근로소득자":
+            result = _calculate_wage_pipeline((inputs.get("wage") or {}))
+        elif income_type == "사업소득자":
+            result = _calculate_business_pipeline((inputs.get("business") or {}))
+        else:
+            result = _calculate_composite_pipeline((inputs.get("composite") or {}))
+    except ValueError as e:
+        msg = str(e)
+        if "업종코드" in msg:
+            msg = f"{msg} (업종코드를 확인하거나 '1. 내 정보 입력'에서 다시 저장하세요.)"
+        console.print(f"[red]세액 계산 실패: {msg}[/red]")
+        return
+    except Exception as e:
+        console.print(f"[red]세액 계산 중 예외가 발생했습니다: {e}[/red]")
+        return
+
+    result = _normalize_result_schema(result, income_type)
 
     _render_breakdown_tables(result)
 

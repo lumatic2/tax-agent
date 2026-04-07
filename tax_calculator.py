@@ -11,6 +11,8 @@
   10억원 초과          45%   누진공제 65,940,000
 """
 
+from datetime import date
+
 
 def _brackets_2024():
     # (상한, 세율, 누진공제액) — 상한 None = 최고구간
@@ -841,7 +843,13 @@ def calculate_personal_deductions(persons: list) -> dict:
     }
 
 
-def calculate_special_deductions(income_data: dict) -> dict:
+def calculate_special_deductions(
+    income_data: dict,
+    housing_loan_repayment: int = 0,
+    mortgage_interest: int = 0,
+    mortgage_fixed_rate: bool = False,
+    mortgage_nonannuity: bool = False,
+) -> dict:
     """특별소득공제 계산 (소득세법 §52, 2024년 귀속).
 
     Args:
@@ -854,12 +862,32 @@ def calculate_special_deductions(income_data: dict) -> dict:
             - medical_expense: 의료비 지출액
             - education_expense: 교육비 지출액 (한도 판단은 호출자 책임)
             - donation: 기부금 (한도 판단은 호출자 책임)
+        housing_loan_repayment:
+            - 주택임차차입금 원리금 상환액 (40% 공제, 한도 400만)
+        mortgage_interest:
+            - 장기주택저당차입금 이자상환액 (전액 공제, 유형별 한도 적용)
+        mortgage_fixed_rate:
+            - 장기주택저당차입금 고정금리 여부
+        mortgage_nonannuity:
+            - 장기주택저당차입금 비거치식 분할상환 여부
     """
     gross_salary = int(income_data.get("gross_salary", 0))
     national_pension = int(income_data.get("national_pension", 0))
     health_insurance = int(income_data.get("health_insurance", 0))
     employment_insurance = int(income_data.get("employment_insurance", 0))
     housing_fund = int(income_data.get("housing_fund", 0))
+    housing_loan_repayment = int(
+        housing_loan_repayment or income_data.get("housing_loan_repayment", 0)
+    )
+    mortgage_interest = int(
+        mortgage_interest or income_data.get("mortgage_interest", 0)
+    )
+    mortgage_fixed_rate = bool(
+        mortgage_fixed_rate or income_data.get("mortgage_fixed_rate", False)
+    )
+    mortgage_nonannuity = bool(
+        mortgage_nonannuity or income_data.get("mortgage_nonannuity", False)
+    )
     medical_expense = int(income_data.get("medical_expense", 0))
     education_expense = int(income_data.get("education_expense", 0))
     donation = int(income_data.get("donation", 0))
@@ -867,11 +895,30 @@ def calculate_special_deductions(income_data: dict) -> dict:
     # 보험료공제 (§52①): 국민연금+건강보험+고용보험 전액
     insurance_deduction = national_pension + health_insurance + employment_insurance
 
+    # 주택임차차입금 원리금 상환액 공제 (§52④): 상환액의 40%, 한도 400만
+    housing_loan_repayment_deduction = min(int(housing_loan_repayment * 0.4), 4_000_000)
+
+    if mortgage_fixed_rate and mortgage_nonannuity:
+        mortgage_interest_limit = 20_000_000
+    elif mortgage_fixed_rate or mortgage_nonannuity:
+        mortgage_interest_limit = 15_000_000
+    else:
+        mortgage_interest_limit = 6_000_000
+    mortgage_interest_deduction = min(mortgage_interest, mortgage_interest_limit)
+
     # 의료비공제 (§52②): (의료비 - 총급여×3%) 초과분, 한도 700만
     medical_threshold = int(gross_salary * 0.03)
     medical_deduction = min(max(medical_expense - medical_threshold, 0), 7_000_000)
 
-    total = insurance_deduction + housing_fund + medical_deduction + education_expense + donation
+    total = (
+        insurance_deduction
+        + housing_fund
+        + housing_loan_repayment_deduction
+        + mortgage_interest_deduction
+        + medical_deduction
+        + education_expense
+        + donation
+    )
     original_total = total
     apply_method = "특별공제"
     if total < 1_300_000:
@@ -881,6 +928,9 @@ def calculate_special_deductions(income_data: dict) -> dict:
     return {
         "보험료공제": insurance_deduction,
         "주택자금공제": housing_fund,
+        "housing_loan_repayment_deduction": housing_loan_repayment_deduction,
+        "mortgage_interest_deduction": mortgage_interest_deduction,
+        "mortgage_interest_limit": mortgage_interest_limit,
         "의료비공제": medical_deduction,
         "교육비공제": education_expense,
         "기부금공제": donation,
@@ -959,12 +1009,17 @@ def calculate_card_deduction(gross_salary: int, card_usage: dict) -> dict:
     }
 
 
-def calculate_retirement_income_tax(retirement_pay: int, years_of_service: int) -> dict:
+def calculate_retirement_income_tax(
+    retirement_pay: int,
+    years_of_service: int,
+    deferred_amount: int = 0,
+) -> dict:
     """퇴직소득세 계산 (소득세법 제48조~제49조, 2024년 귀속).
 
     Args:
         retirement_pay: 퇴직급여 (원)
         years_of_service: 근속연수 (년, 1 이상)
+        deferred_amount: DC형 퇴직연금 계좌 이전액 (원, 기본값 0)
 
     Returns:
         {
@@ -976,12 +1031,15 @@ def calculate_retirement_income_tax(retirement_pay: int, years_of_service: int) 
             "환산과세표준": int,
             "환산산출세액": int,
             "퇴직소득산출세액": int,
+            "deferred_tax": int,
+            "withholding_tax": int,
             "지방소득세": int,
             "총납부세액": int,
         }
     """
     retirement_pay = int(retirement_pay)
     years = max(int(years_of_service), 1)
+    deferred_amount = max(int(deferred_amount), 0)
 
     # 1. 근속연수공제 (소득세법 제22② — 2024년 귀속 이후 개정)
     if years <= 5:
@@ -1016,7 +1074,16 @@ def calculate_retirement_income_tax(retirement_pay: int, years_of_service: int) 
     # 5~7. 세액 계산
     converted_tax = calculate_tax(converted_taxable)["산출세액"]
     retirement_tax = int(converted_tax * years / 12)
-    local_tax = calculate_local_tax(retirement_tax)
+    total_retirement_income = max(retirement_pay, 0)
+    deferred_amount = min(deferred_amount, total_retirement_income)
+
+    if total_retirement_income == 0:
+        deferred_tax = 0
+    else:
+        deferred_tax = int(retirement_tax * (deferred_amount / total_retirement_income))
+
+    withholding_tax = int(max(retirement_tax - deferred_tax, 0))
+    local_tax = calculate_local_tax(withholding_tax)
 
     return {
         "퇴직급여": retirement_pay,
@@ -1027,8 +1094,129 @@ def calculate_retirement_income_tax(retirement_pay: int, years_of_service: int) 
         "환산과세표준": converted_taxable,
         "환산산출세액": converted_tax,
         "퇴직소득산출세액": retirement_tax,
+        "deferred_tax": deferred_tax,
+        "withholding_tax": withholding_tax,
         "지방소득세": local_tax,
-        "총납부세액": retirement_tax + local_tax,
+        "총납부세액": withholding_tax + local_tax,
+    }
+
+
+def calculate_retirement_income_limit(
+    avg_annual_salary: int,
+    start_date: str,
+    end_date: str,
+) -> dict:
+    avg_annual_salary = int(avg_annual_salary)
+    start = date.fromisoformat(start_date)
+    end = date.fromisoformat(end_date)
+
+    if avg_annual_salary < 0:
+        raise ValueError("avg_annual_salary는 0 이상이어야 합니다.")
+    if start > end:
+        raise ValueError("start_date는 end_date 이전이어야 합니다.")
+
+    split_date = date(2020, 1, 1)
+    before_end = date(2019, 12, 31)
+
+    days_before_2020 = 0
+    days_from_2020 = 0
+
+    if start <= before_end:
+        period_end = min(end, before_end)
+        if start <= period_end:
+            days_before_2020 = (period_end - start).days + 1
+
+    if end >= split_date:
+        period_start = max(start, split_date)
+        if period_start <= end:
+            days_from_2020 = (end - period_start).days + 1
+
+    months_before_2020 = (days_before_2020 + 29) // 30 if days_before_2020 > 0 else 0
+    months_from_2020 = (days_from_2020 + 29) // 30 if days_from_2020 > 0 else 0
+
+    limit_before_2020 = avg_annual_salary * months_before_2020 * 3 // 10
+    limit_from_2020 = avg_annual_salary * months_from_2020 * 2 // 10
+
+    return {
+        "limit_before_2020": int(limit_before_2020),
+        "limit_from_2020": int(limit_from_2020),
+        "total_limit": int(limit_before_2020 + limit_from_2020),
+        "months_before_2020": int(months_before_2020),
+        "months_from_2020": int(months_from_2020),
+    }
+
+
+def calculate_business_income_estimated(
+    revenue: int,
+    method: str,
+    standard_expense_rate: float,
+    simple_expense_rate: float,
+    major_expenses: int = 0,
+) -> dict:
+    """추계신고 사업소득금액 계산 (소득세법 §80, 시행령 §143)."""
+    revenue = int(revenue)
+    major_expenses = int(major_expenses)
+    standard_expense_rate = float(standard_expense_rate)
+    simple_expense_rate = float(simple_expense_rate)
+
+    if revenue < 0:
+        raise ValueError("revenue는 0 이상이어야 합니다.")
+    if major_expenses < 0:
+        raise ValueError("major_expenses는 0 이상이어야 합니다.")
+    if not 0 <= standard_expense_rate <= 1:
+        raise ValueError("standard_expense_rate는 0과 1 사이여야 합니다.")
+    if not 0 <= simple_expense_rate <= 1:
+        raise ValueError("simple_expense_rate는 0과 1 사이여야 합니다.")
+    if method not in ("standard", "simple"):
+        raise ValueError("method는 'standard' 또는 'simple'이어야 합니다.")
+
+    if method == "standard":
+        estimated_expense = major_expenses + int(revenue * standard_expense_rate)
+        business_income = max(revenue - estimated_expense, 0)
+        note = "기준경비율 방식: 주요경비 + 수입금액 × 기준경비율"
+    else:
+        estimated_expense = int(revenue * simple_expense_rate)
+        business_income = revenue - estimated_expense
+        note = "단순경비율 방식: 수입금액 × 단순경비율"
+
+    return {
+        "method": method,
+        "revenue": revenue,
+        "estimated_expense": int(estimated_expense),
+        "business_income": int(business_income),
+        "note": note,
+    }
+
+
+def calculate_daily_wage_tax(daily_wage: int, work_days: int = 1) -> dict:
+    """일용근로소득세 원천징수세액 계산 (소득세법 §129①8, §78)."""
+    daily_wage = int(daily_wage)
+    work_days = int(work_days)
+
+    if daily_wage < 0:
+        raise ValueError("daily_wage는 0 이상이어야 합니다.")
+    if work_days < 1:
+        raise ValueError("work_days는 1 이상이어야 합니다.")
+
+    nontaxable_per_day = 150_000
+    taxable_per_day = max(daily_wage - nontaxable_per_day, 0)
+    tax_per_day = int(taxable_per_day * 0.06)
+    deduction_per_day = int(tax_per_day * 0.55)
+    withholding_per_day = tax_per_day - deduction_per_day
+    total_withholding = withholding_per_day * work_days
+    local_tax = int(total_withholding * 0.10)
+
+    return {
+        "daily_wage": daily_wage,
+        "work_days": work_days,
+        "nontaxable_per_day": nontaxable_per_day,
+        "taxable_per_day": taxable_per_day,
+        "tax_per_day": tax_per_day,
+        "deduction_per_day": deduction_per_day,
+        "withholding_per_day": withholding_per_day,
+        "total_withholding": total_withholding,
+        "local_tax": local_tax,
+        "total_tax": total_withholding + local_tax,
     }
 
 

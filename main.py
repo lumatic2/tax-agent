@@ -98,7 +98,66 @@ def _ask_common_flags():
 
 def _input_wage_inputs():
     console.print(Panel("근로소득자 입력 플로우", title="근로소득자"))
-    gross_salary = _ask_int("총급여액 (원)", default="0")
+    pay_items = []
+    use_pay_items = _ask_yes_no("급여 항목별로 입력할까요?", default=False)
+    if use_pay_items:
+        console.print("\n[dim]기본급/식대/교통보조금/자가운전보조금/연구보조비 등을 연간 지급액 기준으로 입력합니다.[/dim]")
+        item_count = _ask_int("급여 항목 수", default="0")
+        for i in range(1, item_count + 1):
+            console.print(f"\n[bold]급여 항목 #{i}[/bold]")
+            item_type = Prompt.ask(
+                "항목",
+                choices=[
+                    "기본급",
+                    "상여",
+                    "식대",
+                    "교통보조금",
+                    "자가운전보조금",
+                    "연구보조비",
+                    "보육수당",
+                    "야간근무수당",
+                    "국외근로소득_일반",
+                    "국외근로소득_건설",
+                    "출산지원금",
+                    "학자금",
+                    "기타",
+                ],
+                default="기본급",
+            )
+            amount = _ask_int("연간 지급액 (원)", default="0")
+            item = {"type": item_type, "amount": amount}
+
+            if item_type in {
+                "식대",
+                "자가운전보조금",
+                "보육수당",
+                "연구보조비",
+                "야간근무수당",
+                "국외근로소득_일반",
+                "국외근로소득_건설",
+            }:
+                item["months"] = _ask_int("지급 개월 수", default="12")
+
+            if item_type == "식대":
+                item["meal_provided"] = _ask_yes_no("현물 식사를 별도로 제공하나요?", default=False)
+            elif item_type == "자가운전보조금":
+                item["own_vehicle"] = _ask_yes_no("본인 차량을 업무용으로 사용하나요?", default=True)
+            elif item_type == "보육수당":
+                item["child_age"] = _ask_int("대상 자녀 만 나이", default="0")
+
+            pay_items.append(item)
+
+        nontaxable_preview = tax_calculator.calculate_nontaxable_employment_income(pay_items)
+        gross_salary = int(nontaxable_preview.get("gross_salary", 0) or 0)
+        console.print(
+            "[dim]"
+            f"총지급액 {_fmt(nontaxable_preview.get('total_paid', 0) or 0)} / "
+            f"비과세 {_fmt(nontaxable_preview.get('total_nontaxable', 0) or 0)} / "
+            f"총급여 {_fmt(gross_salary)}"
+            "[/dim]"
+        )
+    else:
+        gross_salary = _ask_int("총급여액 (원)", default="0")
 
     national_pension = _ask_int("국민연금 보험료 (원)", default="0")
     health_insurance = _ask_int("건강보험료 (원)", default="0")
@@ -122,6 +181,7 @@ def _input_wage_inputs():
 
     return {
         "gross_salary": gross_salary,
+        "pay_items": pay_items,
         "insurance": {
             "national_pension": national_pension,
             "health_insurance": health_insurance,
@@ -507,7 +567,14 @@ def _profile_to_strategy_user_data(profile):
 
 
 def _calculate_wage_pipeline(wage_inputs):
-    c = _compute_wage_components(wage_inputs)
+    pay_items = wage_inputs.get("pay_items") or []
+    nontaxable_result = None
+    wage_inputs_for_calc = dict(wage_inputs)
+    if pay_items:
+        nontaxable_result = tax_calculator.calculate_nontaxable_employment_income(pay_items)
+        wage_inputs_for_calc["gross_salary"] = int(nontaxable_result.get("gross_salary", 0) or 0)
+
+    c = _compute_wage_components(wage_inputs_for_calc)
     gross_salary = c["gross_salary"]
     earned_income = c["earned_income"]
     dependents = c["dependents"]
@@ -544,7 +611,15 @@ def _calculate_wage_pipeline(wage_inputs):
 
     final_diff = decision_total - prepaid_tax
 
-    income_rows = c["income_rows"]
+    income_rows = []
+    if nontaxable_result:
+        income_rows.extend(
+            [
+                ("총지급액", int(nontaxable_result.get("total_paid", 0) or 0), "급여 항목 합산"),
+                ("비과세 근로소득", int(nontaxable_result.get("total_nontaxable", 0) or 0), "지급 항목별 비과세 합계"),
+            ]
+        )
+    income_rows.extend(c["income_rows"])
 
     deduction_rows = [
         ("기본공제액", int(c["personal"].get("기본공제액", 0) or 0), f"인원 {c['personal'].get('기본공제_인원', 0)}명"),

@@ -36,9 +36,10 @@ _PATTERNS = {
 }
 
 _DOC_TYPE_KEYWORDS = {
-    "payslip": ["근로소득", "원천징수", "급여"],
+    "simplification": ["세액공제증명서류", "연말정산 간소화", "소득·세액공제", "소득 · 세액공제"],
+    "payslip": ["근로소득 원천징수영수증", "근로소득 지급명세서", "원천징수영수증"],
     "business_income": ["사업소득", "사업자", "프리랜서"],
-    "deduction_cert": ["소득공제", "세액공제", "연말정산 간소화"],
+    "deduction_cert": ["소득공제", "세액공제"],
     "receipt": ["영수증", "의료비", "교육비"],
 }
 
@@ -154,15 +155,21 @@ def map_to_pipeline_input(parsed_result) -> dict:
         def amt(label):
             return _to_int(amounts.get(label, 0) or 0, default=0)
 
-        gross_salary = _extract_first_int(
-            raw_text,
-            patterns=[
-                r"총\s*급여[^\d]*([\d,]+)",
-                r"총급여[^\d]*([\d,]+)",
-                r"지\s*급\s*총\s*액[^\d]*([\d,]+)",
-                r"지급총액[^\d]*([\d,]+)",
-            ],
-        ) or amt("근로소득")
+        doc_type = parsed_result.get("doc_type", "")
+        is_simplification = doc_type == "simplification"
+
+        if is_simplification:
+            gross_salary = 0
+        else:
+            gross_salary = _extract_first_int(
+                raw_text,
+                patterns=[
+                    r"총\s*급여[^\d]*([\d,]+)",
+                    r"총급여[^\d]*([\d,]+)",
+                    r"지\s*급\s*총\s*액[^\d]*([\d,]+)",
+                    r"지급총액[^\d]*([\d,]+)",
+                ],
+            ) or amt("근로소득")
 
         total_income = (
             amt("근로소득")
@@ -172,27 +179,33 @@ def map_to_pipeline_input(parsed_result) -> dict:
             + amt("배당소득")
         )
 
-        national_pension = _extract_first_int(
-            raw_text,
-            patterns=[
-                r"국민\s*연금[^\d]*([\d,]+)",
-                r"연금\s*보험료[^\d]*([\d,]+)",
-            ],
-        )
-        health_insurance = _extract_first_int(
-            raw_text,
-            patterns=[
-                r"건강\s*보험[^\d]*([\d,]+)",
-                r"건강\s*보험료[^\d]*([\d,]+)",
-            ],
-        )
-        employment_insurance = _extract_first_int(
-            raw_text,
-            patterns=[
-                r"고용\s*보험[^\d]*([\d,]+)",
-                r"고용\s*보험료[^\d]*([\d,]+)",
-            ],
-        )
+        # 간소화서비스에는 4대보험 정보가 없음 → 0으로 처리
+        if is_simplification:
+            national_pension = 0
+            health_insurance = 0
+            employment_insurance = 0
+        else:
+            national_pension = _extract_first_int(
+                raw_text,
+                patterns=[
+                    r"국민\s*연금[^\d]*([\d,]+)",
+                    r"연금\s*보험료[^\d]*([\d,]+)",
+                ],
+            )
+            health_insurance = _extract_first_int(
+                raw_text,
+                patterns=[
+                    r"건강\s*보험[^\d]*([\d,]+)",
+                    r"건강\s*보험료[^\d]*([\d,]+)",
+                ],
+            )
+            employment_insurance = _extract_first_int(
+                raw_text,
+                patterns=[
+                    r"고용\s*보험[^\d]*([\d,]+)",
+                    r"고용\s*보험료[^\d]*([\d,]+)",
+                ],
+            )
 
         housing_fund = amt("주택청약") or _extract_first_int(
             raw_text,
@@ -317,6 +330,14 @@ def parse_pdf(file_path):
             "amounts": _parse_amounts(raw_text),
         }
         result["pipeline_input"] = map_to_pipeline_input(result)
+
+        # 빈 양식 감지: 원천징수영수증인데 총급여가 없으면 오류
+        if result["doc_type"] == "payslip":
+            gross = result["pipeline_input"].get("special_deductions_input", {}).get("gross_salary", 0)
+            if gross < 1_000_000:
+                result["parse_error"] = "blank_form"
+                result["parse_error_message"] = "값이 채워진 원천징수영수증이 아닙니다. 실제 발급된 원천징수영수증 PDF를 올려주세요."
+
         return result
     except Exception:
         return {}

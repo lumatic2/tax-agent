@@ -51,6 +51,148 @@ def calculate_employment_income_deduction(gross_salary):
         return 14_750_000  # 상한 1,475만원
 
 
+def calculate_employee_discount_taxable(market_price: int, discount_price: int, year: int = 2025) -> dict:
+    """임직원 자사·계열사 제품 할인 구입 시 근로소득 과세금액 계산.
+
+    2025년 이후 (소득세법 시행령 §38①16호 개정):
+        비과세 한도 = max(시가 × 20%, 연 240만원)
+        단, 재판매 금지 조건 충족 시만 비과세 적용
+
+    2024년 이전:
+        소득세법 시행규칙 §20의2: 할인율 50% 이하이면 비과세
+
+    Args:
+        market_price: 시가 (원)
+        discount_price: 실제 구입가 (원)
+        year: 귀속연도
+
+    Returns:
+        dict: {할인액, 비과세한도, 과세금액}
+    """
+    discount_amount = market_price - discount_price
+    if discount_amount <= 0:
+        return {'할인액': 0, '비과세한도': 0, '과세금액': 0}
+
+    if year >= 2025:
+        # 2025년 이후: max(시가×20%, 연240만원)
+        exempt_limit = max(int(market_price * 0.20), 2_400_000)
+    else:
+        # 2024년 이전: 할인율 50% 이하면 전액 비과세
+        discount_rate = discount_amount / market_price
+        exempt_limit = discount_amount if discount_rate <= 0.50 else 0
+
+    taxable = max(discount_amount - exempt_limit, 0)
+    return {
+        '할인액': discount_amount,
+        '비과세한도': min(exempt_limit, discount_amount),
+        '과세금액': taxable,
+    }
+
+
+def calculate_nontaxable_employment_income(items: list[dict], year: int = 2025) -> dict:
+    """근로소득 지급 항목별 비과세 금액과 총급여를 계산한다.
+
+    소득세법 §12(3) 기준의 대표 비과세 근로소득 항목을 지원한다.
+    각 항목의 연간 지급액과 조건값을 받아 항목별 비과세/과세 금액을 계산하고,
+    총지급액에서 비과세 합계를 차감한 총급여를 반환한다.
+
+    Args:
+        items: 지급 항목 리스트.
+            각 항목 예시:
+            {
+                "type": "식대",
+                "amount": 2_400_000,
+                "meal_provided": False,
+                "months": 12,
+            }
+        year: 귀속연도. 현재 구현은 2025년 기준 한도를 적용한다.
+
+    Returns:
+        {
+            "items": [
+                {"type": str, "total": int, "nontaxable": int, "taxable": int},
+                ...
+            ],
+            "total_paid": int,
+            "total_nontaxable": int,
+            "gross_salary": int,
+        }
+    """
+    monthly_limits = {
+        "자가운전보조금": 200_000,
+        "식대": 200_000,
+        "보육수당": 200_000,
+        "연구보조비": 200_000,
+        "야간근무수당": 200_000,
+        "국외근로소득_일반": 1_000_000,
+        "국외근로소득_건설": 3_000_000,
+    }
+    fully_nontaxable_types = {
+        "출산지원금",
+        "실업급여",
+        "육아휴직급여",
+        "사택제공이익",
+        "학자금",
+    }
+
+    result_items = []
+    total_paid = 0
+    total_nontaxable = 0
+
+    for item in items:
+        item_type = str(item.get("type", "기타"))
+        amount = int(item.get("amount", 0))
+        months = int(item.get("months", 12))
+
+        if amount < 0:
+            raise ValueError("amount는 0 이상이어야 합니다.")
+        if months < 0:
+            raise ValueError("months는 0 이상이어야 합니다.")
+
+        if item_type in fully_nontaxable_types:
+            nontaxable = amount
+        elif item_type == "자가운전보조금":
+            if bool(item.get("own_vehicle", False)):
+                nontaxable = min(amount, monthly_limits[item_type] * months)
+            else:
+                nontaxable = 0
+        elif item_type == "식대":
+            if not bool(item.get("meal_provided", False)):
+                nontaxable = min(amount, monthly_limits[item_type] * months)
+            else:
+                nontaxable = 0
+        elif item_type == "보육수당":
+            if int(item.get("child_age", 999)) <= 6:
+                nontaxable = min(amount, monthly_limits[item_type] * months)
+            else:
+                nontaxable = 0
+        elif item_type in monthly_limits:
+            nontaxable = min(amount, monthly_limits[item_type] * months)
+        else:
+            nontaxable = 0
+
+        taxable = amount - nontaxable
+        result_items.append(
+            {
+                "type": item_type,
+                "total": amount,
+                "nontaxable": nontaxable,
+                "taxable": taxable,
+            }
+        )
+        total_paid += amount
+        total_nontaxable += nontaxable
+
+    _ = year
+
+    return {
+        "items": result_items,
+        "total_paid": total_paid,
+        "total_nontaxable": total_nontaxable,
+        "gross_salary": total_paid - total_nontaxable,
+    }
+
+
 def calculate_wage_income_tax(gross_salary, extra_deductions=None):
     """근로소득자 전용 원스톱 세액 계산 (소득세법 제47조, 제50조, 제55조).
 
@@ -542,9 +684,12 @@ def calculate_other_income(
                분리과세세액, 종합과세편입금액}
     """
     # §37②에 따른 법정 필요경비율 (60% 적용 대상 열거소득)
-    SIXTY_PCT = {'강의료', '원고료', '인세', '자문료', '사례금', '기타'}
-    # 복권·당첨금 등은 실제경비만 → 통상 0원
-    ZERO_PCT = {'복권', '상금', '경마', '경품'}
+    SIXTY_PCT = {'강의료', '원고료', '인세', '자문료', '사례금', '기타', '상표권', '특허권', '저작권'}
+    # 복권·당첨금·상금·알선수재 등 → 실제경비만 (법정경비율 없음)
+    ZERO_PCT = {'복권', '상금', '경마', '경품', '알선수재', '주식매수선택권'}
+    # 서화·골동품: §87 시행령 — max(실제경비, 법정경비율×수입금액)
+    # 법정경비율: 수입금액 1억 이하 or 보유기간 10년 이상 → 90%, 그 외 → 80%
+    ARTWORK = {'서화', '골동품'}
 
     detail = []
     total_revenue = 0
@@ -555,11 +700,23 @@ def calculate_other_income(
         kind = item.get('종류', '기타')
         revenue = item.get('수입금액', 0)
         actual = item.get('실제경비', None)
+        holding_years = item.get('보유기간', None)  # 서화·골동품용
 
-        if actual is not None:
-            expense = actual
+        if kind in ARTWORK:
+            # §37② 서화·골동품: max(실제경비, 법정경비율×수입금액)
+            # 1억 이하 or 보유 10년 이상 → 90%, 그 외 → 80%
+            if revenue <= 100_000_000 or (holding_years is not None and holding_years >= 10):
+                legal_rate = 0.90
+            else:
+                legal_rate = 0.80
+            legal_expense = int(revenue * legal_rate)
+            expense = max(actual if actual is not None else 0, legal_expense)
         elif kind in ZERO_PCT:
-            expense = 0
+            expense = actual if actual is not None else 0
+        elif actual is not None:
+            # 60% 적용 대상: max(실제경비, 법정60%)
+            legal_expense = int(revenue * 0.60)
+            expense = max(actual, legal_expense)
         else:
             expense = int(revenue * 0.60)
 

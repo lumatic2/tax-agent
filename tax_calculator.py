@@ -983,15 +983,15 @@ def calculate_retirement_income_tax(retirement_pay: int, years_of_service: int) 
     retirement_pay = int(retirement_pay)
     years = max(int(years_of_service), 1)
 
-    # 1. 근속연수공제 (소득세법 제48조)
+    # 1. 근속연수공제 (소득세법 제22② — 2024년 귀속 이후 개정)
     if years <= 5:
-        tenure_deduction = years * 300_000
+        tenure_deduction = years * 1_000_000
     elif years <= 10:
-        tenure_deduction = 1_500_000 + (years - 5) * 500_000
+        tenure_deduction = 5_000_000 + (years - 5) * 2_000_000
     elif years <= 20:
-        tenure_deduction = 4_000_000 + (years - 10) * 800_000
+        tenure_deduction = 15_000_000 + (years - 10) * 2_500_000
     else:
-        tenure_deduction = 12_000_000 + (years - 20) * 1_200_000
+        tenure_deduction = 40_000_000 + (years - 20) * 3_000_000
 
     # 2. 환산급여
     converted_salary = int((retirement_pay - tenure_deduction) * 12 / years)

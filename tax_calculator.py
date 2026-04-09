@@ -12,6 +12,7 @@
 """
 
 from datetime import date
+from typing import Optional
 
 
 def _brackets_2024():
@@ -91,7 +92,7 @@ def calculate_employee_discount_taxable(market_price: int, discount_price: int, 
     }
 
 
-def calculate_nontaxable_employment_income(items: list[dict], year: int = 2025) -> dict:
+def calculate_nontaxable_employment_income(items: dict[str, int] | list[dict], year: int = 2025) -> dict:
     """근로소득 지급 항목별 비과세 금액과 총급여를 계산한다.
 
     소득세법 §12(3) 기준의 대표 비과세 근로소득 항목을 지원한다.
@@ -126,8 +127,15 @@ def calculate_nontaxable_employment_income(items: list[dict], year: int = 2025) 
         "보육수당": 200_000,
         "연구보조비": 200_000,
         "야간근무수당": 200_000,
+        "벽지수당": 60_000,
+        "위험수당": 200_000,
+        "출산보육수당": 200_000,
         "국외근로소득_일반": 1_000_000,
         "국외근로소득_건설": 3_000_000,
+    }
+    annual_limits = {
+        "직무발명보상금": 7_000_000,
+        "생산직야간근로수당": 2_400_000,
     }
     fully_nontaxable_types = {
         "출산지원금",
@@ -136,6 +144,68 @@ def calculate_nontaxable_employment_income(items: list[dict], year: int = 2025) 
         "사택제공이익",
         "학자금",
     }
+
+    if isinstance(items, dict):
+        income_by_type = {str(key): int(value) for key, value in items.items()}
+        result_details: dict[str, dict[str, int]] = {}
+        taxable_income = 0
+        total_paid = 0
+        total_nontaxable = 0
+        handled_types: set[str] = set()
+
+        for item_type, monthly_limit in monthly_limits.items():
+            received = income_by_type.get(item_type, 0)
+            if received <= 0:
+                continue
+            nontaxable = min(received, monthly_limit)
+            taxable = received - nontaxable
+            taxable_income += taxable
+            total_paid += received
+            total_nontaxable += nontaxable
+            result_details[item_type] = {
+                "수령액": received,
+                "비과세": nontaxable,
+                "과세": taxable,
+            }
+            handled_types.add(item_type)
+
+        for item_type, annual_limit in annual_limits.items():
+            received = income_by_type.get(item_type, 0)
+            if received <= 0:
+                continue
+            nontaxable = min(received, annual_limit)
+            taxable = received - nontaxable
+            taxable_income += taxable
+            total_paid += received
+            total_nontaxable += nontaxable
+            result_details[item_type] = {
+                "수령액": received,
+                "비과세": nontaxable,
+                "과세": taxable,
+            }
+            handled_types.add(item_type)
+
+        for item_type, received in income_by_type.items():
+            if item_type in handled_types:
+                continue
+            total_paid += received
+            taxable_income += received
+            result_details[item_type] = {
+                "수령액": received,
+                "비과세": 0,
+                "과세": received,
+            }
+
+        _ = year
+
+        return {
+            **result_details,
+            "총수령액": total_paid,
+            "총비과세": total_nontaxable,
+            "총과세": taxable_income,
+            "총급여": taxable_income,
+            "비고": "월 한도·연 한도를 반영한 2024년 귀속 프로젝트 계산 결과",
+        }
 
     result_items = []
     total_paid = 0
@@ -168,6 +238,8 @@ def calculate_nontaxable_employment_income(items: list[dict], year: int = 2025) 
                 nontaxable = min(amount, monthly_limits[item_type] * months)
             else:
                 nontaxable = 0
+        elif item_type in annual_limits:
+            nontaxable = min(amount, annual_limits[item_type])
         elif item_type in monthly_limits:
             nontaxable = min(amount, monthly_limits[item_type] * months)
         else:
@@ -192,6 +264,93 @@ def calculate_nontaxable_employment_income(items: list[dict], year: int = 2025) 
         "total_paid": total_paid,
         "total_nontaxable": total_nontaxable,
         "gross_salary": total_paid - total_nontaxable,
+    }
+
+
+def calculate_simplified_withholding(
+    monthly_salary: int,
+    dependents: int = 1,
+    adjustment_rate: float = 1.0,
+    nontaxable_amount: int = 0,
+) -> dict:
+    """근로소득 간이세액표에 준한 프로젝트 원천징수 추정치를 계산한다."""
+    monthly_salary = max(int(monthly_salary), 0)
+    dependents = max(int(dependents), 1)
+    nontaxable_amount = max(int(nontaxable_amount), 0)
+
+    monthly_taxable_salary = max(monthly_salary - nontaxable_amount, 0)
+    annual_salary = monthly_taxable_salary * 12
+
+    if annual_salary <= 5_000_000:
+        annual_deduction = int(annual_salary * 0.70)
+    elif annual_salary <= 15_000_000:
+        annual_deduction = 3_500_000 + int((annual_salary - 5_000_000) * 0.40)
+    elif annual_salary <= 45_000_000:
+        annual_deduction = 7_500_000 + int((annual_salary - 15_000_000) * 0.15)
+    elif annual_salary <= 100_000_000:
+        annual_deduction = 12_000_000 + int((annual_salary - 45_000_000) * 0.05)
+    else:
+        annual_deduction = 14_750_000 + int((annual_salary - 100_000_000) * 0.02)
+    annual_deduction = min(annual_deduction, 20_000_000)
+
+    monthly_earned_income_deduction = int(annual_deduction / 12)
+    monthly_basic_deduction = int(1_500_000 * dependents / 12)
+    monthly_tax_base = max(
+        monthly_taxable_salary - monthly_earned_income_deduction - monthly_basic_deduction,
+        0,
+    )
+    annual_tax_base = monthly_tax_base * 12
+
+    if annual_tax_base <= 14_000_000:
+        annual_computed_tax = int(annual_tax_base * 0.06)
+    elif annual_tax_base <= 50_000_000:
+        annual_computed_tax = 840_000 + int((annual_tax_base - 14_000_000) * 0.15)
+    elif annual_tax_base <= 88_000_000:
+        annual_computed_tax = 6_240_000 + int((annual_tax_base - 50_000_000) * 0.24)
+    elif annual_tax_base <= 150_000_000:
+        annual_computed_tax = 15_360_000 + int((annual_tax_base - 88_000_000) * 0.35)
+    elif annual_tax_base <= 300_000_000:
+        annual_computed_tax = 37_060_000 + int((annual_tax_base - 150_000_000) * 0.38)
+    elif annual_tax_base <= 500_000_000:
+        annual_computed_tax = 94_060_000 + int((annual_tax_base - 300_000_000) * 0.40)
+    elif annual_tax_base <= 1_000_000_000:
+        annual_computed_tax = 174_060_000 + int((annual_tax_base - 500_000_000) * 0.42)
+    else:
+        annual_computed_tax = 384_060_000 + int((annual_tax_base - 1_000_000_000) * 0.45)
+
+    if annual_computed_tax <= 1_300_000:
+        annual_tax_credit = int(annual_computed_tax * 0.55)
+    else:
+        annual_tax_credit = 715_000 + int((annual_computed_tax - 1_300_000) * 0.30)
+
+    if annual_salary <= 33_000_000:
+        credit_limit = 740_000
+    elif annual_salary <= 70_000_000:
+        credit_limit = max(740_000 - int((annual_salary - 33_000_000) * 8 / 1000), 660_000)
+    else:
+        credit_limit = 660_000
+    annual_tax_credit = min(annual_tax_credit, credit_limit)
+
+    annual_final_tax = max(annual_computed_tax - annual_tax_credit, 0)
+    monthly_final_tax = int(annual_final_tax / 12)
+    withholding_tax = int(monthly_final_tax * float(adjustment_rate) / 10) * 10
+    local_income_tax = int(withholding_tax * 0.10 / 10) * 10
+
+    return {
+        "월급여": monthly_salary,
+        "비과세": nontaxable_amount,
+        "월과세급여": monthly_taxable_salary,
+        "월근로소득공제": monthly_earned_income_deduction,
+        "월기본공제": monthly_basic_deduction,
+        "월과세표준": monthly_tax_base,
+        "연환산과세표준": annual_tax_base,
+        "연산출세액": annual_computed_tax,
+        "연근로소득세액공제": annual_tax_credit,
+        "연결정세액": annual_final_tax,
+        "월결정세액": monthly_final_tax,
+        "원천징수세액": withholding_tax,
+        "지방소득세": local_income_tax,
+        "비고": "소득세법 §129 간이세액표를 근로소득공제·기본공제·세액공제로 단순화한 프로젝트 추정치",
     }
 
 
@@ -661,99 +820,97 @@ def calculate_pension_income(
     }
 
 
-def calculate_other_income(
-    items: list,
-) -> dict:
-    """기타소득금액 계산 (소득세법 §21 기타소득, §84 분리과세, 2024년 귀속).
-
-    [법령 출처 — 추후 법제처 API 연결 시 검증 필요]
-    §21①: 기타소득 열거 (강의료, 원고료, 상금, 복권, 사례금 등)
-    §37②: 필요경비율
-        원칙 60% (강의료·원고료·인세·자문료 등 §21①19~22)
-        복권·당첨금·경마 등 → 실제 경비만
-        일시적 인적용역 외 → 항목별 상이
-    §84: 기타소득금액 합계 300만 초과 → 종합과세 의무
-         300만 이하 → 분리과세(22%) 선택 가능
-
-    Args:
-        items: list of dict, 각 항목:
-            - 종류: str ('강의료'|'원고료'|'상금'|'복권'|'사례금'|'기타')
-            - 수입금액: int (원, 세전)
-            - 실제경비: int (원, 선택 — 없으면 법정경비율 적용)
-
-    Returns:
-        dict: {항목별내역, 기타소득_수입합계, 필요경비합계, 기타소득금액합계, 과세방식,
-               분리과세세액, 종합과세편입금액}
-    """
-    # §37②에 따른 법정 필요경비율 (60% 적용 대상 열거소득)
-    SIXTY_PCT = {'강의료', '원고료', '인세', '자문료', '사례금', '기타', '상표권', '특허권', '저작권'}
-    # 복권·당첨금·상금·알선수재 등 → 실제경비만 (법정경비율 없음)
-    ZERO_PCT = {'복권', '상금', '경마', '경품', '알선수재', '주식매수선택권'}
-    # 서화·골동품: §87 시행령 — max(실제경비, 법정경비율×수입금액)
-    # 법정경비율: 수입금액 1억 이하 or 보유기간 10년 이상 → 90%, 그 외 → 80%
-    ARTWORK = {'서화', '골동품'}
-
-    detail = []
-    total_revenue = 0
-    total_expense = 0
-    total_income = 0
-
-    for item in items:
-        kind = item.get('종류', '기타')
-        revenue = item.get('수입금액', 0)
-        actual = item.get('실제경비', None)
-        holding_years = item.get('보유기간', None)  # 서화·골동품용
-
-        if kind in ARTWORK:
-            # §37② 서화·골동품: max(실제경비, 법정경비율×수입금액)
-            # 1억 이하 or 보유 10년 이상 → 90%, 그 외 → 80%
-            if revenue <= 100_000_000 or (holding_years is not None and holding_years >= 10):
-                legal_rate = 0.90
-            else:
-                legal_rate = 0.80
-            legal_expense = int(revenue * legal_rate)
-            expense = max(actual if actual is not None else 0, legal_expense)
-        elif kind in ZERO_PCT:
-            expense = actual if actual is not None else 0
-        elif actual is not None:
-            # 60% 적용 대상: max(실제경비, 법정60%)
-            legal_expense = int(revenue * 0.60)
-            expense = max(actual, legal_expense)
-        else:
-            expense = int(revenue * 0.60)
-
-        income = max(revenue - expense, 0)
-        total_revenue += revenue
-        total_expense += expense
-        total_income += income
-        detail.append({
-            '종류': kind,
-            '수입금액': revenue,
-            '필요경비': expense,
-            '기타소득금액': income,
-        })
-
-    # §84 종합과세 vs 분리과세 판정
-    # 기타소득금액 합계 300만 초과 → 종합과세 의무
-    THRESHOLD = 3_000_000
-    if total_income > THRESHOLD:
-        tax_method = '종합과세'
-        sep_tax = None
-        comprehensive_income = total_income
+def _calculate_lottery_tax(prize_amount: int, ticket_cost: int = 0) -> dict:
+    prize = int(prize_amount)
+    cost = int(ticket_cost)
+    income = max(prize - cost, 0)
+    THRESHOLD = 300_000_000
+    if income <= THRESHOLD:
+        tax = int(income * 0.20)
+        note = f'3억 이하: {income:,}원 × 20% = {tax:,}원'
     else:
-        # 선택 가능 — 분리과세(22%) 또는 종합과세
-        sep_tax = int(total_revenue * 0.22)  # 원천징수세율 22% (수입금액 기준)
-        tax_method = '분리과세선택가능'
-        comprehensive_income = 0  # 선택 시 종합소득에 미편입
+        tax_below = int(THRESHOLD * 0.20)
+        tax_above = int((income - THRESHOLD) * 0.33)
+        tax = tax_below + tax_above
+        note = f'3억×20%={tax_below:,}원 | {(income-THRESHOLD):,}원×33%={tax_above:,}원 | 합계={tax:,}원'
+    local_tax = int(tax * 0.10)
+    return {'당첨금액': prize, '필요경비': cost, '기타소득금액': income,
+            '세율_3억이하': 0.20, '세율_3억초과': 0.33,
+            '원천징수세액': tax, '지방소득세': local_tax, '비고': note}
 
+
+def _calculate_slot_machine_tax(prize_amount: int) -> dict:
+    prize = int(prize_amount)
+    tax = int(prize * 0.30)
+    local_tax = int(tax * 0.10)
+    return {'당첨금액': prize, '기타소득금액': prize,
+            '원천징수세액': tax, '지방소득세': local_tax,
+            '비고': f'슬롯머신: {prize:,}원 × 30% = {tax:,}원'}
+
+
+def calculate_other_income(
+    gross_income: int,
+    income_type: str = 'general',
+    expense_ratio: float = 0.60,
+    ticket_cost: int = 0,
+) -> dict:
+    """기타소득 원천징수세액 계산 (소득세법 §14②, §84, §87①2, 2024년 귀속)."""
+    gross = int(gross_income)
+
+    if income_type == 'lottery':
+        result = _calculate_lottery_tax(gross, ticket_cost)
+        return {
+            '총수입금액': result['당첨금액'],
+            '필요경비': result['필요경비'],
+            '기타소득금액': result['기타소득금액'],
+            '원천징수세율': '20%/33%',
+            '원천징수세액': result['원천징수세액'],
+            '지방소득세': result['지방소득세'],
+            '소득유형': 'lottery',
+            '비고': result['비고'],
+        }
+
+    if income_type == 'slot_machine':
+        result = _calculate_slot_machine_tax(gross)
+        return {
+            '총수입금액': result['당첨금액'],
+            '필요경비': 0,
+            '기타소득금액': result['기타소득금액'],
+            '원천징수세율': 0.30,
+            '원천징수세액': result['원천징수세액'],
+            '지방소득세': result['지방소득세'],
+            '소득유형': 'slot_machine',
+            '비고': result['비고'],
+        }
+
+    if income_type == 'pension_account':
+        income_amount = gross
+        tax = int(income_amount * 0.15)
+        local_tax = int(tax * 0.10)
+        return {
+            '총수입금액': gross,
+            '필요경비': 0,
+            '기타소득금액': income_amount,
+            '원천징수세율': 0.15,
+            '원천징수세액': tax,
+            '지방소득세': local_tax,
+            '소득유형': 'pension_account',
+            '비고': f'연금계좌 기타소득: {income_amount:,}원 × 15% = {tax:,}원',
+        }
+
+    expense = int(gross * float(expense_ratio))
+    income_amount = max(gross - expense, 0)
+    tax = int(income_amount * 0.20)
+    local_tax = int(tax * 0.10)
     return {
-        '항목별내역': detail,
-        '기타소득_수입합계': total_revenue,
-        '필요경비합계': total_expense,
-        '기타소득금액합계': total_income,
-        '과세방식': tax_method,
-        '분리과세세액(22%)': sep_tax,
-        '종합과세편입금액': comprehensive_income,
+        '총수입금액': gross,
+        '필요경비': expense,
+        '기타소득금액': income_amount,
+        '원천징수세율': 0.20,
+        '원천징수세액': tax,
+        '지방소득세': local_tax,
+        '소득유형': 'general',
+        '비고': f'일반 기타소득: 필요경비 {expense:,}원, 기타소득금액 {income_amount:,}원 × 20% = {tax:,}원',
     }
 
 
@@ -2399,4 +2556,931 @@ def calculate_non_business_land_tax(taxable_income: int) -> dict:
         "산출세액": int(산출세액),
         "적용세율": float(적용세율),
         "근거": "소득세법 제104조 제1항 제8호(비사업용 토지)",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Ch01. 소득세 총설
+# ---------------------------------------------------------------------------
+
+def is_resident(
+    has_domestic_address: bool = False,
+    domestic_days: int = 0,
+) -> dict:
+    """거주자/비거주자 판정 (소득세법 §1의2, 시행령 §2).
+
+    거주자 요건 (둘 중 하나 충족):
+      (1) 국내에 주소를 둔 경우
+      (2) 국내에 183일 이상의 거소를 둔 경우
+
+    거주자: 국내외 전 소득에 대해 납세의무
+    비거주자: 국내원천소득에 대해서만 납세의무
+
+    Args:
+        has_domestic_address: 국내 주소 보유 여부
+            (계속 183일+ 필요 직업, 국내 생계 가족+183일+ 거주 예상 등 포함)
+        domestic_days: 해당 과세기간 내 국내 거소 일수 (주소 없이 거소만 있는 경우)
+
+    Returns:
+        {
+          '구분': '거주자' | '비거주자',
+          '판정근거': str,        # 어느 요건으로 거주자 판정됐는지
+          '납세의무': str,        # 국내외 전소득 | 국내원천소득
+          '거주자': bool,
+          '근거': str,
+        }
+
+    사용 예시:
+        is_resident(has_domestic_address=True)
+        # {'구분': '거주자', '판정근거': '국내 주소 보유', ...}
+
+        is_resident(domestic_days=200)
+        # {'구분': '거주자', '판정근거': '국내 거소 183일 이상(200일)', ...}
+
+        is_resident(has_domestic_address=False, domestic_days=100)
+        # {'구분': '비거주자', ...}
+    """
+    if has_domestic_address:
+        return {
+            "구분": "거주자",
+            "판정근거": "국내 주소 보유",
+            "납세의무": "국내외 전 소득",
+            "거주자": True,
+            "근거": "소득세법 §1의2①1호, 시행령 §2①",
+        }
+    if domestic_days >= 183:
+        return {
+            "구분": "거주자",
+            "판정근거": f"국내 거소 183일 이상({domestic_days}일)",
+            "납세의무": "국내외 전 소득",
+            "거주자": True,
+            "근거": "소득세법 §1의2①1호, 시행령 §2②",
+        }
+    return {
+        "구분": "비거주자",
+        "판정근거": f"국내 주소 없음, 거소 {domestic_days}일(183일 미만)",
+        "납세의무": "국내원천소득만",
+        "거주자": False,
+        "근거": "소득세법 §1의2①2호",
+    }
+
+
+def get_taxable_period(
+    year: int,
+    death_date: Optional[date] = None,
+    departure_date: Optional[date] = None,
+) -> dict:
+    """과세기간 특례 계산 (소득세법 §5).
+
+    원칙: 1월 1일 ~ 12월 31일 (1년)
+    특례:
+      - 사망: 1월 1일 ~ 사망일 (§5②)
+      - 출국(거주자 → 비거주자): 1월 1일 ~ 출국일 (§5③)
+
+    Args:
+        year: 귀속연도
+        death_date: 사망일 (사망 특례 시 입력)
+        departure_date: 출국일 (출국 특례 시 입력; 해당일 이후 비거주자 전환)
+
+    Returns:
+        {
+          '과세기간시작': date,
+          '과세기간종료': date,
+          '일수': int,
+          '특례': '원칙' | '사망' | '출국',
+          '신고기한안내': str,
+          '근거': str,
+        }
+
+    사용 예시:
+        get_taxable_period(2024)
+        # 과세기간: 2024-01-01 ~ 2024-12-31 (366일)
+
+        get_taxable_period(2024, death_date=date(2024, 8, 15))
+        # 과세기간: 2024-01-01 ~ 2024-08-15 (228일)
+
+        get_taxable_period(2024, departure_date=date(2024, 9, 30))
+        # 과세기간: 2024-01-01 ~ 2024-09-30 (274일)
+    """
+    시작 = date(year, 1, 1)
+
+    if death_date is not None:
+        종료 = death_date
+        일수 = (종료 - 시작).days + 1
+        return {
+            "과세기간시작": 시작,
+            "과세기간종료": 종료,
+            "일수": 일수,
+            "특례": "사망",
+            "신고기한안내": f"사망일({death_date}) 속하는 달의 말일부터 6개월 이내 (상속인/납세관리인 신고)",
+            "근거": "소득세법 §5②, §74①",
+        }
+
+    if departure_date is not None:
+        종료 = departure_date
+        일수 = (종료 - 시작).days + 1
+        return {
+            "과세기간시작": 시작,
+            "과세기간종료": 종료,
+            "일수": 일수,
+            "특례": "출국",
+            "신고기한안내": f"출국일({departure_date}) 전날까지 신고·납부 의무",
+            "근거": "소득세법 §5③, §74③",
+        }
+
+    종료 = date(year, 12, 31)
+    일수 = (종료 - 시작).days + 1
+    return {
+        "과세기간시작": 시작,
+        "과세기간종료": 종료,
+        "일수": 일수,
+        "특례": "원칙",
+        "신고기한안내": f"다음 연도 5월 1일 ~ 5월 31일",
+        "근거": "소득세법 §5①",
+    }
+
+
+def calculate_nontaxable_interest(items: list[dict]) -> dict:
+    """비과세 이자소득 판정 (프로젝트 2024년 귀속 기준).
+
+    - 비과세종합저축: 원금 2천만원 한도
+    - ISA: 일반형 200만원, 서민/저소득형 400만원 한도
+    - 조합등예탁금: 원금 3천만원 한도
+    """
+    details: list[dict] = []
+    total_nontaxable = 0
+    total_taxable = 0
+
+    for item in items:
+        item_type = str(item.get("type", "other"))
+        amount = int(item.get("amount", 0))
+        principal = int(item.get("principal", 0))
+        isa_type = str(item.get("isa_type", "general"))
+
+        if item_type == "nontaxable_savings":
+            if principal <= 20_000_000:
+                nontaxable = amount
+            elif principal > 0:
+                nontaxable = int(amount * 20_000_000 / principal)
+            else:
+                nontaxable = 0
+        elif item_type == "isa":
+            isa_limit = 4_000_000 if isa_type == "low_income" else 2_000_000
+            nontaxable = min(amount, isa_limit)
+        elif item_type == "coop":
+            if principal <= 30_000_000:
+                nontaxable = amount
+            elif principal > 0:
+                nontaxable = int(amount * 30_000_000 / principal)
+            else:
+                nontaxable = 0
+        else:
+            nontaxable = 0
+
+        nontaxable = max(min(nontaxable, amount), 0)
+        taxable = amount - nontaxable
+
+        details.append(
+            {
+                "type": item_type,
+                "이자소득": amount,
+                "비과세": nontaxable,
+                "과세": taxable,
+            }
+        )
+        total_nontaxable += nontaxable
+        total_taxable += taxable
+
+    return {
+        "항목별_내역": details,
+        "총비과세이자": total_nontaxable,
+        "총과세이자": total_taxable,
+        "비고": "비과세종합저축·ISA·조합등예탁금 한도를 반영한 프로젝트 계산 결과",
+    }
+
+
+def calculate_interest_income_tax(
+    taxable_interest,
+    has_anonymous: bool = False,
+    long_term_bond_interest: int = 0,
+    long_term_bond_separate_election: bool = False,
+    workplace_mutual_aid_excess: int = 0,
+) -> dict:
+    """이자소득세 계산 — 무조건 분리과세 분류 및 종합과세 이월액 반환."""
+    remaining = int(taxable_interest)
+    long_term_bond_interest = int(long_term_bond_interest)
+    workplace_mutual_aid_excess = int(workplace_mutual_aid_excess)
+
+    anonymous_tax = None
+    long_term_bond_tax = None
+    notes: list[str] = []
+
+    if remaining < 0:
+        raise ValueError("taxable_interest는 0 이상이어야 합니다.")
+
+    if has_anonymous:
+        anonymous_tax = int(remaining * 0.45)
+        notes.append("비실명 이자는 전액 45% 무조건 분리과세")
+        remaining = 0
+    else:
+        if long_term_bond_separate_election and long_term_bond_interest > 0:
+            separated_base = min(long_term_bond_interest, remaining)
+            long_term_bond_tax = int(separated_base * 0.30)
+            remaining -= separated_base
+            notes.append(f"장기채권 이자 {_format_amount(separated_base)}에 30% 분리과세 선택 적용")
+
+        if workplace_mutual_aid_excess > 0:
+            deducted = min(workplace_mutual_aid_excess, remaining)
+            remaining -= deducted
+            notes.append(
+                f"직장공제회 초과반환금 {_format_amount(deducted)}은 기본세율 특례 대상으로 별도 신고"
+            )
+
+    separate_subtotal = 0
+    if anonymous_tax is not None:
+        separate_subtotal += anonymous_tax
+    if long_term_bond_tax is not None:
+        separate_subtotal += long_term_bond_tax
+
+    if not notes:
+        notes.append("무조건 분리과세 대상 없음")
+
+    return {
+        "비실명_분리과세세액": anonymous_tax,
+        "장기채권_분리과세세액": long_term_bond_tax,
+        "직장공제회_초과반환금": max(min(workplace_mutual_aid_excess, int(taxable_interest)), 0),
+        "종합과세_이자합계": remaining,
+        "무조건분리과세_소계": separate_subtotal,
+        "비고": "; ".join(notes),
+    }
+
+
+def _format_amount(amount: int) -> str:
+    return f"{int(amount):,}원"
+
+
+def calculate_deemed_dividend(
+    deemed_type,
+    received_amount,
+    acquisition_cost,
+    capital_reserve_transfer: bool = False,
+    revaluation_reserve_transfer: bool = False,
+) -> dict:
+    """의제배당 계산 (소득세법 제17조 제2항·제3항, 2024년 귀속 프로젝트 기준)."""
+    valid_types = {
+        "surplus_transfer",
+        "capital_reduction",
+        "dissolution",
+        "merger",
+        "split",
+    }
+    if deemed_type not in valid_types:
+        raise ValueError(
+            "deemed_type must be one of: surplus_transfer, capital_reduction, dissolution, merger, split"
+        )
+
+    received_amount = int(received_amount)
+    acquisition_cost = int(acquisition_cost)
+
+    if received_amount < 0:
+        raise ValueError("received_amount는 0 이상이어야 합니다.")
+    if acquisition_cost < 0:
+        raise ValueError("acquisition_cost는 0 이상이어야 합니다.")
+
+    is_exempt = False
+    gross_up_target = False
+    note = ""
+
+    if deemed_type == "surplus_transfer":
+        if capital_reserve_transfer:
+            deemed_dividend = 0
+            is_exempt = True
+            note = "자본준비금의 자본전입으로 인한 의제배당 제외"
+        elif revaluation_reserve_transfer:
+            deemed_dividend = 0
+            is_exempt = True
+            note = "재평가적립금의 자본전입으로 인한 의제배당 제외"
+        else:
+            deemed_dividend = received_amount
+            gross_up_target = deemed_dividend > 0
+            note = "잉여금의 자본전입으로 취득한 주식가액 전액 과세"
+    else:
+        deemed_dividend = max(received_amount - acquisition_cost, 0)
+        gross_up_target = deemed_dividend > 0
+        type_notes = {
+            "capital_reduction": "감자·주식소각으로 받은 재산가액에서 주식취득가액 차감",
+            "dissolution": "해산 잔여재산 분배액에서 주식취득가액 차감",
+            "merger": "합병대가에서 소멸법인 주식취득가액 차감",
+            "split": "분할대가에서 분할 전 주식취득가액 차감",
+        }
+        note = type_notes[deemed_type]
+
+    gross_up = int(deemed_dividend * 0.10) if gross_up_target else 0
+    dividend_income = int(deemed_dividend + gross_up)
+
+    return {
+        "의제배당유형": deemed_type,
+        "취득재산가액": received_amount,
+        "주식취득가액": acquisition_cost,
+        "의제배당금액": int(deemed_dividend),
+        "비과세여부": bool(is_exempt),
+        "Gross_up_대상": bool(gross_up_target),
+        "Gross_up금액": int(gross_up),
+        "배당소득금액": int(dividend_income),
+        "비고": note,
+    }
+
+
+def calculate_recognized_dividend(recognized_amount, recipient_type: str = "resident") -> dict:
+    """인정배당 계산 (소득세법 제17조 제1항 제4호·제3항, 2024년 귀속 프로젝트 기준)."""
+    if recipient_type not in {"resident", "nonresident"}:
+        raise ValueError("recipient_type must be one of: resident, nonresident")
+
+    recognized_amount = int(recognized_amount)
+    if recognized_amount < 0:
+        raise ValueError("recognized_amount는 0 이상이어야 합니다.")
+
+    gross_up = int(recognized_amount * 0.10) if recipient_type == "resident" else 0
+    dividend_income = int(recognized_amount + gross_up)
+
+    if recipient_type == "resident":
+        taxation = "거주자 종합과세 기준 Gross-up 10% 적용"
+        note = "법인세법상 배당처분 금액에 Gross-up 가산"
+    else:
+        taxation = "비거주자 원천과세 기준 Gross-up 배제"
+        note = "비거주자는 Gross-up 없이 인정배당금액만 배당소득으로 반영"
+
+    return {
+        "인정배당금액": recognized_amount,
+        "Gross_up금액": int(gross_up),
+        "배당소득금액": int(dividend_income),
+        "수령인유형": recipient_type,
+        "과세방식": taxation,
+        "비고": note,
+    }
+
+
+# 내용연수별 정률법 상각률 (소득세법 시행규칙 별표 기준)
+_DECLINING_BALANCE_RATES = {
+    2: 0.451, 3: 0.369, 4: 0.316, 5: 0.451,
+    6: 0.394, 7: 0.449, 8: 0.313, 9: 0.288,
+    10: 0.259, 15: 0.184, 20: 0.142, 40: 0.074,
+}
+
+
+def calculate_entertainment_expense_limit(
+    revenue: int,
+    actual_expense: int,
+    is_sme: bool = False,
+    months: int = 12,
+) -> dict:
+    rev = int(revenue)
+    actual = int(actual_expense)
+    months = max(1, min(12, int(months)))
+
+    base_limit_annual = 36_000_000 if is_sme else 12_000_000
+    base_limit = int(base_limit_annual * months / 12)
+
+    if rev <= 10_000_000_000:
+        rev_limit = int(rev * 0.003)
+    elif rev <= 50_000_000_000:
+        rev_limit = 30_000_000 + int((rev - 10_000_000_000) * 0.002)
+    else:
+        rev_limit = 110_000_000 + int((rev - 50_000_000_000) * 0.0003)
+
+    total_limit = base_limit + rev_limit
+    deductible = min(actual, total_limit)
+    excess = max(actual - total_limit, 0)
+
+    sme_label = '중소기업' if is_sme else '일반'
+    return {
+        '기본한도': base_limit,
+        '수입금액한도': rev_limit,
+        '총한도': total_limit,
+        '실지출액': actual,
+        '필요경비산입액': deductible,
+        '한도초과_불산입액': excess,
+        '비고': f'{sme_label} 기본한도 {base_limit:,}원 + 수입금액한도 {rev_limit:,}원 = 총한도 {total_limit:,}원',
+    }
+
+
+def calculate_depreciation(
+    acquisition_cost: int,
+    useful_life: int,
+    method: str,
+    book_value=None,
+    salvage_ratio: float = 0.05,
+) -> dict:
+    cost = int(acquisition_cost)
+    bv = int(book_value) if book_value is not None else cost
+    salvage = int(cost * salvage_ratio)
+
+    if method == 'straight_line':
+        depreciable = cost - salvage
+        annual_limit = int(depreciable / useful_life)
+        note = f'정액법: ({cost:,} - {salvage:,}) / {useful_life}년 = {annual_limit:,}원/년'
+    elif method == 'declining_balance':
+        rate = _DECLINING_BALANCE_RATES.get(useful_life)
+        if rate is None:
+            if salvage_ratio > 0:
+                rate = round(1 - (salvage_ratio ** (1 / useful_life)), 3)
+            else:
+                rate = round(1 - (0.05 ** (1 / useful_life)), 3)
+        annual_limit = int(bv * rate)
+        annual_limit = min(annual_limit, max(bv - salvage, 0))
+        note = f'정률법: 기초장부가액 {bv:,}원 × 상각률 {rate} = {annual_limit:,}원 (내용연수 {useful_life}년)'
+    else:
+        raise ValueError(f'지원하지 않는 상각방법: {method}')
+
+    return {
+        '상각방법': '정액법' if method == 'straight_line' else '정률법',
+        '취득가액': cost,
+        '내용연수': useful_life,
+        '잔존가액': salvage,
+        '연간상각한도': annual_limit,
+        '비고': note,
+    }
+
+
+def calculate_car_expense_limit(
+    total_car_expense: int,
+    business_use_ratio: float,
+    depreciation_in_expense: int = 0,
+    months: int = 12,
+) -> dict:
+    total = int(total_car_expense)
+    ratio = max(0.0, min(1.0, float(business_use_ratio)))
+    depr = int(depreciation_in_expense)
+    months = max(1, min(12, int(months)))
+
+    business_amount = int(total * ratio)
+    non_business = total - business_amount
+
+    depr_annual_limit = int(8_000_000 * months / 12)
+    business_depr = int(depr * ratio)
+    depr_excess = max(business_depr - depr_annual_limit, 0)
+
+    deductible = business_amount - depr_excess
+    total_disallowed = non_business + depr_excess
+
+    notes = [f'업무사용비율 {ratio*100:.0f}%: 업무사용금액 {business_amount:,}원']
+    if non_business > 0:
+        notes.append(f'비업무사용 불산입 {non_business:,}원')
+    if depr_excess > 0:
+        notes.append(f'감가상각비 한도초과 이월 {depr_excess:,}원 (한도 {depr_annual_limit:,}원)')
+
+    return {
+        '총관련비용': total,
+        '업무사용비율': ratio,
+        '업무사용금액': business_amount,
+        '비업무사용_불산입': non_business,
+        '감가상각비_연한도': depr_annual_limit,
+        '감가상각비_한도초과_이월': depr_excess,
+        '필요경비산입액': deductible,
+        '총불산입액': total_disallowed,
+        '비고': ' | '.join(notes),
+    }
+
+
+def calculate_housing_savings_deduction(
+    annual_payment: int,
+    total_salary: int,
+    is_householder: bool = True,
+    has_house: bool = False,
+) -> dict:
+    payment = int(annual_payment)
+    salary = int(total_salary)
+    salary_limit = 70_000_000
+    payment_annual_limit = 2_400_000
+    deduction_limit = 3_000_000
+    deduction_rate = 0.40
+
+    if not is_householder:
+        return {
+            '납입액': payment,
+            '공제율': deduction_rate,
+            '공제대상납입액': 0,
+            '산출공제액': 0,
+            '공제한도': deduction_limit,
+            '공제액': 0,
+            '적용여부': False,
+            '미적용사유': '세대주 아님',
+            '비고': '세대주 요건 미충족 — 공제 불가',
+        }
+    if has_house:
+        return {
+            '납입액': payment,
+            '공제율': deduction_rate,
+            '공제대상납입액': 0,
+            '산출공제액': 0,
+            '공제한도': deduction_limit,
+            '공제액': 0,
+            '적용여부': False,
+            '미적용사유': '주택 보유',
+            '비고': '무주택 요건 미충족 — 공제 불가',
+        }
+    if salary > salary_limit:
+        return {
+            '납입액': payment,
+            '공제율': deduction_rate,
+            '공제대상납입액': 0,
+            '산출공제액': 0,
+            '공제한도': deduction_limit,
+            '공제액': 0,
+            '적용여부': False,
+            '미적용사유': f'총급여 {salary:,}원 > 7,000만원',
+            '비고': '총급여 7,000만원 초과 — 공제 불가',
+        }
+
+    eligible_payment = min(payment, payment_annual_limit)
+    calculated = int(eligible_payment * deduction_rate)
+    deduction = min(calculated, deduction_limit)
+    return {
+        '납입액': payment,
+        '공제율': deduction_rate,
+        '공제대상납입액': eligible_payment,
+        '산출공제액': calculated,
+        '공제한도': deduction_limit,
+        '공제액': deduction,
+        '적용여부': True,
+        '미적용사유': '',
+        '비고': f'납입액 {eligible_payment:,}원 × {deduction_rate:.0%} = {calculated:,}원 (한도 {deduction_limit:,}원 이내)',
+    }
+
+
+def apply_deduction_aggregate_limit(deductions: dict) -> dict:
+    aggregate_limit = 25_000_000
+    total = sum(deductions.values())
+    if total <= aggregate_limit:
+        return {
+            '입력공제합계': total,
+            '종합한도': aggregate_limit,
+            '적용공제합계': total,
+            '한도초과액': 0,
+            '항목별_조정': dict(deductions),
+            '비고': f'합계 {total:,}원 ≤ 한도 {aggregate_limit:,}원 — 전액 공제',
+        }
+
+    excess = total - aggregate_limit
+    ratio = aggregate_limit / total
+    adjusted = {key: int(value * ratio) for key, value in deductions.items()}
+    adjusted_total = sum(adjusted.values())
+    diff = aggregate_limit - adjusted_total
+    if diff > 0 and deductions:
+        largest_key = max(deductions, key=deductions.get)
+        adjusted[largest_key] += diff
+
+    return {
+        '입력공제합계': total,
+        '종합한도': aggregate_limit,
+        '적용공제합계': aggregate_limit,
+        '한도초과액': excess,
+        '항목별_조정': adjusted,
+        '비고': f'합계 {total:,}원 > 한도 {aggregate_limit:,}원 — {excess:,}원 초과분 불공제',
+    }
+
+
+def calculate_insurance_tax_credit(general_insurance: int = 0, disability_insurance: int = 0) -> dict:
+    general_insurance = max(int(general_insurance), 0)
+    disability_insurance = max(int(disability_insurance), 0)
+
+    general_credit = int(min(general_insurance, 1_000_000) * 0.12)
+    disability_credit = int(min(disability_insurance, 1_000_000) * 0.15)
+    total_credit = general_credit + disability_credit
+
+    return {
+        '보장성보험료': general_insurance,
+        '장애인보장성보험료': disability_insurance,
+        '보장성공제액': general_credit,
+        '장애인공제액': disability_credit,
+        '총세액공제액': total_credit,
+        '비고': '소득세법 §59의4① 기준: 보장성 12%(한도 100만), 장애인전용 15%(한도 100만)',
+    }
+
+
+def calculate_medical_tax_credit_detail(
+    total_salary,
+    general_medical=0,
+    self_medical=0,
+    infertility_medical=0,
+    premature_medical=0,
+) -> dict:
+    total_salary = max(int(total_salary), 0)
+    general_medical = max(int(general_medical), 0)
+    self_medical = max(int(self_medical), 0)
+    infertility_medical = max(int(infertility_medical), 0)
+    premature_medical = max(int(premature_medical), 0)
+
+    threshold = int(total_salary * 0.03)
+    general_after = max(general_medical - threshold, 0)
+    remaining_threshold = max(threshold - general_medical, 0)
+    self_after = max(self_medical - remaining_threshold, 0)
+
+    general_eligible = min(general_after, 2_000_000)
+    general_credit = int(general_eligible * 0.15)
+    self_credit = int(self_after * 0.15)
+    infertility_credit = int(infertility_medical * 0.30)
+    premature_credit = int(premature_medical * 0.20)
+    total_credit = general_credit + self_credit + infertility_credit + premature_credit
+
+    return {
+        '총급여': total_salary,
+        '공제문턱': threshold,
+        '총의료비': general_medical + self_medical + infertility_medical + premature_medical,
+        '일반의료비': general_medical,
+        '본인등의료비': self_medical,
+        '난임시술비': infertility_medical,
+        '미숙아의료비': premature_medical,
+        '일반공제대상': general_eligible,
+        '일반세액공제': general_credit,
+        '본인등세액공제': self_credit,
+        '난임세액공제': infertility_credit,
+        '미숙아세액공제': premature_credit,
+        '총세액공제액': total_credit,
+        '비고': '소득세법 §59의4② 기준: 총급여 3% 문턱을 일반의료비 우선 차감 후 본인등에 차감, 일반의료비 공제대상 한도 200만',
+    }
+
+
+def calculate_education_tax_credit(
+    self_education=0,
+    preschool_children=None,
+    elementary_middle_high=None,
+    university_students=None,
+    disability_special=0,
+) -> dict:
+    preschool_children = preschool_children or []
+    elementary_middle_high = elementary_middle_high or []
+    university_students = university_students or []
+
+    self_education = max(int(self_education), 0)
+    disability_special = max(int(disability_special), 0)
+
+    preschool_and_school = sum(
+        min(max(int(amount), 0), 3_000_000)
+        for amount in [*preschool_children, *elementary_middle_high]
+    )
+    university_total = sum(
+        min(max(int(amount), 0), 9_000_000)
+        for amount in university_students
+    )
+    eligible_total = self_education + preschool_and_school + university_total + disability_special
+    total_credit = int(eligible_total * 0.15)
+
+    return {
+        '본인교육비': self_education,
+        '취학전초중고교육비': preschool_and_school,
+        '대학교육비': university_total,
+        '장애인특수교육비': disability_special,
+        '공제대상합계': eligible_total,
+        '총세액공제액': total_credit,
+        '비고': '소득세법 §59의4③ 기준: 본인·장애인 특수교육비 무한, 취학전·초중고 1인당 300만, 대학생 1인당 900만',
+    }
+
+
+def calculate_donation_tax_credit(
+    legal_donation=0,
+    designated_donation=0,
+    political_donation=0,
+) -> dict:
+    legal_donation = max(int(legal_donation), 0)
+    designated_donation = max(int(designated_donation), 0)
+    political_donation = max(int(political_donation), 0)
+
+    general_donation = legal_donation + designated_donation
+
+    tier1_base = min(general_donation, 10_000_000)
+    tier2_base = min(max(general_donation - 10_000_000, 0), 20_000_000)
+    tier3_base = max(general_donation - 30_000_000, 0)
+    donation_credit = (
+        int(tier1_base * 0.15)
+        + int(tier2_base * 0.30)
+        + int(tier3_base * 0.40)
+    )
+
+    political_credit = 0
+    first_band = min(political_donation, 100_000)
+    if first_band > 0:
+        political_credit += int(first_band * (100 / 110))
+    second_band = min(max(political_donation - 100_000, 0), 9_900_000)
+    if second_band > 0:
+        political_credit += int(second_band * 0.15)
+    third_band = max(political_donation - 10_000_000, 0)
+    if third_band > 0:
+        political_credit += int(third_band * 0.25)
+
+    total_credit = donation_credit + political_credit
+
+    return {
+        '법정지정기부금': general_donation,
+        '정치자금기부금': political_donation,
+        '기부금세액공제': donation_credit,
+        '정치자금세액공제': political_credit,
+        '총세액공제액': total_credit,
+        '비고': '소득세법 §59의4④ 기준: 법정·지정기부금 1천만 이하 15%, 3천만 이하 30%, 3천만 초과 40%(2024 한시), 정치자금기부금 별도 계산',
+    }
+
+
+def calculate_disaster_tax_credit(calculated_tax, disaster_loss, total_business_assets) -> dict:
+    calculated_tax = max(int(calculated_tax), 0)
+    disaster_loss = max(int(disaster_loss), 0)
+    total_business_assets = int(total_business_assets)
+
+    if total_business_assets <= 0:
+        return {
+            '산출세액': calculated_tax,
+            '재해손실액': disaster_loss,
+            '사업용자산총액': total_business_assets,
+            '재해손실비율': 0.0,
+            '공제액': 0,
+            '비고': '소득세법 §58의2 기준: 사업용자산총액이 0 이하이면 재해손실세액공제를 적용할 수 없음',
+        }
+
+    ratio = min(disaster_loss / total_business_assets, 1.0)
+    credit = min(int(calculated_tax * ratio), calculated_tax)
+
+    return {
+        '산출세액': calculated_tax,
+        '재해손실액': disaster_loss,
+        '사업용자산총액': total_business_assets,
+        '재해손실비율': round(ratio, 4),
+        '공제액': credit,
+        '비고': '소득세법 §58의2 기준: 산출세액 × 재해손실비율',
+    }
+
+
+def check_one_house_exemption(
+    transfer_price: int,
+    acquisition_price: int,
+    holding_years: float,
+    residence_years: float = 0.0,
+    is_adjustment_zone: bool = False,
+    household_house_count: int = 1,
+) -> dict:
+    price = int(transfer_price)
+    acq = int(acquisition_price)
+    gain = max(price - acq, 0)
+    THRESHOLD = 1_200_000_000
+    unmet = []
+
+    if household_house_count != 1:
+        unmet.append(f'세대 주택수 {household_house_count}채 (1채 요건 미충족)')
+    if holding_years < 2.0:
+        unmet.append(f'보유기간 {holding_years}년 < 2년')
+    if is_adjustment_zone and residence_years < 2.0:
+        unmet.append(f'조정대상지역 거주기간 {residence_years}년 < 2년')
+
+    if unmet:
+        return {
+            '양도가액': price,
+            '취득가액': acq,
+            '양도차익': gain,
+            '보유기간': holding_years,
+            '거주기간': residence_years,
+            '비과세여부': False,
+            '비과세사유': '',
+            '고가주택여부': price > THRESHOLD,
+            '과세대상양도차익': gain,
+            '비과세양도차익': 0,
+            '미충족요건': unmet,
+            '비고': f'비과세 요건 미충족: {", ".join(unmet)}',
+        }
+
+    is_expensive = price > THRESHOLD
+    if not is_expensive:
+        return {
+            '양도가액': price,
+            '취득가액': acq,
+            '양도차익': gain,
+            '보유기간': holding_years,
+            '거주기간': residence_years,
+            '비과세여부': True,
+            '비과세사유': '1세대1주택 (12억 이하)',
+            '고가주택여부': False,
+            '과세대상양도차익': 0,
+            '비과세양도차익': gain,
+            '미충족요건': [],
+            '비고': f'양도가액 {price:,}원 ≤ 12억 — 전액 비과세',
+        }
+
+    taxable_gain = int(gain * (price - THRESHOLD) / price)
+    nontaxable_gain = gain - taxable_gain
+    return {
+        '양도가액': price,
+        '취득가액': acq,
+        '양도차익': gain,
+        '보유기간': holding_years,
+        '거주기간': residence_years,
+        '비과세여부': True,
+        '비과세사유': '1세대1주택 (고가주택 — 초과분만 과세)',
+        '고가주택여부': True,
+        '과세대상양도차익': taxable_gain,
+        '비과세양도차익': nontaxable_gain,
+        '미충족요건': [],
+        '비고': f'고가주택: 양도차익 {gain:,}원 × ({price:,}-12억)/{price:,} = 과세 {taxable_gain:,}원',
+    }
+
+
+def calculate_estimated_acquisition_price(
+    transfer_standard_price: int,
+    acquisition_standard_price: int,
+    actual_transfer_price: int,
+    necessary_expense: int = 0,
+) -> dict:
+    transfer = int(actual_transfer_price)
+    t_std = int(transfer_standard_price)
+    a_std = int(acquisition_standard_price)
+    expense = int(necessary_expense)
+
+    if t_std <= 0:
+        return {
+            '실지양도가액': transfer,
+            '양도당시기준시가': t_std,
+            '취득당시기준시가': a_std,
+            '환산취득가액': 0,
+            '필요경비': expense,
+            '양도차익': max(transfer - expense, 0),
+            '비고': '양도당시기준시가 0 — 환산 불가',
+        }
+
+    ratio = a_std / t_std
+    estimated_acq = int(transfer * ratio)
+    gain = max(transfer - estimated_acq - expense, 0)
+    return {
+        '실지양도가액': transfer,
+        '양도당시기준시가': t_std,
+        '취득당시기준시가': a_std,
+        '환산취득가액': estimated_acq,
+        '필요경비': expense,
+        '양도차익': gain,
+        '비고': f'환산취득가액 = {transfer:,}원 × ({a_std:,}/{t_std:,}) = {estimated_acq:,}원 | 양도차익 {gain:,}원',
+    }
+
+
+def calculate_withholding_tax(income_amount: int, income_type: str, is_resident: bool = True) -> dict:
+    amount = int(income_amount)
+    RESIDENT_RATES = {
+        'interest': (0.14, '§129①1호'),
+        'dividend': (0.14, '§129①2호'),
+        'business_service': (0.03, '§129①3호'),
+        'other': (0.20, '§129①6호'),
+        'pension': (0.05, '§129①5호'),
+    }
+    NONRESIDENT_RATES = {
+        'interest': (0.20, '§156①1호'),
+        'dividend': (0.20, '§156①2호'),
+        'royalty': (0.20, '§156①7호'),
+        'personal_service': (0.20, '§156①6호'),
+        'other': (0.20, '§156①'),
+    }
+    if is_resident:
+        if income_type not in RESIDENT_RATES:
+            raise ValueError(f'지원하지 않는 거주자 소득유형: {income_type}')
+        rate, basis = RESIDENT_RATES[income_type]
+    else:
+        if income_type not in NONRESIDENT_RATES:
+            raise ValueError(f'지원하지 않는 비거주자 소득유형: {income_type}')
+        rate, basis = NONRESIDENT_RATES[income_type]
+    tax = int(amount * rate)
+    local_tax = int(tax * 0.10)
+    total = tax + local_tax
+    return {
+        '소득금액': amount,
+        '소득유형': income_type,
+        '거주자여부': is_resident,
+        '원천징수세율': rate,
+        '원천징수세액': tax,
+        '지방소득세': local_tax,
+        '총부담세액': total,
+        '법령근거': basis,
+        '비고': f'{amount:,}원 × {rate:.0%} = {tax:,}원 (지방소득세 포함 총 {total:,}원)',
+    }
+
+
+def calculate_nonresident_tax(
+    income_amount: int,
+    income_type: str,
+    treaty_rate=None,
+    treaty_country: str = '',
+) -> dict:
+    amount = int(income_amount)
+    BASE_RATE = 0.20
+    applied_rate = float(treaty_rate) if treaty_rate is not None else BASE_RATE
+    tax = int(amount * applied_rate)
+    local_tax = int(tax * 0.10)
+    total = tax + local_tax
+    treaty_note = (
+        f' (조세조약 {treaty_country} 제한세율 {applied_rate:.0%})'
+        if treaty_rate is not None
+        else ''
+    )
+    return {
+        '국내원천소득금액': amount,
+        '소득유형': income_type,
+        '기본세율': BASE_RATE,
+        '적용세율': applied_rate,
+        '조세조약국': treaty_country,
+        '원천징수세액': tax,
+        '지방소득세': local_tax,
+        '총부담세액': total,
+        '비고': f'{amount:,}원 × {applied_rate:.0%} = {tax:,}원{treaty_note}',
     }

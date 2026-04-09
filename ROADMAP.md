@@ -199,6 +199,75 @@ SKILL.md에 출력 방법 단계별 안내 포함.
 
 ---
 
+## Phase 1-보완 — 소득세 미구현 챕터 완성
+
+> 목표: 소득세법 전 챕터를 실무 수준(Level 4)으로 완성.
+> 구현 패턴: law-mcp `get_law_article` → `data/*.txt` 저장 → `tax_calculator.py` 함수 추가 → `law_watch.py` 등록 → `eval_scenarios.py` exact assert 추가
+
+### Ch01. 소득세 총설
+- [x] `is_resident()` — 거주자/비거주자 판정 (§1의2: 국내 주소 또는 183일 거소)
+- [x] `get_taxable_period()` — 과세기간 특례 (§5: 사망·출국 시 단축)
+- [ ] 납세지 규정 안내 (§6~§8: 주소지/사업장 납세지신고) → SKILL.md
+
+### Ch02. 이자소득
+- [x] `calculate_nontaxable_interest()` — 비과세 이자소득 항목별 판정 (§12③1: 비과세종합저축 2천만 한도 등)
+- [ ] 이자소득 수입시기 규정 (§45: 약정일/지급일) → SKILL.md
+- [x] 무조건 분리과세 이자소득 `calculate_interest_income_tax()` (§14②: 비실명45%·장기채권30%·직장공제회)
+
+### Ch03. 배당소득
+- [x] `calculate_deemed_dividend()` — 의제배당 계산 (§17②: 잉여금 자본전입·감자·해산·합병·분할)
+- [x] `calculate_recognized_dividend()` — 인정배당 (§17①4: 법인세법상 소득처분)
+- [ ] 집합투자기구 배당소득 특례 (§17①5) → SKILL.md
+
+### Ch04. 사업소득 — 필요경비 상세
+- [x] `calculate_entertainment_expense_limit()` — 접대비 한도 (§35③: 중소기업3,600만/일반1,200만 + 수입금액 한도)
+- [x] `calculate_depreciation()` — 감가상각비 (§33①6, 영§62~§68: 정액법·정률법, 내용연수별 상각률)
+- [x] `calculate_car_expense_limit()` — 업무용승용차 관련비용 한도 (§33의2: 감가상각비 연 800만 한도)
+- [ ] 총수입금액 귀속시기 규정 (§39) → SKILL.md
+- [ ] 비과세 사업소득 (§12①) → SKILL.md
+
+### Ch05. 근로소득
+- [x] `calculate_simplified_withholding()` — 간이세액표 월별 원천징수 (§129·영§194: 부양가족 수별 세액)
+- [x] 비과세 근로소득 추가 항목 (§12③: 벽지수당·위험수당·국외근로소득·연구보조비 등) → `calculate_nontaxable_employment_income()` 확장
+- [ ] 근로소득 수입시기 (§49) → SKILL.md
+
+### Ch06. 연금소득 — 현재 구현 완료 ✓
+
+### Ch07. 기타소득
+- [x] 무조건 분리과세 세율 세분화 (§14②: 복권 3억 초과 33%, 슬롯머신 등) → `calculate_other_income()` 수정
+
+### Ch08. 종합소득금액 — 현재 구현 완료 ✓
+
+### Ch09. 종합소득공제
+- [x] `calculate_housing_savings_deduction()` — 주택청약종합저축 소득공제 (조특법 §87: 총급여 7천만 이하, 납입액×40%, 한도 300만)
+- [x] `apply_deduction_aggregate_limit()` — 소득공제 종합한도 2,500만원 (조특법 §132의2)
+
+### Ch10. 세액 계산 — 현재 구현 완료 ✓
+
+### Ch11. 세액공제·세액감면
+- [ ] `calculate_earned_income_tax_credit()` 재구현 — 근로소득세액공제 (§59: 총급여 구간별 55~74%, 한도 50~74만)
+- [x] `calculate_insurance_tax_credit()` — 보험료세액공제 (§59의4①: 보장성 12%, 장애인보장성 15%, 한도 100만)
+- [x] `calculate_medical_tax_credit_detail()` — 의료비세액공제 상세 (§59의4②: 본인·경로우대·장애인 한도 없음, 일반 200만)
+- [x] `calculate_education_tax_credit_detail()` — 교육비세액공제 상세 (§59의4③: 취학전~대학, 본인 전액, 장애인)
+- [x] `calculate_donation_tax_credit_detail()` — 기부금세액공제 상세 (§59의4④: 법정/지정/종교단체 한도 구분, 15%/30%)
+- [x] `calculate_disaster_loss_tax_credit()` — 재해손실세액공제 (§58: 피해액/종합소득세액 비율)
+
+### Ch12. 퇴직소득 — 현재 구현 완료 ✓
+
+### Ch13. 양도소득
+- [x] `check_one_house_exemption()` — 1세대1주택 비과세 요건 판정 (§89①3: 2년 보유·거주, 세대원 구성, 12억 기준)
+- [x] `calculate_estimated_acquisition_price()` — 취득가액 의제 (§97②: 기준시가·환산취득가액)
+
+### Ch14. 신고·납부
+- [x] `calculate_withholding_tax()` — 원천징수 세율표 통합 (§129: 이자 14%, 배당 14%, 사업 3.3%, 기타 22%, 근로 간이세액)
+- [ ] 양도소득 예정신고 안내 (§105~§106) → SKILL.md
+
+### Ch15. 비거주자
+- [x] `calculate_nonresident_tax()` — 국내원천소득 과세 (§119~§121: 소득유형별 세율)
+- [ ] 조세조약 제한세율 안내 → SKILL.md
+
+---
+
 ## 법제처 API vs Python 함수 분담 원칙
 
 ```

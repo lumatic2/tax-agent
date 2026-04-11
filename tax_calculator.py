@@ -1142,9 +1142,9 @@ def calculate_card_deduction(gross_salary: int, card_usage: dict) -> dict:
     else:
         base_limit = 2_000_000
 
-    # 전통시장·대중교통 각 100만 추가 한도
-    market_limit = 1_000_000
-    transit_limit = 1_000_000
+    # 전통시장·대중교통 각 300만 추가 한도 (2023년 귀속부터 상향, 이후 연장)
+    market_limit = 3_000_000
+    transit_limit = 3_000_000
 
     # 기본 한도 적용 (신용카드+체크카드 합산)
     base_deduction = min(credit_deduction + debit_deduction, base_limit)

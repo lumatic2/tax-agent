@@ -100,6 +100,46 @@ eval 7개 시나리오 전부 통과
 
 ---
 
+## Phase 1-검증 — 소득세 인증 게이트
+
+> Phase 2로 넘어가기 위한 공식 관문. `certify_phase1.py` 가 22/22 통과해야 진행 허가.
+
+### 성공 기준
+
+| 구분 | 항목 | 기준 |
+|---|---|---|
+| 챕터 테스트 | Ch01~Ch15 전 챕터 전용 assert | 100% 통과 (exact match) |
+| 통합 시나리오 | S1~S7 (근로·사업·양도·퇴직·연금·결손금·감면) | 100% 통과 |
+| 전체 게이트 | `python certify_phase1.py` 종료코드 0 | **22/22 달성** |
+
+### 챕터별 검증 항목
+
+| 챕터 | 검증 함수 | 핵심 assert |
+|---|---|---|
+| Ch01 | `is_resident()`, `get_taxable_period()` | 183일 경계값, 사망·출국 특례 |
+| Ch02 | `calculate_nontaxable_interest()`, `calculate_interest_income_tax()` | 비실명 45%, 장기채권 30% |
+| Ch03 | `calculate_deemed_dividend()`, `calculate_recognized_dividend()` | 의제배당·Gross-up exact |
+| Ch04 | `calculate_entertainment_expense_limit()`, `calculate_depreciation()`, `calculate_car_expense_limit()` | 한도 초과 분 exact |
+| Ch05 | `calculate_nontaxable_employment_income()`, `calculate_simplified_withholding()` | 비과세 항목별 exact |
+| Ch06 | `calculate_pension_income()` | 공제액·연금소득금액·과세방식 exact |
+| Ch07 | `calculate_other_income()` | 복권 3억 초과 33%, 슬롯머신 30% |
+| Ch08 | `calculate_loss_netting()` | 통산 순서(근로→연금→기타→이자→배당), 부동산임대 격리 |
+| Ch09 | `calculate_housing_savings_deduction()`, `apply_deduction_aggregate_limit()` | 2,500만 한도 exact |
+| Ch10 | `calculate_tax()` | 1000만·5000만·7000만·1억 세율 구간 경계값 exact |
+| Ch11 | `calculate_earned_income_tax_credit()`, 세액공제 5종 | 한도·공제액 exact |
+| Ch12 | `calculate_retirement_income_tax()` | 환산급여·세액 전 단계 exact (150M/20년) |
+| Ch13 | `check_one_house_exemption()`, `calculate_transfer_income_tax()` | 1세대1주택 요건, 양도세액 |
+| Ch14 | `calculate_withholding_tax()` | 소득유형별 세율 통합 |
+| Ch15 | `calculate_nonresident_tax()` | 국내원천소득 유형별 세율 |
+
+### 현황
+
+- [x] `certify_phase1.py` 생성 완료
+- [x] **22/22 인증 통과** (2026-04-11)
+- [x] Phase 2 진행 허가
+
+---
+
 ## Phase 2 — 부가가치세 (2026 세법 워크북 제4부)
 
 Phase 1 Level 4 달성 후 시작.
@@ -207,29 +247,29 @@ SKILL.md에 출력 방법 단계별 안내 포함.
 ### Ch01. 소득세 총설
 - [x] `is_resident()` — 거주자/비거주자 판정 (§1의2: 국내 주소 또는 183일 거소)
 - [x] `get_taxable_period()` — 과세기간 특례 (§5: 사망·출국 시 단축)
-- [ ] 납세지 규정 안내 (§6~§8: 주소지/사업장 납세지신고) → SKILL.md
+- [x] 납세지 규정 안내 (§6~§8: 주소지/사업장 납세지신고) → SKILL.md
 
 ### Ch02. 이자소득
 - [x] `calculate_nontaxable_interest()` — 비과세 이자소득 항목별 판정 (§12③1: 비과세종합저축 2천만 한도 등)
-- [ ] 이자소득 수입시기 규정 (§45: 약정일/지급일) → SKILL.md
+- [x] 이자소득 수입시기 규정 (§45: 약정일/지급일) → SKILL.md
 - [x] 무조건 분리과세 이자소득 `calculate_interest_income_tax()` (§14②: 비실명45%·장기채권30%·직장공제회)
 
 ### Ch03. 배당소득
 - [x] `calculate_deemed_dividend()` — 의제배당 계산 (§17②: 잉여금 자본전입·감자·해산·합병·분할)
 - [x] `calculate_recognized_dividend()` — 인정배당 (§17①4: 법인세법상 소득처분)
-- [ ] 집합투자기구 배당소득 특례 (§17①5) → SKILL.md
+- [x] 집합투자기구 배당소득 특례 (§17①5) → SKILL.md
 
 ### Ch04. 사업소득 — 필요경비 상세
 - [x] `calculate_entertainment_expense_limit()` — 접대비 한도 (§35③: 중소기업3,600만/일반1,200만 + 수입금액 한도)
 - [x] `calculate_depreciation()` — 감가상각비 (§33①6, 영§62~§68: 정액법·정률법, 내용연수별 상각률)
 - [x] `calculate_car_expense_limit()` — 업무용승용차 관련비용 한도 (§33의2: 감가상각비 연 800만 한도)
-- [ ] 총수입금액 귀속시기 규정 (§39) → SKILL.md
-- [ ] 비과세 사업소득 (§12①) → SKILL.md
+- [x] 총수입금액 귀속시기 규정 (§39) → SKILL.md
+- [x] 비과세 사업소득 (§12①) → SKILL.md
 
 ### Ch05. 근로소득
 - [x] `calculate_simplified_withholding()` — 간이세액표 월별 원천징수 (§129·영§194: 부양가족 수별 세액)
 - [x] 비과세 근로소득 추가 항목 (§12③: 벽지수당·위험수당·국외근로소득·연구보조비 등) → `calculate_nontaxable_employment_income()` 확장
-- [ ] 근로소득 수입시기 (§49) → SKILL.md
+- [x] 근로소득 수입시기 (§49) → SKILL.md
 
 ### Ch06. 연금소득 — 현재 구현 완료 ✓
 
@@ -245,7 +285,7 @@ SKILL.md에 출력 방법 단계별 안내 포함.
 ### Ch10. 세액 계산 — 현재 구현 완료 ✓
 
 ### Ch11. 세액공제·세액감면
-- [ ] `calculate_earned_income_tax_credit()` 재구현 — 근로소득세액공제 (§59: 총급여 구간별 55~74%, 한도 50~74만)
+- [x] `calculate_earned_income_tax_credit()` 재구현 — 근로소득세액공제 (§59: 총급여 구간별 55~74%, 한도 50~74만)
 - [x] `calculate_insurance_tax_credit()` — 보험료세액공제 (§59의4①: 보장성 12%, 장애인보장성 15%, 한도 100만)
 - [x] `calculate_medical_tax_credit_detail()` — 의료비세액공제 상세 (§59의4②: 본인·경로우대·장애인 한도 없음, 일반 200만)
 - [x] `calculate_education_tax_credit_detail()` — 교육비세액공제 상세 (§59의4③: 취학전~대학, 본인 전액, 장애인)
@@ -260,11 +300,11 @@ SKILL.md에 출력 방법 단계별 안내 포함.
 
 ### Ch14. 신고·납부
 - [x] `calculate_withholding_tax()` — 원천징수 세율표 통합 (§129: 이자 14%, 배당 14%, 사업 3.3%, 기타 22%, 근로 간이세액)
-- [ ] 양도소득 예정신고 안내 (§105~§106) → SKILL.md
+- [x] 양도소득 예정신고 안내 (§105~§106) → SKILL.md
 
 ### Ch15. 비거주자
 - [x] `calculate_nonresident_tax()` — 국내원천소득 과세 (§119~§121: 소득유형별 세율)
-- [ ] 조세조약 제한세율 안내 → SKILL.md
+- [x] 조세조약 제한세율 안내 → SKILL.md
 
 ---
 

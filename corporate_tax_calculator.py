@@ -377,47 +377,90 @@ def calculate_entertainment_expense_limit_corp(
     actual_entertainment: int = 0,
     is_sme: bool = False,
     months: int = 12,
+    related_party_revenue: int = 0,
+    cultural_entertainment: int = 0,
+    traditional_market: int = 0,
+    cultural_rate: float = 0.20,
+    market_rate: float = 0.10,
 ) -> dict:
-    """기업업무추진비(접대비) 한도 (§25, 영§42).
+    """기업업무추진비(접대비) 한도 (§25, 영§42, 조특법§136).
 
-    한도 = 기본한도 + 수입금액별 한도
+    한도 = 기본한도 + 수입금액별 한도 + 문화접대비 추가한도 + 전통시장 추가한도
     - 기본한도: 중소기업 3,600만 / 일반 1,200만 (연 기준, 월할)
     - 수입금액별:
       100억 이하: × 0.3% (3/1,000)
       100억 초과 500억 이하: × 0.2%
       500억 초과: × 0.03%
+      특수관계인 매출분: 적용률 × 1/10 (2024 개정)
+    - 문화접대비 추가한도 (조특법§136③): 일반한도의 20% 범위 내 실사용액
+    - 전통시장 접대비 추가한도 (조특법§136⑥): 일반한도의 10~20% 범위 내 실사용액
 
     Args:
-        revenue: 수입금액 (매출액)
+        revenue: 총 수입금액 (매출액)
         actual_entertainment: 실지출 기업업무추진비
         is_sme: 중소기업 여부
         months: 사업연도 월수 (기본 12)
+        related_party_revenue: 특수관계인 매출액 (적용률 1/10 적용)
+        cultural_entertainment: 문화접대비 지출액 (조특법§136③)
+        traditional_market: 전통시장 접대비 지출액 (조특법§136⑥)
+        cultural_rate: 문화접대비 추가한도 비율 (기본 20%)
+        market_rate: 전통시장 추가한도 비율 (기본 10%, 2026~ 20%)
 
     Returns:
-        dict: {기본한도, 수입금액한도, 총한도, 실지출액, 손금산입액, 손금불산입액}
+        dict: {기본한도, 수입금액한도, 일반한도, 문화접대비추가한도,
+               전통시장추가한도, 총한도, 실지출액, 손금산입액, 손금불산입액}
     """
     months = max(1, min(12, months))
     rev = int(revenue)
+    rp_rev = int(related_party_revenue)
     actual = int(actual_entertainment)
 
     base_annual = 36_000_000 if is_sme else 12_000_000
     base_limit = int(base_annual * months / 12)
 
-    # 수입금액별 한도 (누적 구간)
-    if rev <= 10_000_000_000:
-        rev_limit = int(rev * 0.003)
-    elif rev <= 50_000_000_000:
-        rev_limit = 30_000_000 + int((rev - 10_000_000_000) * 0.002)
-    else:
-        rev_limit = 110_000_000 + int((rev - 50_000_000_000) * 0.0003)
+    # --- 수입금액별 한도 (특수관계인 매출 감액 반영) ---
+    normal_rev = rev - rp_rev  # 일반 매출
 
-    total_limit = base_limit + rev_limit
+    def _rev_limit(r):
+        """수입금액에 대한 한도 (누적 구간)"""
+        if r <= 10_000_000_000:
+            return int(r * 0.003)
+        elif r <= 50_000_000_000:
+            return 30_000_000 + int((r - 10_000_000_000) * 0.002)
+        else:
+            return 110_000_000 + int((r - 50_000_000_000) * 0.0003)
+
+    if rp_rev > 0:
+        # 일반매출에 대한 한도 (정상 적용률)
+        normal_limit = _rev_limit(normal_rev)
+        # 특수관계인 매출은 총수입금액 상위 구간에 배치, 적용률 × 1/10
+        total_limit_full = _rev_limit(rev)
+        rp_portion = total_limit_full - normal_limit
+        rp_limit = int(rp_portion / 10)  # 1/10 적용
+        rev_limit = normal_limit + rp_limit
+    else:
+        rev_limit = _rev_limit(rev)
+
+    general_limit = base_limit + rev_limit  # 일반한도
+
+    # --- 문화접대비 추가한도 (조특법§136③) ---
+    cultural_cap = int(general_limit * cultural_rate)
+    cultural_extra = min(int(cultural_entertainment), cultural_cap)
+
+    # --- 전통시장 접대비 추가한도 (조특법§136⑥) ---
+    market_cap = int(general_limit * market_rate)
+    market_extra = min(int(traditional_market), market_cap)
+
+    total_limit = general_limit + cultural_extra + market_extra
     deductible = min(actual, total_limit)
     excess = max(actual - total_limit, 0)
 
     return {
         '기본한도': base_limit,
         '수입금액한도': rev_limit,
+        '일반한도': general_limit,
+        '문화접대비추가한도': cultural_extra,
+        '전통시장추가한도': market_extra,
         '총한도': total_limit,
         '실지출액': actual,
         '손금산입액': deductible,

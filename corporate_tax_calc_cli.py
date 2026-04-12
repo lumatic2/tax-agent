@@ -135,7 +135,12 @@ def handle_tax(args):
 
 def handle_entertainment(args):
     r = calculate_entertainment_expense_limit_corp(
-        revenue=args.revenue, actual_entertainment=args.actual, is_sme=args.sme)
+        revenue=args.revenue, actual_entertainment=args.actual, is_sme=args.sme,
+        related_party_revenue=args.related_party,
+        cultural_entertainment=args.cultural,
+        traditional_market=args.market,
+        cultural_rate=args.cultural_rate,
+        market_rate=args.market_rate)
     print(f"[접대비 한도] {'중소기업' if args.sme else '일반법인'}")
     print_dict(r, indent=1)
 
@@ -240,10 +245,15 @@ def main():
     p.add_argument("--prepaid", type=int, default=0, help="기납부세액")
 
     # entertainment-limit
-    p = sub.add_parser("entertainment-limit", help="접대비 한도 (§25)")
-    p.add_argument("--revenue", type=int, required=True, help="수입금액")
+    p = sub.add_parser("entertainment-limit", help="접대비 한도 (§25, 조특법§136)")
+    p.add_argument("--revenue", type=int, required=True, help="총 수입금액")
     p.add_argument("--actual", type=int, default=0, help="실지출액")
     p.add_argument("--sme", action="store_true", help="중소기업 여부")
+    p.add_argument("--related-party", type=int, default=0, help="특수관계인 매출액")
+    p.add_argument("--cultural", type=int, default=0, help="문화접대비 지출액")
+    p.add_argument("--market", type=int, default=0, help="전통시장 접대비 지출액")
+    p.add_argument("--cultural-rate", type=float, default=0.20, help="문화접대비 추가한도율 (기본 0.20)")
+    p.add_argument("--market-rate", type=float, default=0.10, help="전통시장 추가한도율 (기본 0.10)")
 
     # donation-limit
     p = sub.add_parser("donation-limit", help="기부금 한도 (§24)")

@@ -129,6 +129,79 @@ def is_deemed_supply(
     }
 
 
+# 임직원 증정 비과세 한도 (§10④ 단서, 영§17)
+EMPLOYEE_GIFT_CATEGORIES = {
+    '경조사': 100_000,   # 1인당 연 10만원
+    '명절': 100_000,
+    '기념일': 100_000,
+    '생일': 100_000,
+    '기타': 100_000,
+}
+
+
+def calculate_employee_gift_deemed_supply(
+    *,
+    gifts: list[dict],
+) -> dict:
+    """임직원 증정 비과세 한도 판정 (§10④ 단서, 영§17).
+
+    사업상증여(§10①3) 중 임직원에 대한 증정은
+    구분별 1인당 연간 10만원 이하인 경우 간주공급 제외.
+    초과분만 간주공급 과세.
+
+    Args:
+        gifts: 증정 내역 리스트
+            각 항목: {
+                '수령인': str,
+                '구분': '경조사'|'명절'|'기념일'|'생일'|'기타',
+                '금액': int,  # 시가 기준
+            }
+
+    Returns:
+        dict: {
+            총증정액, 비과세액, 과세대상액,
+            수령인별상세: [{수령인, 구분, 금액, 한도, 비과세, 과세}]
+        }
+    """
+    details = []
+    total_gift = 0
+    total_exempt = 0
+    total_taxable = 0
+
+    # 수령인+구분별 집계
+    aggregated: dict[tuple[str, str], int] = {}
+    gift_items: dict[tuple[str, str], list[dict]] = {}
+    for g in gifts:
+        key = (g['수령인'], g['구분'])
+        aggregated[key] = aggregated.get(key, 0) + g['금액']
+        gift_items.setdefault(key, []).append(g)
+
+    for (recipient, category), amount in aggregated.items():
+        limit = EMPLOYEE_GIFT_CATEGORIES.get(category, 100_000)
+        exempt = min(amount, limit)
+        taxable = max(0, amount - limit)
+
+        details.append({
+            '수령인': recipient,
+            '구분': category,
+            '금액': amount,
+            '한도': limit,
+            '비과세': exempt,
+            '과세': taxable,
+        })
+        total_gift += amount
+        total_exempt += exempt
+        total_taxable += taxable
+
+    return {
+        '총증정액': total_gift,
+        '비과세액': total_exempt,
+        '과세대상액': total_taxable,
+        '간주공급세액': int(total_taxable * 0.10),
+        '수령인별상세': details,
+    }
+
+
 def get_supply_time(
     *,
     transaction_type: str,
@@ -330,6 +403,83 @@ def calculate_preliminary_notice(
     return {
         '직전기납부세액': prior_period_tax,
         '예정고지세액': notice_amount,
+    }
+
+
+# 예정/확정 신고기간 경계일 (월-일)
+_PERIOD_BOUNDARIES = [
+    # (시작, 끝, 기간명)
+    ((1, 1), (3, 31), '1기예정'),
+    ((4, 1), (6, 30), '1기확정'),
+    ((7, 1), (9, 30), '2기예정'),
+    ((10, 1), (12, 31), '2기확정'),
+]
+
+
+def _get_vat_period(d: date) -> str:
+    """날짜가 속하는 부가세 신고기간 반환."""
+    for (sm, sd), (em, ed), name in _PERIOD_BOUNDARIES:
+        start = date(d.year, sm, sd)
+        end = date(d.year, em, ed)
+        if start <= d <= end:
+            return f"{d.year}-{name}"
+    return f"{d.year}-불명"
+
+
+def classify_preliminary_omission(
+    *,
+    transactions: list[dict],
+) -> dict:
+    """예정신고 누락분 판정 (§15~§17, §48).
+
+    공급시기와 세금계산서 발급일이 다른 신고기간에 속하면
+    공급시기 기준 귀속기간으로 신고해야 함.
+    세금계산서 발급일 기준으로만 신고 시 → 공급시기 귀속기간에서 누락.
+
+    Args:
+        transactions: 거래 목록
+            각 항목: {
+                '거래명': str,
+                '공급시기': date,  # 실제 재화/용역 공급일
+                '세금계산서발급일': date,
+                '공급가액': int,
+            }
+
+    Returns:
+        dict: {
+            총건수, 정상건수, 불일치건수,
+            누락위험거래: [{거래명, 공급시기, 발급일, 귀속기간, 발급기간, 공급가액}]
+        }
+    """
+    normal = []
+    mismatched = []
+
+    for tx in transactions:
+        supply_date = tx['공급시기']
+        invoice_date = tx['세금계산서발급일']
+        supply_period = _get_vat_period(supply_date)
+        invoice_period = _get_vat_period(invoice_date)
+
+        entry = {
+            '거래명': tx['거래명'],
+            '공급시기': str(supply_date),
+            '세금계산서발급일': str(invoice_date),
+            '귀속기간': supply_period,
+            '발급기간': invoice_period,
+            '공급가액': tx['공급가액'],
+        }
+
+        if supply_period == invoice_period:
+            normal.append(entry)
+        else:
+            entry['판정'] = f"공급시기({supply_period}) ≠ 발급일({invoice_period}) → {supply_period} 귀속, {invoice_period} 신고 시 누락"
+            mismatched.append(entry)
+
+    return {
+        '총건수': len(transactions),
+        '정상건수': len(normal),
+        '불일치건수': len(mismatched),
+        '누락위험거래': mismatched,
     }
 
 
@@ -556,6 +706,54 @@ def calculate_foreign_currency_supply(
         result['세금계산서발급일환율'] = exchange_rate_invoice_date
         result['환율차이'] = exchange_rate_supply_date - exchange_rate_invoice_date
     return result
+
+
+def calculate_export_supply_value(
+    *,
+    remitted: list[dict] | None = None,
+    unremitted_amount: float = 0,
+    base_rate_supply_date: float = 0,
+) -> dict:
+    """수출 과세표준 환율 세분화 (영§59).
+
+    영§59에 따라 수출재화의 원화환산은 환가 여부에 따라 구분:
+      - 환가분(환전완료): 실제 환가한 날의 외국환거래법 기준환율/재정환율
+      - 미환가분(미환전): 공급시기의 기준환율/재정환율
+
+    Args:
+        remitted: 환가분 목록 [{금액: float, 환율: float, 환가일: str(optional)}]
+        unremitted_amount: 미환가 외화 금액
+        base_rate_supply_date: 공급시기 기준환율 (미환가분 적용)
+
+    Returns:
+        dict: {환가분합계, 미환가분합계, 총원화공급가액, 환가상세}
+    """
+    remitted = remitted or []
+
+    remitted_details = []
+    remitted_total = 0
+    for item in remitted:
+        krw = int(item['금액'] * item['환율'])
+        remitted_details.append({
+            '외화금액': item['금액'],
+            '환율': item['환율'],
+            '원화금액': krw,
+            '환가일': item.get('환가일', ''),
+        })
+        remitted_total += krw
+
+    unremitted_krw = int(unremitted_amount * base_rate_supply_date)
+
+    total = remitted_total + unremitted_krw
+
+    return {
+        '환가분합계': remitted_total,
+        '환가상세': remitted_details,
+        '미환가외화금액': unremitted_amount,
+        '미환가적용환율': base_rate_supply_date,
+        '미환가분합계': unremitted_krw,
+        '총원화공급가액': total,
+    }
 
 
 # ──────────────────────────────────────────────

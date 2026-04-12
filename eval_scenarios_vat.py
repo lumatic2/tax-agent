@@ -38,7 +38,12 @@ from vat_calculator import (
     calculate_proxy_payment_tax,
     calculate_deemed_input_tax_with_limit,
     calculate_local_consumption_tax,
+    # Gap 2차 보강
+    calculate_employee_gift_deemed_supply,
+    calculate_export_supply_value,
+    classify_preliminary_omission,
 )
+from datetime import date
 
 
 def scenario_v1_basic_output_tax():
@@ -328,7 +333,7 @@ def scenario_v21_deemed_limit():
     assert r['최종공제액'] == min(raw, limit)
     assert r['한도초과여부'] is False  # raw 3.7M < limit 7.5M
 
-    print(f"  V21 PASS: 의제매입세액 한도 — 공제 {r['최종공제액']:,} (한도 {limit:,})")
+    print(f"  V21 PASS: 의제매입세액 한도 - 공제 {r['최종공제액']:,} (한도 {limit:,})")
 
 
 def scenario_v22_local_tax():
@@ -366,6 +371,71 @@ def scenario_v23_simplified_full_q76():
     print("  V23 PASS: 간이과세 전체 Q76: 산출 1,492,500 - 82,500 - 1,040,000 = 370,000 (정답 366K, 4K gap)")
 
 
+def scenario_v24_employee_gift():
+    """V24: 임직원 증정 비과세 한도 — §10④, 영§17
+    직원 A: 경조사 8만 + 명절 12만, 직원 B: 경조사 15만
+    → A 경조사 8만 비과세, 명절 10만 비과세/2만 과세
+      B 경조사 10만 비과세/5만 과세
+    → 과세대상 7만, 간주공급세액 7,000"""
+    r = calculate_employee_gift_deemed_supply(gifts=[
+        {'수령인': 'A', '구분': '경조사', '금액': 80_000},
+        {'수령인': 'A', '구분': '명절', '금액': 120_000},
+        {'수령인': 'B', '구분': '경조사', '금액': 150_000},
+    ])
+    assert r['총증정액'] == 350_000, f"총증정액 {r['총증정액']}"
+    assert r['비과세액'] == 280_000, f"비과세액 {r['비과세액']}"
+    assert r['과세대상액'] == 70_000, f"과세대상액 {r['과세대상액']}"
+    assert r['간주공급세액'] == 7_000, f"간주공급세액 {r['간주공급세액']}"
+
+    print("  V24 PASS: 임직원 증정 비과세 - 과세 70K, 세액 7K")
+
+
+def scenario_v25_export_exchange():
+    """V25: 수출 환율 세분화 — 영§59 환가분/미환가분
+    환가분: $30,000 × 1,350 + $20,000 × 1,380
+    미환가분: $50,000 × 1,400(기준환율)
+    → 환가 68,100,000 + 미환가 70,000,000 = 138,100,000"""
+    r = calculate_export_supply_value(
+        remitted=[
+            {'금액': 30_000, '환율': 1_350, '환가일': '2025-03-10'},
+            {'금액': 20_000, '환율': 1_380, '환가일': '2025-03-15'},
+        ],
+        unremitted_amount=50_000,
+        base_rate_supply_date=1_400,
+    )
+    assert r['환가분합계'] == 68_100_000, f"환가분 {r['환가분합계']}"
+    assert r['미환가분합계'] == 70_000_000, f"미환가분 {r['미환가분합계']}"
+    assert r['총원화공급가액'] == 138_100_000, f"총 {r['총원화공급가액']}"
+
+    print("  V25 PASS: 수출 환율 환가 68.1M + 미환가 70M = 138.1M")
+
+
+def scenario_v26_preliminary_omission():
+    """V26: 예정신고 누락분 판정 — 공급시기 vs 발급일 불일치
+    TX1: 3/25 공급 → 4/5 발급 (1기예정→1기확정: 누락위험)
+    TX2: 6/28 공급 → 6/28 발급 (정상)
+    TX3: 9/30 공급 → 10/2 발급 (2기예정→2기확정: 누락위험)"""
+    r = classify_preliminary_omission(transactions=[
+        {'거래명': 'TX1', '공급시기': date(2025, 3, 25),
+         '세금계산서발급일': date(2025, 4, 5), '공급가액': 10_000_000},
+        {'거래명': 'TX2', '공급시기': date(2025, 6, 28),
+         '세금계산서발급일': date(2025, 6, 28), '공급가액': 5_000_000},
+        {'거래명': 'TX3', '공급시기': date(2025, 9, 30),
+         '세금계산서발급일': date(2025, 10, 2), '공급가액': 20_000_000},
+    ])
+    assert r['총건수'] == 3
+    assert r['정상건수'] == 1
+    assert r['불일치건수'] == 2
+    assert len(r['누락위험거래']) == 2
+    assert r['누락위험거래'][0]['거래명'] == 'TX1'
+    assert r['누락위험거래'][0]['귀속기간'] == '2025-1기예정'
+    assert r['누락위험거래'][0]['발급기간'] == '2025-1기확정'
+    assert r['누락위험거래'][1]['거래명'] == 'TX3'
+    assert r['누락위험거래'][1]['귀속기간'] == '2025-2기예정'
+
+    print("  V26 PASS: 예정신고 누락판정 - TX1,TX3 불일치(2건), TX2 정상")
+
+
 def run_all():
     scenarios = [
         ("V1", scenario_v1_basic_output_tax),
@@ -391,6 +461,9 @@ def run_all():
         ("V21", scenario_v21_deemed_limit),
         ("V22", scenario_v22_local_tax),
         ("V23", scenario_v23_simplified_full_q76),
+        ("V24", scenario_v24_employee_gift),
+        ("V25", scenario_v25_export_exchange),
+        ("V26", scenario_v26_preliminary_omission),
     ]
 
     passed = 0

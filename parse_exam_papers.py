@@ -204,8 +204,15 @@ def parse_세무사_1차_세법(text: str) -> list[dict]:
         end = splits[i + 1].start() if i + 1 < len(splits) else len(text)
         content = text[start:end].strip()
 
-        # 보기 추출 (①②③④⑤)
-        choices = re.findall(r'[①②③④⑤⑥]\s*[^\n①②③④⑤⑥]{5,200}', content)
+        # 보기 추출 (①②③④⑤): 원형 기호 사이의 텍스트를 모두 수집 (개행 포함)
+        choice_positions = [m.start() for m in re.finditer(r'[①②③④⑤]', content)]
+        choices = []
+        for ci, cstart in enumerate(choice_positions):
+            cend = choice_positions[ci + 1] if ci + 1 < len(choice_positions) else len(content)
+            choice_text = content[cstart:cend].strip()
+            choice_text = re.sub(r'\s+', ' ', choice_text)  # 개행·공백 정규화
+            if len(choice_text) >= 2:
+                choices.append(choice_text)
         # 정답 (별도 정답 파일이 있으면 매핑)
         body = re.split(r'[①②③④⑤]', content)[0].strip()
 

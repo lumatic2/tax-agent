@@ -1,0 +1,174 @@
+[
+  {
+    "year": 2024,
+    "mode": "plain",
+    "model": "claude-sonnet-4-6",
+    "elapsed_s": 538.0,
+    "exact": 4,
+    "close": 0,
+    "total": 18,
+    "pct_exact": 22.2,
+    "pct_close": 22.2,
+    "sub_results": [
+      {
+        "sub_num": 1,
+        "label": "갑 — 이자·배당·사업소득",
+        "elapsed_s": 227.7,
+        "json_ok": true,
+        "exact": 2,
+        "close": 0,
+        "total": 5,
+        "items": [
+          {
+            "label": "요구사항1.이자소득_원천징수세액",
+            "expected": 2180000,
+            "predicted": 2180000,
+            "exact": true,
+            "close": false
+          },
+          {
+            "label": "요구사항1.이자소득_총수입금액",
+            "expected": 14000000,
+            "predicted": 14000000,
+            "exact": true,
+            "close": false
+          },
+          {
+            "label": "요구사항2.배당소득_총수입금액",
+            "expected": 12000000,
+            "predicted": 13320000,
+            "exact": false,
+            "close": false
+          },
+          {
+            "label": "요구사항2.배당가산액",
+            "expected": 600000,
+            "predicted": 1320000,
+            "exact": false,
+            "close": false
+          },
+          {
+            "label": "요구사항3.사업소득금액",
+            "expected": 243000000,
+            "predicted": 245000000,
+            "exact": false,
+            "close": false
+          }
+        ]
+      },
+      {
+        "sub_num": 2,
+        "label": "을 — 근로소득 및 소득공제",
+        "elapsed_s": 148.3,
+        "json_ok": true,
+        "exact": 2,
+        "close": 0,
+        "total": 6,
+        "items": [
+          {
+            "label": "요구사항1.근로소득_총급여액",
+            "expected": 45500000,
+            "predicted": 22000000,
+            "exact": false,
+            "close": false
+          },
+          {
+            "label": "요구사항1.근로소득공제액",
+            "expected": 14625000,
+            "predicted": 8550000,
+            "exact": false,
+            "close": false
+          },
+          {
+            "label": "요구사항1.근로소득금액",
+            "expected": 13875000,
+            "predicted": 13450000,
+            "exact": false,
+            "close": false
+          },
+          {
+            "label": "요구사항2.인적공제_기본공제액",
+            "expected": 6000000,
+            "predicted": 6000000,
+            "exact": true,
+            "close": false
+          },
+          {
+            "label": "요구사항2.인적공제_추가공제액",
+            "expected": 3500000,
+            "predicted": 3500000,
+            "exact": true,
+            "close": false
+          },
+          {
+            "label": "요구사항2.특별소득공제액",
+            "expected": 4500000,
+            "predicted": 3500000,
+            "exact": false,
+            "close": false
+          }
+        ]
+      },
+      {
+        "sub_num": 3,
+        "label": "병 — 기타소득·세액공제",
+        "elapsed_s": 162.0,
+        "json_ok": false,
+        "exact": 0,
+        "close": 0,
+        "total": 7,
+        "items": [
+          {
+            "label": "요구사항1.기타소득금액",
+            "expected": 18200000,
+            "predicted": null,
+            "exact": false,
+            "close": false
+          },
+          {
+            "label": "요구사항2.일반산출세액",
+            "expected": 19560000,
+            "predicted": null,
+            "exact": false,
+            "close": false
+          },
+          {
+            "label": "요구사항2.비교산출세액",
+            "expected": 34740000,
+            "predicted": null,
+            "exact": false,
+            "close": false
+          },
+          {
+            "label": "요구사항2.종합소득산출세액",
+            "expected": 34740000,
+            "predicted": null,
+            "exact": false,
+            "close": false
+          },
+          {
+            "label": "요구사항3.의료비세액공제액",
+            "expected": 3450000,
+            "predicted": null,
+            "exact": false,
+            "close": false
+          },
+          {
+            "label": "요구사항3.기장세액공제액",
+            "expected": 1000000,
+            "predicted": null,
+            "exact": false,
+            "close": false
+          },
+          {
+            "label": "요구사항3.연금계좌세액공제액",
+            "expected": 960000,
+            "predicted": null,
+            "exact": false,
+            "close": false
+          }
+        ]
+      }
+    ]
+  }
+]

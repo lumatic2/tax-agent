@@ -147,6 +147,75 @@ def ask_claude(client, q: Question, model: str = "claude-haiku-4-5-20251001") ->
         return None
 
 
+def ask_claude_cli(q: Question, model: str = "claude-haiku-4-5-20251001") -> Optional[int]:
+    """claude -p CLI를 통해 MCQ 질문을 던지고 정답 번호(int)를 반환. 실패 시 None."""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["claude", "-p", "--model", model, "--system-prompt", SYSTEM_PROMPT],
+            input=build_user_prompt(q).encode("utf-8"),
+            capture_output=True,
+            timeout=180,
+        )
+        raw = result.stdout.decode("utf-8", errors="replace").strip()
+        # 원형 숫자 ①~⑤ 우선 확인
+        circle_map = {"①": "1", "②": "2", "③": "3", "④": "4", "⑤": "5"}
+        for orig, mapped in circle_map.items():
+            if orig in raw:
+                return int(mapped)
+        # 마지막 줄부터 역순으로 1~5 숫자 탐색 (앞쪽 목록 번호 오인 방지)
+        lines = [line.strip() for line in raw.splitlines() if line.strip()]
+        for line in reversed(lines):
+            for ch in reversed(line):
+                if ch in "12345":
+                    return int(ch)
+        if result.stderr:
+            err = result.stderr.decode("utf-8", errors="replace")
+            if err.strip():
+                print(f"    [stderr] {err[:80]}", file=sys.stderr)
+        return None
+    except Exception as e:
+        print(f"    CLI 오류: {e}", file=sys.stderr)
+        return None
+
+
+def ask_claude_with_tools(q: Question, model: str) -> Optional[int]:
+    import subprocess
+
+    system_prompt = """당신은 대한민국 세법 객관식 문제를 푸는 전문가다.
+계산이 필요하면 반드시 현재 저장소의 `python tax_calc_cli.py ...` 명령을 Bash 도구로 호출해 검산한다.
+추론은 간결하게 진행하고, 마지막 줄에는 정답 숫자 1~5 중 하나만 남겨라."""
+    prompt = build_user_prompt(q)
+
+    try:
+        result = subprocess.run(
+            [
+                "claude",
+                "-p",
+                "--tools",
+                "Bash",
+                "--dangerously-skip-permissions",
+                "--system-prompt",
+                system_prompt,
+                "--model",
+                model,
+            ],
+            input=prompt.encode("utf-8"),
+            capture_output=True,
+            timeout=300,
+        )
+        raw = result.stdout.decode("utf-8", errors="replace").strip()
+        lines = [line.strip() for line in raw.splitlines() if line.strip()]
+        for line in reversed(lines):
+            for ch in line:
+                if ch in "12345":
+                    return int(ch)
+        return None
+    except Exception as e:
+        print(f"Tools error: {e}", file=sys.stderr)
+        return None
+
+
 # ─── 결과 집계 ────────────────────────────────────────────────────────────────
 
 @dataclass
@@ -197,6 +266,10 @@ def main():
                         help="사용할 Claude 모델")
     parser.add_argument("--dry-run", action="store_true",
                         help="API 호출 없이 문제 파싱 확인만")
+    parser.add_argument("--subject", default="",
+                        help="특정 세목 문자열 필터")
+    parser.add_argument("--use-tools", action="store_true",
+                        help="claude CLI 호출 시 Bash 도구 사용")
     parser.add_argument("--output", default="",
                         help="결과 저장 경로 (JSON)")
     parser.add_argument("--delay", type=float, default=0.5,
@@ -220,6 +293,17 @@ def main():
             print(f"  로드: {cfg['name']} {year} — {len(qs)}문항")
             all_questions.extend(qs)
 
+    if args.subject:
+        # 문제 내용의 <법명> 마커를 우선 체크, 없으면 subject 태그로 폴백
+        law_marker = f"<{args.subject}법>"
+        all_questions = [
+            q for q in all_questions
+            if law_marker in q.content
+            or any(args.subject in s for s in q.subject)
+            and f"<" not in q.content  # 마커 없는 문제만 태그 폴백
+        ]
+        print(f"  subject 필터 후: {len(all_questions)}문항")
+
     if args.limit:
         all_questions = all_questions[:args.limit]
 
@@ -242,31 +326,56 @@ def main():
         pass
 
     api_key = os.getenv("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        print("\n[오류] ANTHROPIC_API_KEY가 설정되지 않았습니다.")
-        print("  .env 파일에 ANTHROPIC_API_KEY=sk-ant-... 를 추가하거나")
-        print("  --dry-run 옵션으로 구조만 확인하세요.")
-        sys.exit(1)
+    use_cli = args.use_tools or not api_key
 
-    try:
-        import anthropic
-        client = anthropic.Anthropic(api_key=api_key)
-    except ImportError:
-        print("\n[오류] anthropic 패키지가 없습니다: uv add anthropic")
-        sys.exit(1)
+    if use_cli:
+        if args.use_tools:
+            print("\n[--use-tools 활성화 — claude CLI + Bash 도구 모드]")
+        else:
+            print("\n[ANTHROPIC_API_KEY 없음 — claude CLI 폴백 모드]")
+        client = None
+    else:
+        try:
+            import anthropic
+            client = anthropic.Anthropic(api_key=api_key)
+        except ImportError:
+            print("\n[경고] anthropic 패키지 없음 — claude CLI 폴백 모드")
+            client = None
+            use_cli = True
 
     # ── 평가 실행 ──
     results: list[MCQResult] = []
     print(f"\n[모델: {args.model}]")
     print()
 
-    for i, q in enumerate(all_questions, 1):
-        predicted = ask_claude(client, q, model=args.model)
-        r = MCQResult(q=q, predicted=predicted, correct=q.correct)
-        results.append(r)
-        print(r.summary())
-        if args.delay and i < len(all_questions):
-            time.sleep(args.delay)
+    if use_cli or client is None:
+        # 병렬 실행 (CLI 폴백: subprocess overhead를 병렬로 상쇄)
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        workers = min(len(all_questions), 10)  # 최대 10 병렬
+        print(f"[병렬 모드: {workers} workers]")
+        futures = {}
+        ask_fn = ask_claude_with_tools if args.use_tools else ask_claude_cli
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            for q in all_questions:
+                fut = ex.submit(ask_fn, q, args.model)
+                futures[fut] = q
+            pending = {fut: q for fut, q in futures.items()}
+            done_results: dict[int, MCQResult] = {}
+            for fut in as_completed(pending):
+                q = pending[fut]
+                predicted = fut.result()
+                r = MCQResult(q=q, predicted=predicted, correct=q.correct)
+                done_results[q.number] = r
+                print(r.summary())
+        results = [done_results[q.number] for q in all_questions]
+    else:
+        for i, q in enumerate(all_questions, 1):
+            predicted = ask_claude(client, q, model=args.model)
+            r = MCQResult(q=q, predicted=predicted, correct=q.correct)
+            results.append(r)
+            print(r.summary())
+            if args.delay and i < len(all_questions):
+                time.sleep(args.delay)
 
     # ── 결과 리포트 ──
     total = len(results)

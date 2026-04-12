@@ -20,11 +20,17 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
 from tax_calculator import (
+    calculate_executive_retirement_limit,
+    calculate_exit_tax,
+    calculate_exit_tax_adjustment,
+    calculate_exit_tax_foreign_credit,
     calculate_loss_netting,
     calculate_pension_income,
     calculate_retirement_income_tax,
+    calculate_stock_transfer_tax,
     calculate_tax,
     calculate_local_tax,
+    get_other_income_expense_ratio,
 )
 from eval_scenarios import (
     scenario_ch01_resident_and_taxable_period,
@@ -200,6 +206,143 @@ def _ch12_retirement_income():
         f"Ch12 총납부세액: 기대 4,070,000 / 실제 {r['총납부세액']}"
 
 
+# ── Ch12-b: 임원 퇴직급여 한도 (2025 세무사 Q53) ──────────────────────────────
+
+def _ch12_executive_retirement_limit():
+    """§22③ 임원 퇴직급여 한도 + 영§42의2⑥ A금액 선택권 (2025 Q53).
+
+    甲: 2011.1.20 입사 → 2025.2.20 퇴직 (임원)
+      지급: 퇴직금 450M + 위로금 14M + 국민연금 일시금 20M (공적연금 제외)
+      B구간 근속 96개월 (2012.1.1~2019.12.31), 2019.12.31 이전 3년 연평균 96M
+      C구간 근속 62개월 (2020.1.1~2025.2.20, 61월 20일 절상), 퇴직 전 3년 연평균 120M
+      2011.12.31 가정 규정 퇴직금 = 35M
+      전체 근무월수 169, 2011.12.31 이전 월수 12
+
+    기대:
+      B구간 한도 = 96M × 10% × 96/12 × 3 = 230,400,000
+      C구간 한도 = 120M × 10% × 62/12 × 2 = 124,000,000
+      임원한도   = 354,400,000
+      비율법 A   = 464M × 12 / 169 = 32,946,745
+      규정법 A   = 35,000,000 (선택: 35M 가 크므로 근로소득 최소화)
+      한도 대상 기본 = 464M − 35M = 429,000,000
+      초과 (근로소득화) = 74,600,000
+      한도내 퇴직소득  = 354,400,000
+    """
+    r = calculate_executive_retirement_limit(
+        avg_salary_pre_2020=96_000_000,
+        avg_salary_pre_retire=120_000_000,
+        months_b=96,
+        months_c=62,
+        total_retirement_pay=464_000_000,
+        a_amount_rule=35_000_000,
+        total_months=169,
+        pre_2012_months=12,
+    )
+    assert r["한도_B구간"] == 230_400_000, \
+        f"Ch12b B구간 한도: 기대 230,400,000 / 실제 {r['한도_B구간']}"
+    assert r["한도_C구간"] == 124_000_000, \
+        f"Ch12b C구간 한도: 기대 124,000,000 / 실제 {r['한도_C구간']}"
+    assert r["임원한도"] == 354_400_000, \
+        f"Ch12b 임원한도: 기대 354,400,000 / 실제 {r['임원한도']}"
+    assert r["A금액_비율법"] == 32_946_745, \
+        f"Ch12b 비율법 A: 기대 32,946,745 / 실제 {r['A금액_비율법']}"
+    assert r["A금액_선택"] == 35_000_000, \
+        f"Ch12b A금액 선택: 기대 35,000,000 (규정법) / 실제 {r['A금액_선택']}"
+    assert r["한도_대상_기본금액"] == 429_000_000, \
+        f"Ch12b 기본금액: 기대 429,000,000 / 실제 {r['한도_대상_기본금액']}"
+    assert r["초과액_근로소득화"] == 74_600_000, \
+        f"Ch12b 근로소득 재분류액: 기대 74,600,000 / 실제 {r['초과액_근로소득화']}"
+    assert r["퇴직소득_산정기준"] == 354_400_000, \
+        f"Ch12b 한도내 퇴직소득: 기대 354,400,000 / 실제 {r['퇴직소득_산정기준']}"
+
+
+# ── §104 주식 양도세율 ────────────────────────────────────────────────────────
+
+def _stock_transfer_tax():
+    """§104①4·5 주식 양도세율: 대주주 20%/25%, 비상장중소 10%, 소액비과세.
+
+    대주주 상장, 양도가 500M, 취득가 200M, 비용 5M, 보유 3년
+      양도차익 295M → 과표 292.5M (3억 이하) → 20% = 58,500,000
+    비상장 중소기업, 양도가 200M, 취득가 100M → 과표 97.5M → 10% = 9,750,000
+    """
+    r1 = calculate_stock_transfer_tax(
+        transfer_price=500_000_000, acquisition_price=200_000_000,
+        necessary_expenses=5_000_000, holding_years=3.0, stock_type="listed_major",
+    )
+    assert r1["양도차익"] == 295_000_000
+    assert r1["양도소득과세표준"] == 292_500_000
+    assert r1["산출세액"] == 58_500_000, f"대주주 20%: 기대 58,500,000 / 실제 {r1['산출세액']}"
+
+    r2 = calculate_stock_transfer_tax(
+        transfer_price=200_000_000, acquisition_price=100_000_000,
+        stock_type="unlisted_sme",
+    )
+    assert r2["산출세액"] == 9_750_000, f"중소비상장 10%: 기대 9,750,000 / 실제 {r2['산출세액']}"
+
+    r3 = calculate_stock_transfer_tax(
+        transfer_price=100_000_000, acquisition_price=50_000_000,
+        stock_type="listed_minor",
+    )
+    assert r3["산출세액"] == 0, "소액주주 비과세"
+
+
+# ── 영§87 기타소득 필요경비 의제율 ──────────────────────────────────────────
+
+def _other_income_expense_ratio():
+    """시행령 §87 필요경비 의제율 매핑: 80%/60%/0%.
+
+    Q52에서 수동 검증했던 항목: 산업재산권 60%, 주택입주지체상금 80%, 위약금 0%.
+    """
+    r1 = get_other_income_expense_ratio("patent")
+    assert r1["의제율"] == 0.60, f"산업재산권: 기대 0.60 / 실제 {r1['의제율']}"
+
+    r2 = get_other_income_expense_ratio("housing_delay")
+    assert r2["의제율"] == 0.80, f"주택입주지체상금: 기대 0.80 / 실제 {r2['의제율']}"
+
+    r3 = get_other_income_expense_ratio("penalty")
+    assert r3["의제율"] == 0.00, f"위약금: 기대 0.00 / 실제 {r3['의제율']}"
+
+
+# ── §118의9~16 국외전출세 ────────────────────────────────────────────────────
+
+def _exit_tax_pipeline():
+    """§118의10·12·13 국외전출세 과세표준 + 조정공제 + 외국납부세액공제.
+
+    출국일 시가 800M, 취득가 300M (대주주 상장)
+      양도소득금액 500M → 과표 497.5M (3억 이하 20% + 197.5M × 25%)
+      산출세액 = 60M + 49,375,000 = 109,375,000
+
+    실제 양도가 600M → 조정공제 = 109,375,000 × (800M-600M)/500M = 43,750,000
+    외국납부 30M → 한도 = 109,375,000-43,750,000 = 65,625,000 → 공제 30M
+    """
+    r1 = calculate_exit_tax(
+        market_value_at_exit=800_000_000, acquisition_price=300_000_000,
+        stock_type="listed_major",
+    )
+    assert r1["양도소득금액"] == 500_000_000
+    assert r1["양도소득과세표준"] == 497_500_000
+    expected_tax = int(300_000_000 * 0.20 + 197_500_000 * 0.25)
+    assert r1["산출세액"] == expected_tax, \
+        f"국외전출세: 기대 {expected_tax} / 실제 {r1['산출세액']}"
+
+    r2 = calculate_exit_tax_adjustment(
+        exit_market_value=800_000_000, actual_sale_price=600_000_000,
+        exit_computed_tax=expected_tax, exit_gain=500_000_000,
+    )
+    assert r2["조정공제_적용"] is True
+    expected_adj = int(expected_tax * 200_000_000 / 500_000_000)
+    assert r2["조정공제액"] == expected_adj, \
+        f"조정공제: 기대 {expected_adj} / 실제 {r2['조정공제액']}"
+
+    r3 = calculate_exit_tax_foreign_credit(
+        foreign_tax_paid=30_000_000, exit_computed_tax=expected_tax,
+        adjustment_credit=expected_adj,
+    )
+    assert r3["공제세액"] == 30_000_000, f"외국납부세액공제: 기대 30M / 실제 {r3['공제세액']}"
+    expected_final = expected_tax - expected_adj - 30_000_000
+    assert r3["최종세액"] == expected_final
+
+
 # ── 메인 ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -222,9 +365,13 @@ def main():
     _run("Ch10", "세액 계산 (세율 구간 경계값 exact)", _ch10_tax_calculation)
     _run("Ch11", "세액공제·감면 (근로·보험·의료·교육·기부·재해)", scenario_ch11_tax_credits)
     _run("Ch12", "퇴직소득 (환산급여·세액 전 단계 exact)", _ch12_retirement_income)
+    _run("Ch12b", "임원 퇴직급여 한도 (§22③+영§42의2⑥, 2025 Q53)", _ch12_executive_retirement_limit)
+    _run("Ch12c", "주식 양도세율 (§104①4·5, 대주주/비상장/소액)", _stock_transfer_tax)
     _run("Ch13", "양도소득 (1세대1주택·취득가액의제·세액)", scenario_ch13_transfer_income)
     _run("Ch14", "신고납부 (원천징수 세율표 통합)", scenario_ch14_withholding)
     _run("Ch15", "비거주자 (국내원천소득 원천징수)", scenario_ch15_nonresident)
+    _run("Ch15b", "기타소득 필요경비 의제율 (영§87 자동매핑)", _other_income_expense_ratio)
+    _run("Ch15c", "국외전출세 파이프라인 (§118의9~16)", _exit_tax_pipeline)
 
     # 통합 시나리오
     print("\n[통합 시나리오]")
@@ -264,7 +411,7 @@ def main():
     passed  = ch_pass + s_pass
 
     print()
-    print(f"  챕터 테스트: {ch_pass}/15  |  통합 시나리오: {s_pass}/7  |  전체: {passed}/{total}")
+    print(f"  챕터 테스트: {ch_pass}/{len(ch_results)}  |  통합 시나리오: {s_pass}/7  |  전체: {passed}/{total}")
     print()
 
     if passed == total:

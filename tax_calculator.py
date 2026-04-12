@@ -449,6 +449,7 @@ def calculate_financial_income(
     interest: int = 0,
     dividend: int = 0,
     gross_up_eligible_dividend: int = 0,
+    grossup_mode: str = "full",
 ) -> dict:
     """금융소득(이자·배당소득) 계산 및 종합과세 판정 (소득세법 §16, §17, §14③6, §62, 2024년 귀속).
 
@@ -476,39 +477,54 @@ def calculate_financial_income(
     THRESHOLD = 20_000_000  # §14③6 종합과세기준금액
     WITHHOLDING_RATE = 0.14  # §129①1라목 원천징수세율
 
-    interest_income = interest                          # §16② 필요경비 없음
-    gross_up = int(gross_up_eligible_dividend * 0.10)  # §17③ Gross-up 10%
-    dividend_income = dividend + gross_up               # §17③ 배당소득금액
+    interest_income = interest                     # §16② 필요경비 없음
+    raw_total = interest + dividend                # Gross-up 前 원금
 
-    total = interest_income + dividend_income
-
-    if total <= THRESHOLD:
-        # §14③6: 분리과세 — 종합소득에 미합산
-        sep_tax = int((interest + dividend) * WITHHOLDING_RATE)
+    if raw_total <= THRESHOLD:
+        # §14③6: 분리과세 — 종합소득 미합산, Gross-up 적용 안 함
+        sep_tax = int(raw_total * WITHHOLDING_RATE)
         return {
             '이자소득금액': interest_income,
-            '배당소득금액': dividend_income,
-            'Gross_up금액': gross_up,
-            '금융소득합계': total,
+            '배당소득금액': dividend,
+            'Gross_up금액': 0,
+            '금융소득합계': raw_total,
             '종합과세여부': False,
             '분리과세세액': sep_tax,
             '종합과세편입금액': 0,
-            '비고': f'이자+배당 {total:,}원 ≤ 2,000만 → 분리과세(14%)',
+            '비고': f'이자+배당 {raw_total:,}원 ≤ 2,000만 → 분리과세(14%)',
         }
-    else:
-        # §14③6 초과 → 전액 종합과세
-        # §62 비교세액은 종합소득 합산 후 compare_financial_income_tax()에서 판정
-        return {
-            '이자소득금액': interest_income,
-            '배당소득금액': dividend_income,
-            'Gross_up금액': gross_up,
-            '금융소득합계': total,
-            '종합과세여부': True,
-            '§62_비교필요': True,
-            '분리과세세액': None,
-            '종합과세편입금액': total,
-            '비고': f'이자+배당 {total:,}원 > 2,000만 → 종합과세. §62 비교세액(방법① vs 방법②) 적용 필요',
-        }
+
+    # 종합과세 — Gross-up 계산 방식 두 가지
+    #   full: §17③ 문언 그대로 Gross-up 대상 배당 **전액** × 10% 가산 (기본값, 교재 다수)
+    #   threshold: 비Gross-up 소득을 2천만 한도에 우선 배치 후 Gross-up 대상 잔여분만 10% 가산
+    #              (세무사·CPA 시험 기출 실무 해석)
+    if grossup_mode == "threshold":
+        non_grossup_base = interest + max(dividend - gross_up_eligible_dividend, 0)
+        remaining_limit = max(THRESHOLD - non_grossup_base, 0)
+        grossup_taxable = max(gross_up_eligible_dividend - remaining_limit, 0)
+        gross_up = int(grossup_taxable * 0.10)
+        mode_note = (
+            f'Gross-up 대상 {gross_up_eligible_dividend:,}원 중 2천만 초과분 '
+            f'{grossup_taxable:,}원 × 10% = {gross_up:,}원 (threshold 모드)'
+        )
+    else:  # "full"
+        gross_up = int(gross_up_eligible_dividend * 0.10)
+        mode_note = f'Gross-up 대상 {gross_up_eligible_dividend:,}원 × 10% = {gross_up:,}원 (full 모드)'
+
+    dividend_income = dividend + gross_up
+    total = interest_income + dividend_income
+
+    return {
+        '이자소득금액': interest_income,
+        '배당소득금액': dividend_income,
+        'Gross_up금액': gross_up,
+        '금융소득합계': total,
+        '종합과세여부': True,
+        '§62_비교필요': True,
+        '분리과세세액': None,
+        '종합과세편입금액': total,
+        '비고': f'이자+배당 원금 {raw_total:,}원 > 2,000만 → 종합과세. {mode_note}',
+    }
 
 
 def compare_financial_income_tax(
@@ -1258,48 +1274,77 @@ def calculate_retirement_income_tax(
     }
 
 
-def calculate_retirement_income_limit(
-    avg_annual_salary: int,
-    start_date: str,
-    end_date: str,
+def calculate_executive_retirement_limit(
+    *,
+    avg_salary_pre_2020: int,
+    avg_salary_pre_retire: int,
+    months_b: int,
+    months_c: int,
+    total_retirement_pay: int = 0,
+    a_amount_rule: int = 0,
+    total_months: int = 0,
+    pre_2012_months: int = 0,
+    select_min_earned: bool = True,
 ) -> dict:
-    avg_annual_salary = int(avg_annual_salary)
-    start = date.fromisoformat(start_date)
-    end = date.fromisoformat(end_date)
+    """임원 퇴직급여 한도 계산 (소득세법 §22③, 시행령 §42의2⑥).
 
-    if avg_annual_salary < 0:
-        raise ValueError("avg_annual_salary는 0 이상이어야 합니다.")
-    if start > end:
-        raise ValueError("start_date는 end_date 이전이어야 합니다.")
+    구간별 공식:
+      B구간 (2012.1.1~2019.12.31): 2019.12.31 이전 3년 연평균 × 1/10 × (B월수/12) × 3
+      C구간 (2020.1.1~퇴직일):     퇴직 전 3년 연평균 × 1/10 × (C월수/12) × 2
 
-    split_date = date(2020, 1, 1)
-    before_end = date(2019, 12, 31)
+    2011.12.31 이전 근속분(A금액)은 한도 공식 대상 밖. 영§42의2⑥에 따라
+    아래 두 방법 중 납세자가 선택:
+      ① 비율법: 전체 퇴직급여 × (2011.12.31 이전 월수 ÷ 전체 월수)
+      ② 규정법: 2011.12.31 당시 임원퇴직급여지급규정에 따라 가정한 퇴직금
 
-    days_before_2020 = 0
-    days_from_2020 = 0
+    `select_min_earned=True` 이면 두 방법 중 큰 쪽을 선택한다
+    (A금액이 크면 한도 대상 기본금액이 작아져 근로소득 재분류액이 최소화됨).
 
-    if start <= before_end:
-        period_end = min(end, before_end)
-        if start <= period_end:
-            days_before_2020 = (period_end - start).days + 1
+    인자는 전부 keyword-only. 근무월수는 호출자가 "1월 미만 절상" 을 이미
+    반영한 값으로 전달해야 한다 (§22④1).
+    공적연금(§22①1) 일시금은 한도 대상이 아니므로 호출자가 별도 합산한다.
+    """
+    avg_pre_2020 = int(avg_salary_pre_2020)
+    avg_pre_retire = int(avg_salary_pre_retire)
+    months_b = max(int(months_b), 0)
+    months_c = max(int(months_c), 0)
+    total_retirement_pay = max(int(total_retirement_pay), 0)
+    a_amount_rule = max(int(a_amount_rule), 0)
+    total_months = max(int(total_months), 0)
+    pre_2012_months = max(int(pre_2012_months), 0)
 
-    if end >= split_date:
-        period_start = max(start, split_date)
-        if period_start <= end:
-            days_from_2020 = (end - period_start).days + 1
+    limit_b = int(avg_pre_2020 * 0.1 * (months_b / 12) * 3 + 0.5)
+    limit_c = int(avg_pre_retire * 0.1 * (months_c / 12) * 2 + 0.5)
+    executive_limit = limit_b + limit_c
 
-    months_before_2020 = (days_before_2020 + 29) // 30 if days_before_2020 > 0 else 0
-    months_from_2020 = (days_from_2020 + 29) // 30 if days_from_2020 > 0 else 0
+    if total_months > 0 and pre_2012_months > 0 and total_retirement_pay > 0:
+        a_ratio = int(total_retirement_pay * pre_2012_months / total_months)
+    else:
+        a_ratio = 0
 
-    limit_before_2020 = avg_annual_salary * months_before_2020 * 3 // 10
-    limit_from_2020 = avg_annual_salary * months_from_2020 * 2 // 10
+    if select_min_earned:
+        a_selected = max(a_ratio, a_amount_rule)
+    else:
+        a_selected = a_amount_rule
+
+    limit_base = max(total_retirement_pay - a_selected, 0)
+    excess = max(limit_base - executive_limit, 0)
+    retirement_within_limit = limit_base - excess
 
     return {
-        "limit_before_2020": int(limit_before_2020),
-        "limit_from_2020": int(limit_from_2020),
-        "total_limit": int(limit_before_2020 + limit_from_2020),
-        "months_before_2020": int(months_before_2020),
-        "months_from_2020": int(months_from_2020),
+        "한도_B구간": limit_b,
+        "한도_C구간": limit_c,
+        "임원한도": executive_limit,
+        "A금액_비율법": a_ratio,
+        "A금액_규정법": a_amount_rule,
+        "A금액_선택": a_selected,
+        "한도_대상_기본금액": limit_base,
+        "초과액_근로소득화": excess,
+        "퇴직소득_산정기준": retirement_within_limit,
+        "비고": (
+            "공적연금(§22①1) 일시금은 한도 대상 밖 — 호출자가 별도 합산. "
+            f"A금액 선택: {'비율법' if a_selected == a_ratio and a_ratio >= a_amount_rule else '규정법'}"
+        ),
     }
 
 
@@ -3483,4 +3528,208 @@ def calculate_nonresident_tax(
         '지방소득세': local_tax,
         '총부담세액': total,
         '비고': f'{amount:,}원 × {applied_rate:.0%} = {tax:,}원{treaty_note}',
+    }
+
+
+# ── §104 주식 양도소득세 ──────────────────────────────────────────────────────
+
+
+def calculate_stock_transfer_tax(
+    transfer_price: int,
+    acquisition_price: int,
+    necessary_expenses: int = 0,
+    holding_years: float = 0.0,
+    stock_type: str = "listed_major",
+) -> dict:
+    """주식 양도소득세 계산 (소득세법 §104①, 2024년 귀속).
+
+    stock_type:
+      listed_major   — 상장·코스닥 대주주 (§104①5: 3억 이하 20%, 3억 초과 25%, 1년 미만 45%)
+      listed_minor   — 상장·코스닥 소액주주 (비과세, 금투세 유예)
+      unlisted       — 비상장 일반 (§104①4: 3억 이하 20%, 3억 초과 25%)
+      unlisted_sme   — 비상장 중소기업 (§104①4: 10%)
+    """
+    tp = int(transfer_price)
+    ap = int(acquisition_price)
+    ne = int(necessary_expenses)
+    hy = float(holding_years)
+
+    gain = max(tp - ap - ne, 0)
+    basic_deduction = 2_500_000
+    tax_base = max(gain - basic_deduction, 0)
+
+    if stock_type == "listed_minor":
+        return {
+            "양도차익": gain, "양도소득과세표준": 0, "적용세율": 0.0,
+            "산출세액": 0, "지방소득세": 0, "총납부세액": 0,
+            "세율_설명": "소액주주 상장주식 비과세 (금투세 유예)",
+            "비고": "소액주주 상장주식은 2024년 귀속 기준 양도소득세 비과세",
+        }
+
+    if stock_type == "unlisted_sme":
+        rate = 0.10
+        tax = int(tax_base * rate)
+        desc = "비상장 중소기업(§104①4): 10%"
+    elif stock_type in ("listed_major", "unlisted"):
+        if hy < 1 and stock_type == "listed_major":
+            rate = 0.45
+            tax = int(tax_base * rate)
+            desc = "대주주 1년 미만 보유(§104①5): 45%"
+        else:
+            if tax_base <= 300_000_000:
+                rate = 0.20
+                tax = int(tax_base * rate)
+                desc = f"{'대주주' if stock_type == 'listed_major' else '비상장'}(§104①{'5' if stock_type == 'listed_major' else '4'}): 3억 이하 20%"
+            else:
+                tax = int(300_000_000 * 0.20 + (tax_base - 300_000_000) * 0.25)
+                rate = tax / tax_base if tax_base else 0.0
+                desc = f"{'대주주' if stock_type == 'listed_major' else '비상장'}(§104①{'5' if stock_type == 'listed_major' else '4'}): 3억 이하 20% + 3억 초과 25%"
+    else:
+        raise ValueError(f"stock_type은 listed_major|listed_minor|unlisted|unlisted_sme 중 하나: {stock_type}")
+
+    local_tax = calculate_local_tax(tax)
+    return {
+        "양도가액": tp, "취득가액": ap, "필요경비": ne,
+        "양도차익": gain, "양도소득기본공제": basic_deduction,
+        "양도소득과세표준": tax_base,
+        "적용세율": round(rate, 4), "세율_설명": desc,
+        "산출세액": tax, "지방소득세": local_tax,
+        "총납부세액": tax + local_tax,
+        "비고": "",
+    }
+
+
+# ── 영§87 기타소득 필요경비 의제율 자동매핑 ──────────────────────────────────
+
+
+def get_other_income_expense_ratio(item_subtype: str) -> dict:
+    """기타소득 필요경비 의제율 자동 결정 (시행령 §87①).
+
+    item_subtype (§21 항목 키워드):
+      prize_public     — 공익법인 시상·포상금 (§87①1호 가, 80%)
+      housing_delay    — 주택입주지체상금 (§87①1호 다, 80%)
+      patent           — 산업재산권 양도·대여 (§87①1의2호, §21①7, 60%)
+      goodwill         — 영업권 양도·대여 (§87①1의2호, §21①8의2, 60%)
+      mining_right     — 광업권·어업권 등 (§87①1의2호, §21①9, 60%)
+      temp_property    — 물품·장소 일시대여 (§87①1의2호, §21①15, 60%)
+      ai_copyright     — 인적용역 기타소득 (§87①1의2호, §21①19, 60%)
+      penalty          — 위약금·배상금 (의제 없음, 0%)
+      bribe            — 뇌물 등 (의제 없음, 0%)
+      invention        — 직무발명보상금 (의제 없음, 0%)
+      general          — 기타 (의제 없음, 0%)
+    """
+    _MAP = {
+        "prize_public":  (0.80, "§87①1호 가: 공익법인 시상금 80%"),
+        "housing_delay": (0.80, "§87①1호 다: 주택입주지체상금 80%"),
+        "patent":        (0.60, "§87①1의2호: 산업재산권(§21①7) 60%"),
+        "goodwill":      (0.60, "§87①1의2호: 영업권(§21①8의2) 60%"),
+        "mining_right":  (0.60, "§87①1의2호: 광업권·어업권(§21①9) 60%"),
+        "temp_property": (0.60, "§87①1의2호: 물품·장소 일시대여(§21①15) 60%"),
+        "ai_copyright":  (0.60, "§87①1의2호: 인적용역 기타소득(§21①19) 60%"),
+        "penalty":       (0.00, "의제 없음: 위약금·배상금"),
+        "bribe":         (0.00, "의제 없음: 뇌물"),
+        "invention":     (0.00, "의제 없음: 직무발명보상금"),
+        "general":       (0.00, "의제 없음: 일반 기타소득"),
+    }
+    if item_subtype not in _MAP:
+        raise ValueError(f"item_subtype은 {list(_MAP.keys())} 중 하나: {item_subtype}")
+    ratio, basis = _MAP[item_subtype]
+    return {"의제율": ratio, "법령근거": basis, "항목": item_subtype}
+
+
+# ── §118의9~16 국외전출세 파이프라인 ────────────────────────────────────────
+
+
+def calculate_exit_tax(
+    market_value_at_exit: int,
+    acquisition_price: int,
+    necessary_expenses: int = 0,
+    stock_type: str = "listed_major",
+) -> dict:
+    """국외전출세 과세표준 및 산출세액 (소득세법 §118의9~§118의10).
+
+    출국일 당시 시가를 양도가액으로 의제하여 주식 양도소득세를 계산한다.
+    """
+    mv = int(market_value_at_exit)
+    ap = int(acquisition_price)
+    ne = int(necessary_expenses)
+
+    gain = max(mv - ap - ne, 0)
+    basic_deduction = 2_500_000
+    tax_base = max(gain - basic_deduction, 0)
+
+    inner = calculate_stock_transfer_tax(
+        transfer_price=mv, acquisition_price=ap,
+        necessary_expenses=ne, holding_years=99.0,
+        stock_type=stock_type,
+    )
+
+    return {
+        "출국일_시가": mv, "취득가액": ap, "필요경비": ne,
+        "양도소득금액": gain, "양도소득기본공제": basic_deduction,
+        "양도소득과세표준": tax_base,
+        "산출세액": inner["산출세액"],
+        "적용세율": inner["적용세율"],
+        "세율_설명": inner["세율_설명"],
+        "비고": "§118의10: 출국일 당시 시가를 양도가액으로 의제",
+    }
+
+
+def calculate_exit_tax_adjustment(
+    exit_market_value: int,
+    actual_sale_price: int,
+    exit_computed_tax: int,
+    exit_gain: int,
+) -> dict:
+    """국외전출세 조정공제 (소득세법 §118의12).
+
+    실제 양도가액 < 출국일 시가인 경우, 과다납부분을 비례 환급.
+    조정공제액 = 산출세액 × (출국일 시가 − 실제 양도가액) ÷ 양도소득금액
+    """
+    mv = int(exit_market_value)
+    actual = int(actual_sale_price)
+    tax = int(exit_computed_tax)
+    gain = int(exit_gain)
+
+    if actual >= mv or gain <= 0:
+        return {
+            "조정공제_적용": False, "조정공제액": 0,
+            "비고": "실제 양도가액 ≥ 출국일 시가이므로 조정공제 없음",
+        }
+
+    diff = mv - actual
+    adjustment = int(tax * diff / gain)
+
+    return {
+        "조정공제_적용": True,
+        "출국일_시가": mv, "실제_양도가액": actual,
+        "차액": diff, "양도소득금액": gain,
+        "산출세액": tax, "조정공제액": adjustment,
+        "조정후_세액": max(tax - adjustment, 0),
+        "비고": f"§118의12: 산출세액 × (시가−실제양도가액) ÷ 양도소득금액 = {adjustment:,}원",
+    }
+
+
+def calculate_exit_tax_foreign_credit(
+    foreign_tax_paid: int,
+    exit_computed_tax: int,
+    adjustment_credit: int = 0,
+) -> dict:
+    """국외전출자 외국납부세액공제 (소득세법 §118의13).
+
+    한도 = 산출세액 − 조정공제액. 한도 내에서 외국납부세액을 공제.
+    """
+    foreign = int(foreign_tax_paid)
+    tax = int(exit_computed_tax)
+    adj = int(adjustment_credit)
+
+    limit = max(tax - adj, 0)
+    credit = min(foreign, limit)
+
+    return {
+        "외국납부세액": foreign,
+        "산출세액": tax, "조정공제액": adj,
+        "공제한도": limit, "공제세액": credit,
+        "최종세액": max(tax - adj - credit, 0),
+        "비고": f"§118의13: 한도 {limit:,}원 내 공제 {credit:,}원",
     }

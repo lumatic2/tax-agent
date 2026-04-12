@@ -42,6 +42,7 @@ from vat_calculator import (
     calculate_employee_gift_deemed_supply,
     calculate_export_supply_value,
     classify_preliminary_omission,
+    calculate_recycled_waste_input_tax,
 )
 from datetime import date
 
@@ -436,6 +437,49 @@ def scenario_v26_preliminary_omission():
     print("  V26 PASS: 예정신고 누락판정 - TX1,TX3 불일치(2건), TX2 정상")
 
 
+def scenario_v27_recycled_waste():
+    """V27: 조특법§108 재활용폐자원 매입세액 공제
+    재활용폐자원 취득 50M, 과세표준 200M, 세금계산서 매입 100M
+    중고자동차 취득 22M, 과세표준 300M, 세금계산서 매입 250M"""
+    # 재활용폐자원: 3/103
+    r1 = calculate_recycled_waste_input_tax(
+        asset_type='재활용폐자원',
+        acquisition_cost=50_000_000,
+        taxable_supply_value=200_000_000,
+        invoice_purchase_value=100_000_000,
+    )
+    assert r1['공제액'] == int(50_000_000 * 3 / 103), f"공제액 {r1['공제액']}"
+    assert r1['한도'] == 60_000_000  # 200M*80% - 100M
+    assert r1['최종공제액'] == r1['공제액']  # 한도 내
+
+    # 중고자동차: 10/110
+    r2 = calculate_recycled_waste_input_tax(
+        asset_type='중고자동차',
+        acquisition_cost=22_000_000,
+        taxable_supply_value=300_000_000,
+        invoice_purchase_value=250_000_000,
+    )
+    assert r2['공제액'] == 2_000_000  # 22M * 10/110
+    assert r2['한도'] == 50_000_000  # 300M - 250M
+    assert r2['최종공제액'] == 2_000_000
+    assert r2['이월가능'] is True
+
+    # 한도 초과 케이스: 취득가액 크게 설정
+    r3 = calculate_recycled_waste_input_tax(
+        asset_type='재활용폐자원',
+        acquisition_cost=500_000_000,
+        taxable_supply_value=50_000_000,
+        invoice_purchase_value=30_000_000,
+    )
+    # 공제액 = 500M*3/103 = 14,563,106
+    # 한도 = 50M*80% - 30M = 10M
+    assert r3['한도'] == 10_000_000
+    assert r3['최종공제액'] == 10_000_000
+    assert r3['한도초과액'] == r3['공제액'] - 10_000_000
+
+    print(f"  V27 PASS: 조특법108 재활용폐자원 {r1['공제액']:,}, 중고차 {r2['공제액']:,}")
+
+
 def run_all():
     scenarios = [
         ("V1", scenario_v1_basic_output_tax),
@@ -464,6 +508,7 @@ def run_all():
         ("V24", scenario_v24_employee_gift),
         ("V25", scenario_v25_export_exchange),
         ("V26", scenario_v26_preliminary_omission),
+        ("V27", scenario_v27_recycled_waste),
     ]
 
     passed = 0

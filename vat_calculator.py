@@ -1485,6 +1485,67 @@ def calculate_deemed_input_tax_with_limit(
 
 # Gap 5: 지방소비세
 
+def calculate_recycled_waste_input_tax(
+    *,
+    asset_type: str,
+    acquisition_cost: int,
+    taxable_supply_value: int = 0,
+    invoice_purchase_value: int = 0,
+    carryover_excess: int = 0,
+) -> dict:
+    """재활용폐자원 등 매입세액 공제특례 (조특법 §108).
+
+    세금계산서 발급불능자로부터 취득한 재활용폐자원·중고자동차에 대해
+    매입세액을 의제공제.
+
+    공제율:
+        재활용폐자원: 취득가액 × 3/103 (2028.12.31까지)
+        중고자동차: 취득가액 × 10/110 (2028.12.31까지)
+
+    공제한도 (§108②):
+        재활용폐자원: 과세표준 × 80% - 세금계산서 매입가액
+        중고자동차: 과세표준 - 세금계산서 매입가액
+
+    Args:
+        asset_type: '재활용폐자원' | '중고자동차'
+        acquisition_cost: 취득가액 (원)
+        taxable_supply_value: 해당 과세기간 과세표준 (한도 계산용)
+        invoice_purchase_value: 세금계산서 수취분 매입가액 (한도 계산용)
+        carryover_excess: 전기 이월 한도초과분 (중고차만, §108③)
+
+    Returns:
+        dict: {취득가액, 공제율, 공제액, 한도, 최종공제액, 한도초과액}
+    """
+    if asset_type == '중고자동차':
+        numerator, denominator = 10, 110
+        limit_ratio = 1.0
+    else:
+        numerator, denominator = 3, 103
+        limit_ratio = 0.8
+
+    raw_credit = int(acquisition_cost * numerator / denominator)
+
+    # 한도
+    limit = max(0, int(taxable_supply_value * limit_ratio) - invoice_purchase_value)
+
+    # 이월분 선공제 (중고차만)
+    total_claimable = raw_credit + carryover_excess
+    final_credit = min(total_claimable, limit) if taxable_supply_value > 0 else raw_credit
+    excess = max(0, total_claimable - final_credit)
+
+    return {
+        '자산유형': asset_type,
+        '취득가액': acquisition_cost,
+        '공제율': f'{numerator}/{denominator}',
+        '공제액': raw_credit,
+        '한도': limit,
+        '이월분': carryover_excess,
+        '최종공제액': final_credit,
+        '한도초과액': excess,
+        '이월가능': asset_type == '중고자동차',
+    }
+
+
 def calculate_local_consumption_tax(
     *,
     vat_payable: int,

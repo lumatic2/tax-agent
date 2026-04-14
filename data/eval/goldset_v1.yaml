@@ -1,0 +1,121 @@
+# 세무사 검토 골드셋 v1 — PRD "80% 일치" 측정용 기준 데이터
+#
+# 각 항목:
+#   id           고유 식별자
+#   description  사용자 자연어 질문 (Phase 2 UX 모사)
+#   profile      strategy_engine 입력 flat profile (사람 검증본)
+#   expected     세무사 검토 결과 기준 — 반드시 제안되어야 할 규칙 id
+#   optional     제안되면 좋지만 감점 없는 규칙 id
+#   forbidden    제안되면 안 되는 규칙 id (오탐 방지)
+#   notes        세무사 코멘트·법령 근거
+#
+# 채점기(eval_goldset.py) 는 strategy_engine.run() 결과 vs expected 를 비교해
+# 케이스별 pass/fail + 전체 accuracy 산출. PRD 목표 ≥ 0.80.
+
+- id: G001_single_salary_rent
+  description: |
+    32살 직장인, 연봉 4,800만원. 서울 월세 55만원에 거주(무주택).
+    IRP·연금저축 가입 이력 없음. 부모님 의료비 120만원 지출.
+  profile:
+    has_earned_income: true
+    gross_salary: 48_000_000
+    monthly_rent: 550_000
+    is_homeless_household: true
+    irp_pension: 0
+    pension_savings: 0
+    medical_expense: 1_200_000
+  expected:
+    - CRED_MONTHLY_RENT
+    - DED_PENSION_IRP_700
+  optional:
+    - DED_CREDIT_CARD
+  forbidden:
+    - INH_SPOUSE_DEDUCTION
+    - CORP_LOSS_CARRYFORWARD
+  notes: "월세세액공제 + 연금계좌 여유 900만 미소진"
+
+
+- id: G002_business_double_entry
+  description: |
+    프리랜서 개발자, 연 매출 1억 2천, 단순경비율 신고 중.
+    노란우산 미가입. 업종코드 940909.
+  profile:
+    has_business_income: true
+    business_revenue: 120_000_000
+    business_income: 60_000_000
+    book_method: "단순"
+    yellow_umbrella_paid: 0
+  expected:
+    - BOOK_DOUBLE_ENTRY_4800
+    - RED_YELLOW_UMBRELLA
+  forbidden:
+    - CRED_RENT_MONTHLY
+  notes: "복식부기 + 노란우산 한도 500만"
+
+
+- id: G003_one_house_12eok
+  description: |
+    15억 아파트 매각 예정. 1세대 1주택, 보유 8년·거주 4년. 양도차익 6억.
+  profile:
+    is_one_house: true
+    has_transfer_income: true
+    transfer_price: 1_500_000_000
+    transfer_gain: 600_000_000
+    holding_years: 8
+    residence_years: 4
+    holding_months: 96
+  expected:
+    - TRANSFER_HIGH_VALUE_EXCESS_LTCG
+    - TRANSFER_LTCG_TABLE2_ONE_HOUSE
+  forbidden:
+    - TRANSFER_ONE_HOUSE_EXEMPT
+    - TRANSFER_SHORT_TERM_EXTEND
+  notes: "12억 초과분 과세. 거주 10년 달성 시 표2 극대화"
+
+
+- id: G004_inheritance_family_business
+  description: |
+    부친 사망. 피상속인이 25년 영위한 제조업 법인 주식 400억 상속.
+    배우자 법정상속분 150억.
+  profile:
+    is_inheritance_case: true
+    spouse_exists: true
+    inheritance_total: 40_000_000_000
+    spouse_legal_share: 15_000_000_000
+    spouse_inherit_amount: 1_000_000_000
+    is_family_business: true
+    business_operating_years: 25
+    family_business_asset_value: 40_000_000_000
+    inheritance_tax_payable: 15_000_000_000
+  expected:
+    - INH_FAMILY_BUSINESS_DEDUCTION
+    - INH_SPOUSE_DEDUCTION
+    - INH_INSTALLMENT_PAYMENT
+  forbidden:
+    - TRANSFER_ONE_HOUSE_EXEMPT
+    - CRED_RENT_MONTHLY
+  notes: "20년 이상 가업상속 400억 한도 + 배우자 공제 극대화 + 연부연납"
+
+
+- id: G005_corp_rd_investment
+  description: |
+    중소 제조법인, 과세표준 8억, R&D 지출 2억, 설비투자 5억(신성장).
+    청년 3명 추가 채용.
+  profile:
+    is_corporation: true
+    is_sme_corporation: true
+    corp_taxable_income: 800_000_000
+    rd_expense: 200_000_000
+    qualified_investment_amount: 500_000_000
+    investment_tech_type: "new_growth"
+    employment_increase_total: 3
+    employment_increase_youth: 3
+    employment_increase_regular: 0
+  expected:
+    - CORP_RD_TAX_CREDIT
+    - CORP_INTEGRATED_INVESTMENT_CREDIT
+    - CORP_EMPLOYMENT_INCREASE_CREDIT
+  forbidden:
+    - TRANSFER_ONE_HOUSE_EXEMPT
+    - GIFT_SPLIT_10YEAR
+  notes: "SME R&D 25% + 신성장 투자 12% + 고용 통합공제 청년 1,450만/년 × 3년"

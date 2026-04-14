@@ -778,9 +778,17 @@ A 정답률 > B 정답률 (도구 기여 입증)
   - 7.5 특례·감면 (2): SELF_CULTIVATED_FARMLAND · PUBLIC_EXPROPRIATION
   - 회귀: catalog_v1 94/94 + 기타 27/27 = **121/121**
 
+- [x] **품질·실증 레이어 B1/B2/B3 완료** (2026-04-14):
+  - B2: `eval_scenarios_transfer.py` — 양도소득 복합 시나리오 7/7
+  - B1: `eval_ollama_rule_firing.py` — Ollama 하네스 skeleton (dry-run). 모델 pull 후 `--run`
+  - B3: `eval_goldset.py` + `data/eval/goldset_v1.yaml` — PRD 80% 측정. 현재 5/5 (100%, 베이스라인)
+  - 회귀: 121 → **128/128** 무회귀
+
 ### Phase 8 후보
 
+- **골드셋 확장**: 5 → 30+ 케이스. 세무사 검토 실사례 기반
+- **qwen3:32b 실제 pull + 첫 run**: `eval_ollama_rule_firing.py --run` 으로 로컬 모델 정확도 베이스라인
 - 조특법 중소기업 특별세액감면 (조특 7)
 - 종부세(종합부동산세) 규칙 신설
-- eval 하네스 실전 운용: qwen3:32b A/B 회귀를 정기 실행해 로컬 모델 유효성 추적
+- strategy_engine orchestrator 튜닝 (우선순위 가중치·리스크 필터)
 

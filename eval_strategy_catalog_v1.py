@@ -31,9 +31,9 @@ def test_catalog_counts_by_tax_type():
     counts = {}
     for r in rules:
         counts[r.tax_type] = counts.get(r.tax_type, 0) + 1
-    assert len(rules) == 32, f"전체 32개 예상, 실제 {len(rules)}"
+    assert len(rules) == 35, f"전체 35개 예상, 실제 {len(rules)}"
     assert counts.get("소득세") == 13
-    assert counts.get("법인세") == 11
+    assert counts.get("법인세") == 14
     assert counts.get("상속세") == 2
     assert counts.get("증여세") == 6
 
@@ -383,6 +383,65 @@ def test_corp_loss_carryback_non_sme_skips():
     assert "CORP_LOSS_CARRYBACK" not in _ids(r["candidates"])
 
 
+# --- 조특법 세액공제 (Phase 6) — 3규칙 ----------------------------------
+
+def test_corp_rd_credit_sme_general():
+    r = run({**_CORP_BASE, "is_sme_corporation": True, "rd_expense": 100_000_000})
+    # SME 일반 25% = 25M
+    assert _saving(r["candidates"], "CORP_RD_TAX_CREDIT") == 25_000_000
+
+
+def test_corp_rd_credit_sme_new_growth():
+    r = run({**_CORP_BASE, "is_sme_corporation": True, "rd_expense": 100_000_000, "rd_is_new_growth_tech": True})
+    # SME 신성장 30% = 30M
+    assert _saving(r["candidates"], "CORP_RD_TAX_CREDIT") == 30_000_000
+
+
+def test_corp_rd_credit_large_corp_default_rate():
+    r = run({**_CORP_BASE, "is_sme_corporation": False, "rd_expense": 100_000_000})
+    # 대기업 일반 15% = 15M
+    assert _saving(r["candidates"], "CORP_RD_TAX_CREDIT") == 15_000_000
+
+
+def test_corp_rd_credit_zero_expense_skips():
+    r = run({**_CORP_BASE, "rd_expense": 0})
+    assert "CORP_RD_TAX_CREDIT" not in _ids(r["candidates"])
+
+
+def test_corp_investment_credit_sme_with_increment():
+    r = run({**_CORP_BASE, "is_sme_corporation": True, "qualified_investment_amount": 500_000_000, "investment_prior_3yr_avg": 300_000_000})
+    # 기본 500M × 10% = 50M + 증가분 200M × 3% = 6M → 56M
+    assert _saving(r["candidates"], "CORP_INTEGRATED_INVESTMENT_CREDIT") == 56_000_000
+
+
+def test_corp_investment_credit_national_strategic():
+    r = run({**_CORP_BASE, "is_sme_corporation": True, "qualified_investment_amount": 1_000_000_000, "investment_tech_type": "national_strategic"})
+    # 기본 1B × 25% = 250M + 증가 1B × 3% = 30M → 280M
+    assert _saving(r["candidates"], "CORP_INTEGRATED_INVESTMENT_CREDIT") == 280_000_000
+
+
+def test_corp_investment_credit_zero_skips():
+    r = run({**_CORP_BASE, "qualified_investment_amount": 0})
+    assert "CORP_INTEGRATED_INVESTMENT_CREDIT" not in _ids(r["candidates"])
+
+
+def test_corp_employment_credit_sme_metro():
+    r = run({**_CORP_BASE, "is_sme_corporation": True, "employment_increase_total": 5, "employment_increase_youth": 3, "employment_increase_regular": 2, "is_non_metropolitan": False})
+    # (3×1450만 + 2×850만) × 2.5 = (43.5M + 17M) × 2.5 = 151.25M
+    assert _saving(r["candidates"], "CORP_EMPLOYMENT_INCREASE_CREDIT") == 151_250_000
+
+
+def test_corp_employment_credit_sme_non_metro():
+    r = run({**_CORP_BASE, "is_sme_corporation": True, "employment_increase_total": 2, "employment_increase_youth": 2, "employment_increase_regular": 0, "is_non_metropolitan": True})
+    # 2 × 1550만 × 2.5 = 77.5M
+    assert _saving(r["candidates"], "CORP_EMPLOYMENT_INCREASE_CREDIT") == 77_500_000
+
+
+def test_corp_employment_credit_zero_skips():
+    r = run({**_CORP_BASE, "employment_increase_total": 0})
+    assert "CORP_EMPLOYMENT_INCREASE_CREDIT" not in _ids(r["candidates"])
+
+
 # --- 증여세 v2 (Phase 6) — 2025 Q7 실증 근거 4규칙 -----------------------
 
 _GIFT_BASE = {"is_gift_case": True}
@@ -444,6 +503,8 @@ def test_income_profile_no_corp_or_estate_rules():
         "CORP_BAD_DEBT_RESERVE_EXCESS", "CORP_RETIREMENT_RESERVE_EXCESS",
         "CORP_COMPANY_VEHICLE_EXCESS", "CORP_ESO_NONDEDUCTIBLE",
         "CORP_DEEMED_DIVIDEND_WITHHOLDING", "CORP_LOSS_CARRYBACK",
+        "CORP_RD_TAX_CREDIT", "CORP_INTEGRATED_INVESTMENT_CREDIT",
+        "CORP_EMPLOYMENT_INCREASE_CREDIT",
         "INH_SPOUSE_DEDUCTION", "INH_INSTALLMENT_PAYMENT",
         "GIFT_SPLIT_10YEAR", "GIFT_LOW_VALUATION",
         "GIFT_LOW_PRICE_TRANSFER", "GIFT_FREE_LOAN_BENEFIT",
@@ -508,6 +569,16 @@ if __name__ == "__main__":
         ("gift real estate small skip", test_gift_free_real_estate_small_property_skips_saving),
         ("gift insurance", test_gift_insurance_proceed_partial_other_payer),
         ("gift insurance self skip", test_gift_insurance_self_payer_skips),
+        ("corp rd sme general", test_corp_rd_credit_sme_general),
+        ("corp rd sme new growth", test_corp_rd_credit_sme_new_growth),
+        ("corp rd large corp", test_corp_rd_credit_large_corp_default_rate),
+        ("corp rd zero skip", test_corp_rd_credit_zero_expense_skips),
+        ("corp inv sme w/increment", test_corp_investment_credit_sme_with_increment),
+        ("corp inv national strategic", test_corp_investment_credit_national_strategic),
+        ("corp inv zero skip", test_corp_investment_credit_zero_skips),
+        ("corp emp sme metro", test_corp_employment_credit_sme_metro),
+        ("corp emp sme non-metro", test_corp_employment_credit_sme_non_metro),
+        ("corp emp zero skip", test_corp_employment_credit_zero_skips),
         ("inh spouse", test_inh_spouse_deduction_maximize),
         ("inh spouse skip", test_inh_spouse_deduction_small_estate_skips),
         ("inh installment", test_inh_installment_large_payable),

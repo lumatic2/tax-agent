@@ -164,6 +164,17 @@ def _fill_defaults(p: dict, tax_result: dict) -> dict:
     p.setdefault("prior_year_tax_paid", 0)
     p.setdefault("prior_year_taxable_income", 0)
 
+    # 조특법 세액공제 (Phase 6 — 3종)
+    p.setdefault("rd_expense", 0)
+    p.setdefault("rd_is_new_growth_tech", False)
+    p.setdefault("qualified_investment_amount", 0)
+    p.setdefault("investment_tech_type", "general")
+    p.setdefault("investment_prior_3yr_avg", 0)
+    p.setdefault("employment_increase_total", 0)
+    p.setdefault("employment_increase_youth", 0)
+    p.setdefault("employment_increase_regular", 0)
+    p.setdefault("is_non_metropolitan", False)
+
     # 상속세 v1 추가 필드
     p.setdefault("is_inheritance_case", False)
     p.setdefault("spouse_exists", False)

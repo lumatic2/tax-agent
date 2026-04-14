@@ -262,6 +262,83 @@ def corp_deemed_dividend_withholding(amount: int = 0) -> int:
     return int(max(int(amount or 0), 0) * 0.14)
 
 
+def corp_rd_tax_credit_savings(
+    expense: int = 0,
+    is_sme: bool = False,
+    is_new_growth: bool = False,
+) -> int:
+    """R&D 세액공제 (조특 §10).
+
+    보수적 단순화: SME 일반 25% / 중견·대 15% / 신성장 SME 30% / 신성장 중견 20%.
+    """
+    e = int(expense or 0)
+    if e <= 0:
+        return 0
+    if is_new_growth and is_sme:
+        rate = 0.30
+    elif is_new_growth:
+        rate = 0.20
+    elif is_sme:
+        rate = 0.25
+    else:
+        rate = 0.15
+    return int(e * rate)
+
+
+def corp_integrated_investment_credit_savings(
+    investment: int = 0,
+    is_sme: bool = False,
+    tech_type: str = "general",
+    prior_3yr_avg: int = 0,
+) -> int:
+    """통합투자세액공제 (조특 §24).
+
+    tech_type: "general" | "new_growth" | "national_strategic"
+    기본공제 + 증가분 3% 추가.
+    """
+    inv = int(investment or 0)
+    if inv <= 0:
+        return 0
+    tt = str(tech_type or "general").lower()
+    if tt == "national_strategic":
+        base_rate = 0.25 if is_sme else 0.15
+    elif tt == "new_growth":
+        base_rate = 0.12 if is_sme else 0.03
+    else:
+        base_rate = 0.10 if is_sme else 0.01
+    base = int(inv * base_rate)
+    increment = max(inv - int(prior_3yr_avg or 0), 0)
+    extra = int(increment * 0.03)
+    return base + extra
+
+
+def corp_employment_increase_credit_savings(
+    youth_increase: int = 0,
+    regular_increase: int = 0,
+    is_sme: bool = False,
+    is_non_metro: bool = False,
+) -> int:
+    """통합고용세액공제 (조특 §29의8).
+
+    최대 3년 누적 (2년차 동일 + 3년차 50%).
+    중소 수도권: 청년 1,450만/일반 850만.
+    중소 비수도권: 청년 1,550만/일반 950만.
+    중견·대 단순화: 청년 600만/일반 300만.
+    """
+    y = max(int(youth_increase or 0), 0)
+    r = max(int(regular_increase or 0), 0)
+    if y + r <= 0:
+        return 0
+    if is_sme and is_non_metro:
+        per_year = y * 15_500_000 + r * 9_500_000
+    elif is_sme:
+        per_year = y * 14_500_000 + r * 8_500_000
+    else:
+        per_year = y * 6_000_000 + r * 3_000_000
+    # 1년차 + 2년차 + 3년차×0.5 = 2.5× 단년공제
+    return int(per_year * 2.5)
+
+
 def corp_loss_carryback_refund(
     loss: int = 0,
     prior_tax_paid: int = 0,
@@ -411,6 +488,9 @@ FORMULAS = {
     "corp_company_vehicle_savings": corp_company_vehicle_savings,
     "corp_deemed_dividend_withholding": corp_deemed_dividend_withholding,
     "corp_loss_carryback_refund": corp_loss_carryback_refund,
+    "corp_rd_tax_credit_savings": corp_rd_tax_credit_savings,
+    "corp_integrated_investment_credit_savings": corp_integrated_investment_credit_savings,
+    "corp_employment_increase_credit_savings": corp_employment_increase_credit_savings,
     "inh_spouse_deduction_savings": inh_spouse_deduction_savings,
     "inh_installment_cashflow_benefit": inh_installment_cashflow_benefit,
     "gift_split_savings": gift_split_savings,

@@ -1,0 +1,115 @@
+- id: CORP_RD_TAX_CREDIT
+  name: "연구·인력개발비 세액공제"
+  category: credit
+  tax_type: 법인세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - {op: "==", left: "profile.is_corporation", right: true}
+      - {op: ">", left: "profile.rd_expense", right: 0}
+
+  diagnosis: "연구·인력개발비 지출 시 조특법 §10 세액공제 — 중소 25%, 중견 15%, 신성장·원천기술 중소 30~40%"
+  recommendation:
+    action: "연구개발비 증빙 정비 및 세액공제 신청"
+    detail: "일반 R&D: 중소 25% / 중견(3년 평균) 15% / 대 증가분 3~10%. 신성장·원천기술은 별도 고율. 연구노트·인건비 배분표 필수"
+
+  estimator:
+    type: formula
+    name: corp_rd_tax_credit_savings
+    params:
+      expense_ref: "profile.rd_expense"
+      is_sme_ref: "profile.is_sme_corporation"
+      is_new_growth_ref: "profile.rd_is_new_growth_tech"
+
+  legal_basis:
+    - {law: 조세특례제한법, article: "제10조"}
+    - {law: 조세특례제한법시행령, article: "제9조"}
+
+  risk:
+    level: low
+    flags: ["추징_5년", "증빙_필수"]
+    caveat: "연구전담부서 미지정·연구노트 미작성 시 추징 리스크. 공제 후 5년 내 부정수급 적발 시 가산세 40%"
+
+  source:
+    ref: "조특법 §10 — 연구·인력개발비 세액공제"
+    updated: 2026-04-14
+
+
+- id: CORP_INTEGRATED_INVESTMENT_CREDIT
+  name: "통합투자세액공제"
+  category: credit
+  tax_type: 법인세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - {op: "==", left: "profile.is_corporation", right: true}
+      - {op: ">", left: "profile.qualified_investment_amount", right: 0}
+
+  diagnosis: "사업용 자산·시설 투자 시 조특법 §24 통합투자세액공제 — 중소 10%, 중견 3%, 대 1% 기본공제 + 증가분 3% 추가"
+  recommendation:
+    action: "투자확인서 발급 + 세액공제 신청"
+    detail: "국가전략기술(반도체·이차전지 등) 중소 25%, 중견 25%, 대 15%. 신성장·원천기술은 중소 12%, 대 3%. 당해연도 vs 직전3년 평균 증가분 × 3% 추가"
+
+  estimator:
+    type: formula
+    name: corp_integrated_investment_credit_savings
+    params:
+      investment_ref: "profile.qualified_investment_amount"
+      is_sme_ref: "profile.is_sme_corporation"
+      tech_type_ref: "profile.investment_tech_type"
+      prior_3yr_avg_ref: "profile.investment_prior_3yr_avg"
+
+  legal_basis:
+    - {law: 조세특례제한법, article: "제24조"}
+
+  risk:
+    level: low
+    flags: ["사후관리_2년"]
+    caveat: "투자자산 2년 이내 처분·임대 시 공제세액 추징 + 이자상당가산액 부과"
+
+  source:
+    ref: "조특법 §24 — 통합투자세액공제(2021 개편)"
+    updated: 2026-04-14
+
+
+- id: CORP_EMPLOYMENT_INCREASE_CREDIT
+  name: "통합고용세액공제 (상시근로자 증가)"
+  category: credit
+  tax_type: 법인세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - {op: "==", left: "profile.is_corporation", right: true}
+      - {op: ">", left: "profile.employment_increase_total", right: 0}
+
+  diagnosis: "상시근로자 증가 시 조특법 §29의8 통합고용세액공제 — 중소 수도권 청년 1,450만/일반 850만, 비수도권 청년 1,550만/일반 950만 × 최대 3년"
+  recommendation:
+    action: "증가 근로자 계약·임금대장·4대보험 이력 확보"
+    detail: "청년(15~34세)·장애인·60세이상 가점. 2년차 동일 공제, 3년차 50%. 공제 후 2년 내 인원 감소 시 추징"
+
+  estimator:
+    type: formula
+    name: corp_employment_increase_credit_savings
+    params:
+      youth_increase_ref: "profile.employment_increase_youth"
+      regular_increase_ref: "profile.employment_increase_regular"
+      is_sme_ref: "profile.is_sme_corporation"
+      is_non_metro_ref: "profile.is_non_metropolitan"
+
+  legal_basis:
+    - {law: 조세특례제한법, article: "제29조의8"}
+
+  risk:
+    level: medium
+    flags: ["사후관리_2년", "추징_리스크"]
+    caveat: "공제 후 2년 내 상시근로자 감소 시 감소분 × 공제액 추징 + 이자상당가산액"
+
+  source:
+    ref: "조특법 §29의8 — 통합고용세액공제(2023 개편)"
+    updated: 2026-04-14

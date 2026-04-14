@@ -1,0 +1,83 @@
+- id: INH_SPOUSE_DEDUCTION
+  name: "배우자 상속공제 극대화"
+  category: deduction
+  tax_type: 상속세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - op: "=="
+        left: "profile.is_inheritance_case"
+        right: true
+      - op: "=="
+        left: "profile.spouse_exists"
+        right: true
+      - op: ">"
+        left: "profile.inheritance_total"
+        right: 500000000
+
+  diagnosis: "배우자 상속공제: 법정상속분 한도 내 실제 상속가액 최대 30억 공제(최소 5억) — 법정분 초과 증여 시 손실"
+  recommendation:
+    action: "배우자 실제 상속가액을 법정상속분 한도 내 최대치로 조정"
+    detail: "분할협의 단계에서 배우자 귀속 재산을 법정분에 맞춰 배분. 초과분은 자녀에게 이전해야 공제 소진"
+
+  estimator:
+    type: formula
+    name: inh_spouse_deduction_savings
+    params:
+      total_ref: "profile.inheritance_total"
+      spouse_share_ref: "profile.spouse_inherit_amount"
+      spouse_legal_share_ref: "profile.spouse_legal_share"
+
+  legal_basis:
+    - { law: 상속세및증여세법, article: "제19조" }
+
+  risk:
+    level: medium
+    flags: ["분할협의서_필요"]
+    caveat: "신고기한(6개월) 내 분할협의 미완료 시 공제 최소액(5억)만 적용"
+
+  source:
+    ref: "PwC Viewpoint tax-planning strategies"
+    updated: 2026-04-14
+
+
+- id: INH_INSTALLMENT_PAYMENT
+  name: "상속세 연부연납 활용"
+  category: timing
+  tax_type: 상속세
+  priority: medium
+
+  applies_when:
+    op: and
+    of:
+      - op: "=="
+        left: "profile.is_inheritance_case"
+        right: true
+      - op: ">"
+        left: "profile.inheritance_tax_payable"
+        right: 20000000
+
+  diagnosis: "납부세액 2천만 초과 — 10년 이내 연부연납 신청 가능(담보 제공 조건, 가산금 연 2.9%)"
+  recommendation:
+    action: "연부연납 신청서 제출"
+    detail: "신고기한 내 신청. 가업상속은 최대 20년. 담보는 납세보증보험증권 또는 부동산"
+
+  estimator:
+    type: formula
+    name: inh_installment_cashflow_benefit
+    params:
+      tax_payable_ref: "profile.inheritance_tax_payable"
+
+  legal_basis:
+    - { law: 상속세및증여세법, article: "제71조" }
+
+  risk:
+    level: low
+    flags: []
+    caveat: "가산금 연 2.9% 부담 — 시장금리 대비 유리 여부 판단"
+
+  source:
+    ref: "혜움 상속세 가이드"
+    updated: 2026-04-14

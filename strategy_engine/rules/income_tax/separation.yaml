@@ -1,0 +1,126 @@
+- id: FIN_SEPARATION_2000
+  name: "금융소득 분리과세 유지"
+  category: separation_vs_comprehensive
+  tax_type: 소득세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - op: ">"
+        left: "profile.financial_income_total"
+        right: 0
+      - op: "<="
+        left: "profile.financial_income_total"
+        right: 20000000
+
+  diagnosis: "금융소득 2천만 원 이하 → 분리과세(원천징수 14%)가 종합과세 합산보다 유리한 구간"
+  recommendation:
+    action: "분리과세 유지"
+    detail: "원천징수로 납세의무 종결, 종합소득세 합산 신고 불필요"
+
+  estimator:
+    type: formula
+    name: financial_separation_savings
+    params:
+      interest_ref: "profile.interest_income"
+      dividend_ref: "profile.dividend_income"
+      marginal_rate_ref: "profile.marginal_rate"
+
+  legal_basis:
+    - { law: 소득세법, article: "제14조제3항" }
+    - { law: 소득세법, article: "제17조" }
+
+  risk:
+    level: low
+    flags: []
+    caveat: "배당가산액(Gross-up) 포기 trade-off 없음 (2천만 이하 구간)"
+
+  source:
+    ref: "삼일PwC one-point-tax-11"
+    updated: 2026-04-14
+
+
+- id: SEP_HOUSING_RENTAL_2000
+  name: "주택임대소득 분리과세 선택 (2천만 이하)"
+  category: separation_vs_comprehensive
+  tax_type: 소득세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - op: ">"
+        left: "profile.housing_rental_income"
+        right: 0
+      - op: "<="
+        left: "profile.housing_rental_income"
+        right: 20000000
+
+  diagnosis: "주택임대수입 2천만 이하 — 분리과세(14%·필요경비 50%·기본공제 200만) 선택이 대부분 유리"
+  recommendation:
+    action: "분리과세 선택 신고"
+    detail: "종합과세와 둘 중 유리한 쪽 선택 가능. 등록임대주택은 필요경비 60%·공제 400만으로 확대"
+
+  estimator:
+    type: formula
+    name: housing_rental_separation_savings
+    params:
+      rental_income_ref: "profile.housing_rental_income"
+      marginal_rate_ref: "profile.marginal_rate"
+      is_registered_ref: "profile.is_registered_rental"
+
+  legal_basis:
+    - { law: 소득세법, article: "제14조제3항제7호" }
+    - { law: 소득세법, article: "제64조의2" }
+
+  risk:
+    level: low
+    flags: []
+    caveat: "2주택 이상 보유자 과세 대상 — 1주택(9억 이하)은 비과세"
+
+  source:
+    ref: "PwC Viewpoint tax-planning strategies"
+    updated: 2026-04-14
+
+
+- id: SEP_OTHER_INCOME_300
+  name: "기타소득 분리과세 유지 (300만 이하)"
+  category: separation_vs_comprehensive
+  tax_type: 소득세
+  priority: medium
+
+  applies_when:
+    op: and
+    of:
+      - op: ">"
+        left: "profile.other_income_net"
+        right: 0
+      - op: "<="
+        left: "profile.other_income_net"
+        right: 3000000
+
+  diagnosis: "기타소득금액(총수입-필요경비) 300만 이하 — 20% 원천징수 분리과세 선택 가능"
+  recommendation:
+    action: "분리과세 유지"
+    detail: "한계세율 > 20%인 경우 분리과세가 유리. 강연료·인세·경품 등 일회성 소득 적용"
+
+  estimator:
+    type: formula
+    name: other_income_separation_savings
+    params:
+      other_income_net_ref: "profile.other_income_net"
+      marginal_rate_ref: "profile.marginal_rate"
+
+  legal_basis:
+    - { law: 소득세법, article: "제14조제3항제8호" }
+    - { law: 소득세법, article: "제21조" }
+
+  risk:
+    level: low
+    flags: []
+    caveat: "복권·슬롯머신 당첨금 등은 무조건 분리과세(선택 불가)"
+
+  source:
+    ref: "삼쩜삼 종소세 절세 9가지"
+    updated: 2026-04-14

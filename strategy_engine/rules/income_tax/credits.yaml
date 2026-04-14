@@ -1,0 +1,160 @@
+- id: CRED_MONTHLY_RENT
+  name: "월세 세액공제"
+  category: credit
+  tax_type: 소득세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - op: "=="
+        left: "profile.has_earned_income"
+        right: true
+      - op: ">"
+        left: "profile.monthly_rent"
+        right: 0
+      - op: "<="
+        left: "profile.gross_salary"
+        right: 80000000
+      - op: "=="
+        left: "profile.is_homeless_household"
+        right: true
+
+  diagnosis: "총급여 8천만 이하 무주택 세대주/세대원의 월세 지출 — 연 1,000만원 한도로 15~17% 세액공제"
+  recommendation:
+    action: "월세 세액공제 신청"
+    detail: "총급여 5,500만 이하 17%, 5,500만 초과 15%. 계약서·납입 증빙 필요"
+
+  estimator:
+    type: formula
+    name: monthly_rent_credit_savings
+    params:
+      monthly_rent_ref: "profile.monthly_rent"
+      gross_salary_ref: "profile.gross_salary"
+
+  legal_basis:
+    - { law: 조세특례제한법, article: "제95조의2" }
+
+  risk:
+    level: low
+    flags: []
+    caveat: "세대주 요건·무주택 요건 충족 여부 재확인 필수"
+
+  source:
+    ref: "세이브택스 세액공제 9가지"
+    updated: 2026-04-14
+
+
+- id: CRED_CHILDREN
+  name: "자녀 세액공제"
+  category: credit
+  tax_type: 소득세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - op: ">"
+        left: "profile.children_under_20_count"
+        right: 0
+      - op: "=="
+        left: "profile.has_earned_income"
+        right: true
+
+  diagnosis: "만 8~20세 자녀 기본공제 대상 — 1명 15만, 2명 35만, 3명+ 2명당 30만 추가"
+  recommendation:
+    action: "자녀 세액공제 신청"
+    detail: "8세 미만은 자녀장려금·아동수당과 중복 불가. 출생·입양 별도 공제 추가"
+
+  estimator:
+    type: formula
+    name: children_credit_savings
+    params:
+      count_ref: "profile.children_under_20_count"
+
+  legal_basis:
+    - { law: 소득세법, article: "제59조의2" }
+
+  risk:
+    level: low
+    flags: []
+    caveat: "만 8세 미만은 2024년부터 공제 대상 제외"
+
+  source:
+    ref: "세이브택스 세액공제 9가지"
+    updated: 2026-04-14
+
+
+- id: CRED_EDUCATION
+  name: "교육비 세액공제"
+  category: credit
+  tax_type: 소득세
+  priority: medium
+
+  applies_when:
+    op: and
+    of:
+      - op: ">"
+        left: "profile.education_expense"
+        right: 0
+      - op: "=="
+        left: "profile.has_earned_income"
+        right: true
+
+  diagnosis: "본인·부양가족 교육비 지출 — 15% 세액공제, 한도: 대학생 1인당 900만/취학전·초중고 1인당 300만/본인 무제한"
+  recommendation:
+    action: "교육비 영수증 수집 및 공제 신청"
+    detail: "국세청 간소화 자동 집계 + 누락분(학원·교복 등) 별도 영수증 확보"
+
+  estimator:
+    type: formula
+    name: education_credit_savings
+    params:
+      expense_ref: "profile.education_expense"
+
+  legal_basis:
+    - { law: 소득세법, article: "제59조의4제3항" }
+
+  risk:
+    level: low
+    flags: []
+    caveat: "학원비는 취학전아동만 공제 대상 — 초중고는 불인정"
+
+  source:
+    ref: "혜움 종소세 절세 가이드"
+    updated: 2026-04-14
+
+
+- id: CRED_DONATION
+  name: "기부금 세액공제"
+  category: credit
+  tax_type: 소득세
+  priority: medium
+
+  applies_when:
+    op: ">"
+    left: "profile.donation_amount"
+    right: 0
+
+  diagnosis: "기부금 세액공제 — 1천만 이하 15%, 초과분 30% (2024년 한시 40%)"
+  recommendation:
+    action: "기부금 영수증 확보"
+    detail: "법정·지정기부금 구분. 한도 초과분 10년 이월공제 가능"
+
+  estimator:
+    type: formula
+    name: donation_credit_savings
+    params:
+      amount_ref: "profile.donation_amount"
+
+  legal_basis:
+    - { law: 소득세법, article: "제59조의4제4항" }
+
+  risk:
+    level: low
+    flags: []
+    caveat: "종교단체 기부금은 10% 한도 별도 적용"
+
+  source:
+    ref: "세이브택스 세액공제 9가지"
+    updated: 2026-04-14

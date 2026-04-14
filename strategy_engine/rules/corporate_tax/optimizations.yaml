@@ -1,0 +1,132 @@
+- id: CORP_ENTERTAINMENT_LIMIT
+  name: "접대비 한도초과 손금불산입 리스크"
+  category: reduction
+  tax_type: 법인세
+  priority: medium
+
+  applies_when:
+    op: and
+    of:
+      - op: "=="
+        left: "profile.is_corporation"
+        right: true
+      - op: ">"
+        left: "profile.entertainment_paid"
+        right: 0
+      - op: ">"
+        left: "profile.entertainment_paid"
+        right: "profile.entertainment_limit"
+
+  diagnosis: "접대비 한도(중소 3,600만 + 매출별 0.3~0.03%)를 초과한 접대비는 손금불산입 — 일반 접대비 한도 상향 요건(법카·3만 초과 증빙) 준수 필요"
+  recommendation:
+    action: "접대비 증빙 재정비 또는 복리후생비 전환 검토"
+    detail: "접대비 중 업무 관련 회의비·복리후생비는 별도 계정 분류. 3만 초과는 법인카드·세금계산서 필수"
+
+  estimator:
+    type: formula
+    name: corp_rate_exposure
+    params:
+      base_amount_ref: "profile.entertainment_excess"
+      corp_tax_rate_ref: "profile.corp_tax_rate"
+
+  legal_basis:
+    - { law: 법인세법, article: "제25조" }
+
+  risk:
+    level: medium
+    flags: ["손금불산입"]
+    caveat: "증빙 불비 접대비는 100% 손금불산입"
+
+  source:
+    ref: "CPA 2차 2024 Q4 접대비 한도"
+    updated: 2026-04-14
+
+
+- id: CORP_DONATION_LIMIT
+  name: "법인세 기부금 한도초과 손금불산입"
+  category: reduction
+  tax_type: 법인세
+  priority: medium
+
+  applies_when:
+    op: and
+    of:
+      - op: "=="
+        left: "profile.is_corporation"
+        right: true
+      - op: ">"
+        left: "profile.donation_paid"
+        right: 0
+      - op: ">"
+        left: "profile.donation_paid"
+        right: "profile.donation_limit"
+
+  diagnosis: "법정(50%)·지정(10%) 기부금 한도 초과분은 당기 손금불산입 — 10년 이월공제 가능"
+  recommendation:
+    action: "이월공제 이력 관리 또는 차년도 지급 재조정"
+    detail: "한도 계산: 기준소득금액 × 비율. 이월공제는 FIFO로 10년 한도"
+
+  estimator:
+    type: formula
+    name: corp_rate_exposure
+    params:
+      base_amount_ref: "profile.donation_excess"
+      corp_tax_rate_ref: "profile.corp_tax_rate"
+
+  legal_basis:
+    - { law: 법인세법, article: "제24조" }
+
+  risk:
+    level: low
+    flags: ["이월공제가능"]
+    caveat: "이월공제 10년 초과분은 영구 손금불산입"
+
+  source:
+    ref: "CPA 2차 2025 Q5 기부금"
+    updated: 2026-04-14
+
+
+- id: CORP_LOSS_CARRYFORWARD
+  name: "이월결손금 공제 활용"
+  category: deduction
+  tax_type: 법인세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - op: "=="
+        left: "profile.is_corporation"
+        right: true
+      - op: ">"
+        left: "profile.loss_carryforward_available"
+        right: 0
+      - op: ">"
+        left: "profile.corp_taxable_income"
+        right: 0
+
+  diagnosis: "15년 이내 이월결손금 — 당기 과세표준 80%(중소 100%) 한도로 공제 가능"
+  recommendation:
+    action: "이월결손금 공제 적용"
+    detail: "발생연도 FIFO로 소진. 중소기업은 100% 공제, 일반법인은 80% 한도"
+
+  estimator:
+    type: formula
+    name: corp_loss_carryforward_savings
+    params:
+      available_ref: "profile.loss_carryforward_available"
+      taxable_income_ref: "profile.corp_taxable_income"
+      is_sme_ref: "profile.is_sme_corporation"
+      corp_tax_rate_ref: "profile.corp_tax_rate"
+
+  legal_basis:
+    - { law: 법인세법, article: "제13조" }
+
+  risk:
+    level: low
+    flags: []
+    caveat: "15년 초과 이월결손금은 소멸"
+
+  source:
+    ref: "CPA 2차 2024 Q5 결손금 소급공제"
+    updated: 2026-04-14

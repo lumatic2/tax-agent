@@ -1,0 +1,42 @@
+- id: TIMING_MEDICAL_EXPENSE
+  name: "의료비 배우자 몰아주기"
+  category: timing
+  tax_type: 소득세
+  priority: medium
+
+  applies_when:
+    op: and
+    of:
+      - op: "=="
+        left: "profile.has_earned_income"
+        right: true
+      - op: ">"
+        left: "profile.medical_expense"
+        right: 0
+      - op: ">"
+        left: "profile.gross_salary"
+        right: 0
+
+  diagnosis: "의료비 세액공제는 총급여 3% 초과분에 대해 15% 공제 — 저소득 배우자에게 의료비를 몰아주면 문턱(3%) 낮아져 공제 가능액 증가"
+  recommendation:
+    action: "의료비 배우자 귀속 검토"
+    detail: "부부 중 총급여 낮은 쪽이 의료비 지출자로 공제 신청. 신용카드/현금영수증 명의 일치 필요"
+
+  estimator:
+    type: formula
+    name: medical_expense_timing_savings
+    params:
+      medical_expense_ref: "profile.medical_expense"
+      gross_salary_ref: "profile.gross_salary"
+
+  legal_basis:
+    - { law: 소득세법, article: "제59조의4" }
+
+  risk:
+    level: medium
+    flags: ["증빙_불일치_위험"]
+    caveat: "결제 명의와 공제 신청자가 다를 경우 국세청 소명 요구"
+
+  source:
+    ref: "삼쩜삼 종소세 절세 9가지"
+    updated: 2026-04-14

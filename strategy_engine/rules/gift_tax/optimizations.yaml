@@ -1,0 +1,89 @@
+- id: GIFT_SPLIT_10YEAR
+  name: "10년 합산 회피 분할증여"
+  category: timing
+  tax_type: 증여세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - op: "=="
+        left: "profile.is_gift_case"
+        right: true
+      - op: ">"
+        left: "profile.gift_planned_amount"
+        right: 0
+      - op: ">"
+        left: "profile.gift_total_with_prior_10yr"
+        right: "profile.gift_exemption_limit"
+
+  diagnosis: "동일 증여자→수증자 간 10년 합산 증여액이 비과세 한도(배우자 6억/직계존비속 5천만/기타 1천만) 초과 — 10년 주기 분할로 합산 회피 가능"
+  recommendation:
+    action: "증여 시점 재설계 (10년 단위 분할)"
+    detail: "과거 10년 내 증여 이력 확인. 다수 수증자(자녀·손자) 분산 증여 병행 고려"
+
+  estimator:
+    type: formula
+    name: gift_split_savings
+    params:
+      planned_amount_ref: "profile.gift_planned_amount"
+      prior_amount_ref: "profile.gift_prior_10yr_amount"
+      exemption_ref: "profile.gift_exemption_limit"
+
+  legal_basis:
+    - { law: 상속세및증여세법, article: "제47조제2항" }
+    - { law: 상속세및증여세법, article: "제53조" }
+
+  risk:
+    level: medium
+    flags: ["장기_계획_필요"]
+    caveat: "증여 후 10년 내 증여자 사망 시 상속재산 합산(상증법 §13)"
+
+  source:
+    ref: "세이브택스 증여세 절세 루트"
+    updated: 2026-04-14
+
+
+- id: GIFT_LOW_VALUATION
+  name: "저평가 자산 우선 증여"
+  category: timing
+  tax_type: 증여세
+  priority: medium
+
+  applies_when:
+    op: and
+    of:
+      - op: "=="
+        left: "profile.is_gift_case"
+        right: true
+      - op: ">"
+        left: "profile.low_value_asset_fair_price"
+        right: 0
+      - op: "<"
+        left: "profile.low_value_asset_fair_price"
+        right: "profile.low_value_asset_expected_price"
+
+  diagnosis: "평가기준일 현재 시가가 향후 상승 예상 대비 낮음 — 저평가 국면에 증여 시 과세가액 최소화"
+  recommendation:
+    action: "저평가 시점 증여 실행"
+    detail: "비상장주식·부동산 공시지가 반영 지연분 활용. 감정평가 보충자료 확보"
+
+  estimator:
+    type: formula
+    name: gift_low_valuation_savings
+    params:
+      fair_price_ref: "profile.low_value_asset_fair_price"
+      expected_price_ref: "profile.low_value_asset_expected_price"
+
+  legal_basis:
+    - { law: 상속세및증여세법, article: "제60조" }
+    - { law: 상속세및증여세법, article: "제61조" }
+
+  risk:
+    level: high
+    flags: ["평가기준_분쟁_가능"]
+    caveat: "저가 근거 부족 시 국세청 보충적 평가 또는 추징 가능"
+
+  source:
+    ref: "PwC Viewpoint tax-planning strategies"
+    updated: 2026-04-14

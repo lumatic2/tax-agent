@@ -1,0 +1,86 @@
+- id: DED_PENSION_IRP_700
+  name: "연금계좌(IRP/연금저축) 추가 납입"
+  category: deduction
+  tax_type: 소득세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - op: ">"
+        left: "profile.gross_salary"
+        right: 0
+      - op: "<"
+        left: "profile.pension_account_total"
+        right: 9000000
+
+  diagnosis: "연금계좌 세액공제 한도(900만원) 미소진 — 여유분 납입 시 13.2~16.5% 세액공제"
+  recommendation:
+    action: "연금계좌 추가 납입"
+    detail: "총급여 5,500만 이하 16.5%, 초과 13.2%. 연금저축 한도 600만, IRP 포함 900만"
+
+  estimator:
+    type: formula
+    name: pension_account_savings
+    params:
+      pension_account_total_ref: "profile.pension_account_total"
+      gross_salary_ref: "profile.gross_salary"
+
+  legal_basis:
+    - { law: 소득세법, article: "제59조의3" }
+
+  risk:
+    level: low
+    flags: []
+    caveat: "55세 이전 중도인출 시 기타소득세 16.5% 추징"
+
+  source:
+    ref: "혜움 종소세 절세 가이드"
+    updated: 2026-04-14
+
+
+- id: DED_CREDIT_CARD
+  name: "신용카드 등 사용금액 소득공제"
+  category: deduction
+  tax_type: 소득세
+  priority: medium
+
+  applies_when:
+    op: and
+    of:
+      - op: "=="
+        left: "profile.has_earned_income"
+        right: true
+      - op: ">"
+        left: "profile.gross_salary"
+        right: 0
+      - op: ">"
+        left: "profile.card_usage_total"
+        right: 0
+
+  diagnosis: "총급여 25% 초과분에 대해 신용카드 15%·체크/현금 30%·전통시장/대중교통 40% 공제"
+  recommendation:
+    action: "결제수단 구성 최적화"
+    detail: "25% 문턱 전까지는 신용카드, 초과 후엔 체크/현금영수증으로 전환. 연 300만원 한도"
+
+  estimator:
+    type: formula
+    name: credit_card_deduction_savings
+    params:
+      gross_salary_ref: "profile.gross_salary"
+      card_usage_total_ref: "profile.card_usage_total"
+      traditional_market_ref: "profile.card_traditional_market"
+      public_transit_ref: "profile.card_public_transit"
+      marginal_rate_ref: "profile.marginal_rate"
+
+  legal_basis:
+    - { law: 조세특례제한법, article: "제126조의2" }
+
+  risk:
+    level: low
+    flags: []
+    caveat: "해외결제·상품권·자동차 구입은 공제 대상 아님"
+
+  source:
+    ref: "삼쩜삼 종소세 절세 9가지"
+    updated: 2026-04-14

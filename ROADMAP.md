@@ -5,7 +5,7 @@
 > 정우승·이철재 「세법 워크북」 목차 구조를 기반으로 소득세 전체를 커버하고,
 > 이후 부가세·법인세로 확장하는 단계별 계획.
 >
-> **현재 상태:** Phase 1~4 전 세목 Level 4 완료. Phase 4 기출 실증: 1차 6/6 완료, 2차 보류(해설 PDF 필요).
+> **현재 상태:** Phase 1~4 전 세목 Level 4 완료. Phase 4 기출 실증: 1차 6/6 완료, 2차 2024 39/39 + 2025 39/39 완료. **2차 서술형 전수 검증 완료.**
 >
 > **전략: 수직 완성 우선** — 한 세목을 실제 세무사 검토 수준(숫자 일치 80%+)으로
 > 완전히 끝낸 뒤 다음 세목으로 이동.
@@ -425,6 +425,48 @@ Phase 2 **Level 4 달성** (2026-04-12). Phase 3 시작.
 | `execution_planner.py` | 신고서 초안 생성 (`generate_tax_return_draft()`) |
 | Claude API 전환 | Phase 1 Claude Code → Phase 2 FastAPI + claude-sonnet-4-6 |
 
+### Phase 5-A — strategy_engine 설계 (2026-04-14)
+
+실제 세무사 절세 업무 파이프라인을 모델링한 4단계 구조.
+
+**웹검색 기반 업무 흐름**: 자료 수집·분류 → 완전성 점검 → 기장 방식 판정 → 필요경비 최대화 → 공제·감면 전수 적용 → 분리/종합 최적화 → 시나리오 시뮬레이션 → 신고서 초안 + 리스크 경고
+
+**4단계 아키텍처**:
+
+```
+입력: tax_result (Phase 4 계산 결과) + 원시자료 + 납세자 프로필
+ ↓
+[1] 완전성 진단 (Gap Detector) — 누락 경비·공제 탐지
+ ↓
+[2] 전략 후보 생성 (Strategy Generator) — 규칙 카탈로그 기반
+    · 분리/종합 선택 (금융 2천만·주택임대 2천만·기타 300만 경계)
+    · 기장 방식 전환 (매출 4,800만·7,500만 임계치)
+    · 공제·감면 전수 체크 (중기특별감면·자녀·월세·연금계좌)
+    · 시점 전략 (의료비 몰아주기·기부금 이월)
+ ↓
+[3] 시뮬레이터 (What-if Engine) — tax_calc_cli 재호출로 세액 비교
+ ↓
+[4] 리스크 플래그 (Risk Gate) — law-mcp 조문 검증 + 세무조사 트리거
+ ↓
+출력: 우선순위화된 전략 리스트 + 절세액 + 근거조문 + 리스크
+```
+
+**모듈 구성**:
+- `strategy_engine/gap_detector.py` — 체크리스트 기반 누락 탐지
+- `strategy_engine/strategy_rules.py` — 규칙 카탈로그 (YAML/JSON 드리븐)
+- `strategy_engine/simulator.py` — tax_calc_cli 호출 래퍼
+- `strategy_engine/risk_flags.py` — 리스크 룰
+- `strategy_engine/orchestrator.py` — 4단계 실행 + 결과 종합
+
+**착수 순서**:
+- [x] 5-A-1: 규칙 카탈로그 YAML 스키마 v0 확정 (JSON 구조 조건식 DSL + formula/simulate/fixed estimator) — 2026-04-14
+- [x] 5-A-2: 골든 셋 5규칙(FIN_SEPARATION·BOOK_DOUBLE_ENTRY·CRED_MONTHLY_RENT·DED_PENSION_IRP·TIMING_MEDICAL) + `eval_strategy_rules.py` 12/12 통과 — 2026-04-14
+- [x] 5-A-3: 종소세 end-to-end 시나리오(근로+금융 겸업자)로 orchestrator 통합 검증 — `eval_strategy_e2e.py` 7/7 통과 (profile_builder flatten, 4규칙 동시 발동, 우선순위 정렬, 금융 2,500만 케이스 분리과세 비발동) — 2026-04-14
+- [x] 5-A-4: 기출 2차 서술형 재활용 회귀 — 법인세 리스크 규칙 2개(`CORP_EXECUTIVE_BONUS_EXCESS`, `CORP_UNFAIR_HIGH_PRICE_PURCHASE`) 추가, CPA 2024 Q5(부당행위 최대매입가 6,194,999,999) + CPA 2025 Q5(임원상여 한도초과) 프로필로 `eval_strategy_corp_risk.py` 8/8 통과. 개인·법인 스코프 격리(크로스 오발동 방지), 5% 경계값, trace 실패 조항 추적 전부 검증 — 2026-04-14
+- [x] 5-A-5: 규칙 카탈로그 v1 확장 — **22개 규칙** (소득세 13 + 법인세 5 + 상속세 2 + 증여세 2). 19종 estimator 공식 추가, profile_builder 전 세목 필드 defaults. `eval_strategy_catalog_v1.py` 30/30 통과 (각 신규 규칙 적용/비적용 + 크로스-세목 스코프 격리 2종) — 2026-04-14
+
+**Phase 5-A 통합 회귀**: eval_strategy_rules 12/12 + e2e 7/7 + corp_risk 8/8 + catalog_v1 30/30 = **57/57** + certify_phase1 26/26 유지
+
 ---
 
 ## 자료 수집 자동화 로드맵
@@ -670,10 +712,36 @@ A 정답률 > B 정답률 (도구 기여 입증)
 ## 이어서 할 일
 > 다음 세션에서 이 항목부터 시작한다.
 
-- **법인세 2차 서술형 A/B 실증** — 정답 JSON 파싱 완료, B→A 풀이 진행
-  - 2024 2차 Q4: 기업업무추진비(특수관계인 수입금액 1/10)·출자전환·배당·지급이자·주식매수선택권·개발비
-  - 2024 2차 Q5: 부당행위계산부인(실권주 재배정)·결손금 소급공제
-  - 2025 2차 Q4: 의제배당(무상주·자기주식 유효지분율)·퇴직급여충당금·대손충당금·업무용승용차
-  - 2025 2차 Q5: 임원상여금·퇴직금 한도·기부금·부당행위계산부인(고가매입)
-  - 2025 2차 Q6: 연결납세
-- Phase 5(상위 레이어) 검토 — 4세목 전부 Level 4 달성했으므로 strategy_engine 시작 가능
+- [x] **법인세 2차 서술형 A/B 실증** — 2024 39/39 + 2025 39/39 = **78/78 전수 검증 완료**
+  - [x] 2024 Q4: 접대비 한도·출자전환·지급이자·주식매수선택권·개발비 — 25/25
+  - [x] 2024 Q5: 부당행위계산부인(실권주)·결손금 소급공제 — 8/8 (정답JSON 4건 수정)
+  - [x] 2024 Q6: 상속세 과세가액·증여 반환시기 — 6/6
+  - [x] 2025 Q4: 의제배당·퇴직급여충당금·대손충당금·업무용승용차 — 22/22
+  - [x] 2025 Q5: 임원상여금·퇴직금 한도·기부금·부당행위계산부인 — 10/10
+  - [x] 2025 Q6: 연결납세 — 2/2
+  - [x] 2025 Q7: 증여세(부동산 무상사용·금전무상대출·보험금) — 5/5 (JSON 누락 2건 보완)
+- [x] Phase 5-A **strategy_engine 카탈로그화 완료** (2026-04-14): 22규칙 + 57/57 회귀 + certify 26/26 무회귀
+
+### 다음 세션 — Phase 5-B: 프론트엔드 통합 (`local-ai-workstation` → `tax-agent` 이전)
+
+> **배경**: 바탕화면 `Tax Agent.exe`는 별도 프로젝트 `~/projects/local-ai-workstation`에 있음 (Streamlit + LangGraph + Ollama qwen3:32b). 이미 `sys.path.insert('../tax-agent')`로 백엔드를 import 중. 유지보수 단순화 위해 세무 관련 자산을 전부 `tax-agent`로 이전하기로 결정.
+
+**이전 대상**:
+- `infrastructure/tax_dashboard.py`, `tax_app.py`(pywebview), `start_tax_app.bat`, `create_shortcut.ps1` → `tax-agent/app/`
+- `phase1_automation/track_b_poc.py`, `law_client.py`, `tax_verifier.py`, `eval_loop.py`, `tax_rag/` → `tax-agent/agent/`
+- `TaxAgentDebug.spec`, `infrastructure/tax_agent.spec` → `tax-agent/packaging/`
+- `assets/icon.ico`, `icon_1024.png`, `make_desktop_shortcut.ps1` → `tax-agent/assets/`
+
+**비-이전**: phase0_benchmark, phase2_advanced(투자), hardware.md, roi-analysis.md는 `local-ai-workstation`에 잔류.
+
+**작업 순서** (PlanMode 권장, 대공사):
+1. 디렉토리 생성 + 파일 복사 (원본 유지, 검증 후 정리)
+2. import 경로 수정: `sys.path.insert('../tax-agent')` 제거, `tax_rag` → `agent.rag`, 등
+3. `pyproject.toml` 의존성 추가: `streamlit`, `langgraph`, `langchain-core`, `langchain-ollama`, `pywebview` → `uv sync`
+4. PyInstaller `.spec` 경로 갱신 + **YAML 리소스 번들링 추가** (`strategy_engine/rules/**/*.yaml` datas, `yaml` hiddenimports)
+5. Streamlit 런타임 테스트 — 새 엔진(22규칙) 동작 확인
+6. **UI 확장**: 현 소득세 탭 외 **법인세·상속세·증여세 탭 3개 추가** + LangGraph `@tool` 3개 추가 (`get_corporate_tax_strategies`, `get_inheritance_strategies`, `get_gift_strategies`)
+7. `.exe` 재빌드 + 바탕화면 바로가기 갱신 (타깃 경로 변경)
+8. ROADMAP 갱신 + 원본 `local-ai-workstation` 세무 폴더 정리(검증 후)
+
+**백엔드 준비 상태**: `strategy_engine.run(profile)`이 이미 4세목 전부 지원. API 변경 불필요.

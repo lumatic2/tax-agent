@@ -1,0 +1,44 @@
+- id: BOOK_DOUBLE_ENTRY_4800
+  name: "복식부기 전환 (기장세액공제)"
+  category: bookkeeping
+  tax_type: 소득세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - op: "=="
+        left: "profile.has_business_income"
+        right: true
+      - op: ">"
+        left: "profile.business_revenue"
+        right: 48000000
+      - op: "!="
+        left: "profile.book_method"
+        right: "실제"
+
+  diagnosis: "직전 과세기간 매출이 복식부기 의무기준(업종별 4,800만~1.5억) 초과 — 간편장부 유지 시 무기장가산세 20% 위험, 복식부기 전환 시 기장세액공제 20%"
+
+  recommendation:
+    action: "복식부기 전환"
+    detail: "세무대리인 위임 또는 회계 S/W 도입. 기장세액공제 한도 100만원, 산출세액 20%"
+
+  estimator:
+    type: formula
+    name: double_entry_savings
+    params:
+      business_income_ref: "profile.business_income"
+      marginal_rate_ref: "profile.marginal_rate"
+
+  legal_basis:
+    - { law: 소득세법, article: "제56조의2" }
+    - { law: 소득세법, article: "제160조" }
+
+  risk:
+    level: medium
+    flags: ["세무조사_트리거_회피"]
+    caveat: "복식부기 전환 첫 해 세무조정 공수 발생"
+
+  source:
+    ref: "세이브택스 개인사업자 절세 팁 6가지"
+    updated: 2026-04-14

@@ -1,0 +1,92 @@
+- id: CORP_EXECUTIVE_BONUS_EXCESS
+  name: "임원상여금 한도초과 손금불산입 리스크"
+  category: reduction
+  tax_type: 법인세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - op: "=="
+        left: "profile.is_corporation"
+        right: true
+      - op: ">"
+        left: "profile.executive_bonus_paid"
+        right: 0
+      - op: ">"
+        left: "profile.executive_bonus_paid"
+        right: "profile.executive_bonus_resolution_amount"
+
+  diagnosis: "정관·주주총회·이사회 결의 한도를 초과한 임원상여는 손금불산입(법인령 §43) — 세무조사 시 추징 리스크"
+  recommendation:
+    action: "임원상여 지급기준 정비"
+    detail: "정관 또는 주주총회 결의로 지급한도를 명문화. 초과분은 자진 손금불산입 후 상여 처분으로 소득 귀속시키거나 반환 처리"
+
+  estimator:
+    type: formula
+    name: corp_rate_exposure
+    params:
+      base_amount_ref: "profile.executive_bonus_excess"
+      corp_tax_rate_ref: "profile.corp_tax_rate"
+
+  legal_basis:
+    - { law: 법인세법, article: "제26조제1호" }
+    - { law: 법인세법시행령, article: "제43조제2항" }
+
+  risk:
+    level: high
+    flags: ["세무조사_트리거", "손금불산입"]
+    caveat: "초과분은 상여(근로소득)로 처분되어 원천징수·근로소득세 추가 부담 발생"
+
+  source:
+    ref: "CPA 2차 2025 Q5 (임원상여)"
+    updated: 2026-04-14
+
+
+- id: CORP_UNFAIR_HIGH_PRICE_PURCHASE
+  name: "특수관계자 고가매입 부당행위계산부인 리스크"
+  category: reduction
+  tax_type: 법인세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - op: "=="
+        left: "profile.is_corporation"
+        right: true
+      - op: ">"
+        left: "profile.related_party_purchase_price"
+        right: 0
+      - op: ">"
+        left: "profile.related_party_market_price"
+        right: 0
+      - op: ">="
+        left: "profile.high_price_purchase_excess_ratio"
+        right: 0.05
+
+  diagnosis: "특수관계자로부터의 매입가가 시가 대비 5% 이상 또는 3억 이상 초과 — 부당행위계산부인(법인령 §88①1) 대상"
+  recommendation:
+    action: "매매가액 시가 재산정 또는 소명자료 확보"
+    detail: "감정평가·유사 거래 증빙으로 시가 입증. 부인 시 차액 손금불산입 + 귀속자 소득처분(배당·상여·기타사외유출)"
+
+  estimator:
+    type: formula
+    name: corp_rate_exposure
+    params:
+      base_amount_ref: "profile.unfair_purchase_excess"
+      corp_tax_rate_ref: "profile.corp_tax_rate"
+
+  legal_basis:
+    - { law: 법인세법, article: "제52조" }
+    - { law: 법인세법시행령, article: "제88조제1항제1호" }
+    - { law: 법인세법시행령, article: "제89조" }
+
+  risk:
+    level: high
+    flags: ["세무조사_트리거", "소득처분_배당"]
+    caveat: "부인 금액은 귀속자(주주·임원 등)에게 배당·상여로 처분 → 소득세 추가 과세"
+
+  source:
+    ref: "CPA 2차 2024 Q5·2025 Q5 (부당행위계산부인)"
+    updated: 2026-04-14

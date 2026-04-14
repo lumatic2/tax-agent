@@ -1,0 +1,37 @@
+- id: GIFT_FAMILY_BUSINESS_SUCCESSION
+  name: "가업승계 증여세 과세특례 (10%·20% 저율)"
+  category: reduction
+  tax_type: 증여세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - {op: "==", left: "profile.is_gift_case", right: true}
+      - {op: "==", left: "profile.is_family_business_succession", right: true}
+      - {op: ">", left: "profile.family_succession_gift_value", right: 0}
+      - {op: ">=", left: "profile.recipient_age", right: 18}
+
+  diagnosis: "가업승계 증여는 10억 공제 + 120억까지 10% / 초과분 20% 저율 특례 (조특 §30의6) — 일반 증여세율(최고 50%) 대비 절세 효과 큼"
+  recommendation:
+    action: "가업승계 증여세 과세특례 신청 (수증자 대표이사 취임)"
+    detail: "한도 600억. 10억 공제 후 120억 이하 10%, 120억 초과 20%. 수증자 18세↑ + 대표이사 취임 + 7년 사후관리 필수. 상속개시 시 상속재산 합산 정산"
+
+  estimator:
+    type: formula
+    name: gift_family_business_succession_savings
+    params:
+      gift_value_ref: "profile.family_succession_gift_value"
+
+  legal_basis:
+    - {law: 조세특례제한법, article: "제30조의6"}
+    - {law: 상속세및증여세법, article: "제71조"}
+
+  risk:
+    level: high
+    flags: ["사후관리_7년", "대표이사_취임_필수"]
+    caveat: "수증자 7년 내 가업 미영위·지분 처분 시 일반 증여세율로 재계산 + 이자상당가산액 추징"
+
+  source:
+    ref: "조특법 §30의6 — 가업승계 증여세 과세특례"
+    updated: 2026-04-14

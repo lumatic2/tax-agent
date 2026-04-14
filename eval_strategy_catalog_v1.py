@@ -31,11 +31,11 @@ def test_catalog_counts_by_tax_type():
     counts = {}
     for r in rules:
         counts[r.tax_type] = counts.get(r.tax_type, 0) + 1
-    assert len(rules) == 35, f"전체 35개 예상, 실제 {len(rules)}"
+    assert len(rules) == 37, f"전체 37개 예상, 실제 {len(rules)}"
     assert counts.get("소득세") == 13
     assert counts.get("법인세") == 14
-    assert counts.get("상속세") == 2
-    assert counts.get("증여세") == 6
+    assert counts.get("상속세") == 3
+    assert counts.get("증여세") == 7
 
 
 # --- 소득세 신규 규칙 ------------------------------------------------------
@@ -492,6 +492,43 @@ def test_gift_insurance_self_payer_skips():
     assert "GIFT_INSURANCE_PROCEED" not in _ids(r["candidates"])
 
 
+# --- 가업상속·가업승계 (Phase 6) — 2규칙 --------------------------------
+
+def test_inh_family_business_20yr_500억():
+    r = run({"is_inheritance_case": True, "is_family_business": True, "business_operating_years": 20, "family_business_asset_value": 50_000_000_000})
+    # min(500억, 400억) × 40% = 160억
+    assert _saving(r["candidates"], "INH_FAMILY_BUSINESS_DEDUCTION") == 16_000_000_000
+
+
+def test_inh_family_business_under_10yr_skips():
+    r = run({"is_inheritance_case": True, "is_family_business": True, "business_operating_years": 9, "family_business_asset_value": 50_000_000_000})
+    assert "INH_FAMILY_BUSINESS_DEDUCTION" not in _ids(r["candidates"])
+
+
+def test_inh_family_business_30yr_cap_600억():
+    r = run({"is_inheritance_case": True, "is_family_business": True, "business_operating_years": 30, "family_business_asset_value": 70_000_000_000})
+    # min(700억, 600억) × 40% = 240억
+    assert _saving(r["candidates"], "INH_FAMILY_BUSINESS_DEDUCTION") == 24_000_000_000
+
+
+def test_gift_family_business_succession_50억():
+    r = run({"is_gift_case": True, "is_family_business_succession": True, "family_succession_gift_value": 5_000_000_000, "recipient_age": 25})
+    # taxable 40억 (10억 공제 후), 특례 40억×10%=4억, 일반 40억×30%=12억 → 8억 절세
+    assert _saving(r["candidates"], "GIFT_FAMILY_BUSINESS_SUCCESSION") == 800_000_000
+
+
+def test_gift_family_business_succession_under_18_skips():
+    r = run({"is_gift_case": True, "is_family_business_succession": True, "family_succession_gift_value": 5_000_000_000, "recipient_age": 15})
+    assert "GIFT_FAMILY_BUSINESS_SUCCESSION" not in _ids(r["candidates"])
+
+
+def test_gift_family_business_succession_300억_high_band():
+    r = run({"is_gift_case": True, "is_family_business_succession": True, "family_succession_gift_value": 30_000_000_000, "recipient_age": 30})
+    # taxable 290억, 120억×10% + 170억×20% = 12억+34억 = 46억
+    # 일반 290억×30% = 87억 → saving 41억
+    assert _saving(r["candidates"], "GIFT_FAMILY_BUSINESS_SUCCESSION") == 4_100_000_000
+
+
 # --- 스코프 격리 (크로스-세목 오발동 금지) ------------------------------
 
 def test_income_profile_no_corp_or_estate_rules():
@@ -509,6 +546,7 @@ def test_income_profile_no_corp_or_estate_rules():
         "GIFT_SPLIT_10YEAR", "GIFT_LOW_VALUATION",
         "GIFT_LOW_PRICE_TRANSFER", "GIFT_FREE_LOAN_BENEFIT",
         "GIFT_FREE_REAL_ESTATE_USE", "GIFT_INSURANCE_PROCEED",
+        "INH_FAMILY_BUSINESS_DEDUCTION", "GIFT_FAMILY_BUSINESS_SUCCESSION",
     ):
         assert rid not in ids, f"{rid} 오발동 (개인 소득세 프로필)"
 
@@ -579,6 +617,12 @@ if __name__ == "__main__":
         ("corp emp sme metro", test_corp_employment_credit_sme_metro),
         ("corp emp sme non-metro", test_corp_employment_credit_sme_non_metro),
         ("corp emp zero skip", test_corp_employment_credit_zero_skips),
+        ("inh family biz 20yr", test_inh_family_business_20yr_500억),
+        ("inh family biz <10yr skip", test_inh_family_business_under_10yr_skips),
+        ("inh family biz 30yr cap", test_inh_family_business_30yr_cap_600억),
+        ("gift succession 50억", test_gift_family_business_succession_50억),
+        ("gift succession <18 skip", test_gift_family_business_succession_under_18_skips),
+        ("gift succession 300억 high", test_gift_family_business_succession_300억_high_band),
         ("inh spouse", test_inh_spouse_deduction_maximize),
         ("inh spouse skip", test_inh_spouse_deduction_small_estate_skips),
         ("inh installment", test_inh_installment_large_payable),

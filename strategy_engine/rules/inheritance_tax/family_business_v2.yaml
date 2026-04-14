@@ -1,0 +1,38 @@
+- id: INH_FAMILY_BUSINESS_DEDUCTION
+  name: "가업상속공제 (경영기간별 300~600억)"
+  category: deduction
+  tax_type: 상속세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - {op: "==", left: "profile.is_inheritance_case", right: true}
+      - {op: "==", left: "profile.is_family_business", right: true}
+      - {op: ">=", left: "profile.business_operating_years", right: 10}
+      - {op: ">", left: "profile.family_business_asset_value", right: 0}
+
+  diagnosis: "피상속인이 10년 이상 경영한 중소·중견기업은 가업상속재산에서 최대 600억 공제 (상증 §18의2) — 사후관리 5년 유지 필수"
+  recommendation:
+    action: "가업상속공제 신청 및 사후관리 계획 수립"
+    detail: "공제한도: 10년 300억 / 20년 400억 / 30년 600억. 5년간 사업·고용·지분 유지 의무. 위반 시 공제세액 추징 + 이자상당가산액"
+
+  estimator:
+    type: formula
+    name: inh_family_business_deduction_savings
+    params:
+      asset_value_ref: "profile.family_business_asset_value"
+      operating_years_ref: "profile.business_operating_years"
+
+  legal_basis:
+    - {law: 상속세및증여세법, article: "제18조의2"}
+    - {law: 상속세및증여세법시행령, article: "제15조"}
+
+  risk:
+    level: high
+    flags: ["사후관리_5년", "추징_리스크"]
+    caveat: "5년 내 사업폐지·고용 80% 미달·지분 처분 시 공제세액 전액 추징 + 이자상당가산액"
+
+  source:
+    ref: "상증법 §18의2 — 가업상속공제"
+    updated: 2026-04-14

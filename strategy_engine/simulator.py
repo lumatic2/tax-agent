@@ -372,6 +372,28 @@ def inh_spouse_deduction_savings(
     return int(additional * 0.20)
 
 
+def inh_family_business_deduction_savings(
+    asset_value: int = 0,
+    operating_years: int = 0,
+) -> int:
+    """가업상속공제 절세 — 경영기간별 한도 × 상속세 평균세율 40%.
+
+    한도: 10년 이상 300억 / 20년 이상 400억 / 30년 이상 600억.
+    """
+    v = int(asset_value or 0)
+    y = int(operating_years or 0)
+    if v <= 0 or y < 10:
+        return 0
+    if y >= 30:
+        cap = 60_000_000_000
+    elif y >= 20:
+        cap = 40_000_000_000
+    else:
+        cap = 30_000_000_000
+    deductible = min(v, cap)
+    return int(deductible * 0.40)
+
+
 def inh_installment_cashflow_benefit(tax_payable: int = 0) -> int:
     """연부연납 현금흐름 이익 (10년 × 시장금리-가산금 스프레드 3% 가정)."""
     t = int(tax_payable or 0)
@@ -456,6 +478,26 @@ def gift_free_real_estate_use_savings(property_value: int = 0) -> int:
     return int(gift_value * GIFT_AVG_RATE)
 
 
+def gift_family_business_succession_savings(gift_value: int = 0) -> int:
+    """가업승계 증여세 과세특례 — 일반 증여세율 대비 절감액.
+
+    일반 누진세율 평균 30% vs 특례 10%(120억 한도) + 20%(600억까지).
+    10억 공제 후 계산.
+    """
+    v = int(gift_value or 0)
+    if v <= 0:
+        return 0
+    taxable = max(v - 1_000_000_000, 0)  # 10억 공제
+    if taxable <= 0:
+        return 0
+    within_cap = min(taxable, 60_000_000_000)  # 600억 한도
+    low_band = min(within_cap, 12_000_000_000)  # 120억 10%
+    high_band = max(within_cap - 12_000_000_000, 0)
+    special_tax = int(low_band * 0.10 + high_band * 0.20)
+    normal_tax = int(within_cap * 0.30)  # 일반 증여세 평균
+    return max(normal_tax - special_tax, 0)
+
+
 def gift_insurance_savings(
     proceed: int = 0,
     other_ratio: float = 0.0,
@@ -493,6 +535,8 @@ FORMULAS = {
     "corp_employment_increase_credit_savings": corp_employment_increase_credit_savings,
     "inh_spouse_deduction_savings": inh_spouse_deduction_savings,
     "inh_installment_cashflow_benefit": inh_installment_cashflow_benefit,
+    "inh_family_business_deduction_savings": inh_family_business_deduction_savings,
+    "gift_family_business_succession_savings": gift_family_business_succession_savings,
     "gift_split_savings": gift_split_savings,
     "gift_low_valuation_savings": gift_low_valuation_savings,
     "gift_low_price_transfer_savings": gift_low_price_transfer_savings,

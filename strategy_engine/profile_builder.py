@@ -205,6 +205,14 @@ def _fill_defaults(p: dict, tax_result: dict) -> dict:
     p.setdefault("insurance_proceed_amount", 0)
     p.setdefault("insurance_payer_ratio_by_other", 0.0)
 
+    # 가업상속·가업승계 특례 (Phase 6 — 상속·증여 공용)
+    p.setdefault("is_family_business", False)
+    p.setdefault("business_operating_years", 0)
+    p.setdefault("family_business_asset_value", 0)
+    p.setdefault("is_family_business_succession", False)
+    p.setdefault("family_succession_gift_value", 0)
+    p.setdefault("recipient_age", 0)
+
     total = p["gross_salary"] + p["business_income"] + p["financial_income_total"]
     p.setdefault("marginal_rate", _marginal_rate(total, tax_result))
     p.setdefault("tax_result", tax_result)

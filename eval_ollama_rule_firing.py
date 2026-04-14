@@ -46,35 +46,54 @@ if hasattr(sys.stderr, "reconfigure"):
 
 PROMPT_TEMPLATE = """다음 한국 세법 상담 설명에서 flat JSON 프로파일을 추출하라.
 
-출력 규칙:
-- ```json 과 ``` 로 감싼 한 개의 JSON 객체만 출력 (thinking 금지).
+출력:
+- ```json ... ``` 블록 안에 JSON 객체 하나만. thinking 금지.
 - 설명에 명시된 내용만. 추측·가정 금지.
 
-통화 변환 (정확히):
+통화 변환:
 - "1억" = 100000000 (0이 8개)
-- "8억" = 800000000
+- "5천만" = 50000000
 - "12억" = 1200000000
-- "3천만" = 30000000
+- "400억" = 40000000000
 
-양도소득 필드 사전 (해당하는 것만 사용):
-- has_transfer_income (bool) — 양도거래 존재
-- is_one_house (bool) — 1세대 1주택
-- has_temp_two_house (bool) — 일시적 2주택
-- has_inherited_house (bool) — 상속주택 보유
-- is_unregistered_transfer (bool) — 미등기 자산 양도
-- is_multi_house_heavy_zone (bool) — 조정대상지역 다주택
-- is_self_cultivated_farmland (bool) — 농지 소재지 거주 자경
-- is_public_expropriation (bool) — 공익사업 수용
-- is_post_gift_transfer (bool) — 증여받은 자산 양도
-- transfer_gain (int, 원) — 양도차익
-- transfer_price (int, 원) — 양도가액
-- holding_years (int) — 보유 연수
-- holding_months (int) — 보유 개월수
-- residence_years (int) — 거주 연수
-- self_cultivation_years (int) — 자경 연수
-- years_since_gift (int) — 증여 후 경과 연수
-- months_since_new_house (int) — 신규주택 취득 후 개월수
-- expropriation_compensation_type ("cash"|"bond_3y"|"bond_5y"|"bond_7y")
+필드 사전 (해당되는 것만 사용):
+
+[근로·금융·사업 소득]
+- has_earned_income (bool), gross_salary (int 원)
+- has_business_income (bool), business_revenue (int), business_income (int), book_method ("단순"|"복식")
+- is_sme_employee (bool), sme_worker_type ("youth"|"general"), sme_years_employed (float)
+- yellow_umbrella_paid (int), housing_rental_income (int), other_income_net (int)
+- interest_income (int), dividend_income (int), financial_income_total (int)
+- children_under_20_count (int), education_expense (int), donation_amount (int)
+- medical_expense (int), monthly_rent (int), is_homeless_household (bool)
+- irp_pension (int), pension_savings (int)
+
+[양도소득]
+- has_transfer_income (bool), transfer_gain (int), transfer_price (int)
+- is_one_house (bool), has_temp_two_house (bool), has_inherited_house (bool), selling_ordinary_house (bool), ordinary_house_gain (int)
+- is_unregistered_transfer (bool), is_multi_house_heavy_zone (bool), multi_house_defer_active (bool), multi_house_surcharge_rate (float)
+- is_self_cultivated_farmland (bool), self_cultivation_years (int)
+- is_public_expropriation (bool), expropriation_compensation_type ("cash"|"bond_3y"|"bond_5y"|"bond_7y")
+- is_post_gift_transfer (bool), years_since_gift (int), gift_carryover_gain (int)
+- holding_years (int), holding_months (int), residence_years (int), months_since_new_house (int)
+- acquisition_docs_available (bool), acquisition_value_gap (int), unreported_necessary_expense (int), old_house_gain (int)
+
+[법인세]
+- is_corporation (bool), is_sme_corporation (bool), corp_taxable_income (int), corp_tax_rate (float)
+- company_vehicle_expense (int), has_vehicle_log (bool)
+- loss_carryforward_available (int), current_year_loss (int), prior_year_tax_paid (int), prior_year_taxable_income (int)
+- entertainment_paid (int), entertainment_limit (int), entertainment_excess (int)
+- executive_bonus_paid (int), executive_bonus_resolution_amount (int), executive_bonus_excess (int)
+- rd_expense (int), qualified_investment_amount (int), investment_tech_type ("general"|"new_growth"|"national_strategic")
+- employment_increase_total (int), employment_increase_youth (int), employment_increase_regular (int)
+
+[상속·증여]
+- is_inheritance_case (bool), spouse_exists (bool), inheritance_total (int), spouse_inherit_amount (int), spouse_legal_share (int), inheritance_tax_payable (int)
+- is_family_business (bool), business_operating_years (int), family_business_asset_value (int)
+- is_gift_case (bool), gift_planned_amount (int), gift_prior_10yr_amount (int), gift_total_with_prior_10yr (int), gift_exemption_limit (int)
+- free_loan_principal (int), free_loan_actual_rate (float)
+- insurance_proceed_amount (int), insurance_payer_ratio_by_other (float)
+- low_price_transfer_market_value (int), low_price_transfer_actual_price (int)
 
 설명:
 {description}
@@ -87,6 +106,22 @@ class Scenario:
     description: str          # LLM 에 제공할 자연어
     expected_fire: set[str]   # 반드시 포함되어야 할 rule id
     expected_skip: set[str] = field(default_factory=set)
+
+
+def load_goldset_scenarios(path: Path = Path("data/eval/goldset_v1.yaml")) -> list["Scenario"]:
+    """goldset_v1.yaml 에서 시나리오 로드. description+expected+forbidden 재사용."""
+    import yaml
+    with open(path, encoding="utf-8") as f:
+        cases = yaml.safe_load(f) or []
+    return [
+        Scenario(
+            id=c["id"],
+            description=c["description"].strip(),
+            expected_fire=set(c.get("expected") or []),
+            expected_skip=set(c.get("forbidden") or []),
+        )
+        for c in cases
+    ]
 
 
 SCENARIOS: list[Scenario] = [
@@ -224,9 +259,10 @@ def main():
     ap.add_argument("--model", default="qwen3:32b")
     ap.add_argument("--scenario", help="단일 시나리오 id 선택")
     ap.add_argument("--run", action="store_true", help="실제 Ollama 호출 (기본 dry-run)")
+    ap.add_argument("--from-goldset", action="store_true", help="goldset_v1.yaml 에서 시나리오 로드")
     args = ap.parse_args()
 
-    scenarios = SCENARIOS
+    scenarios = load_goldset_scenarios() if args.from_goldset else SCENARIOS
     if args.scenario:
         scenarios = [s for s in SCENARIOS if s.id == args.scenario]
         if not scenarios:

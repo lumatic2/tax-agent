@@ -1,0 +1,24 @@
+=== COMPARE-ALL — models=['qwen3:32b', 'gemma4:27b'] × 5 시나리오 ===
+
+
+### qwen3:32b (Phase 6 베이스라인. 긴 설명 체인에서 규칙 누락.) ###
+  PASS  one_house_exempt  (13.9s)
+  FAIL  temp_two_house  (8.39s)
+  PASS  unregistered  (32.54s)
+  PASS  farmland_8yr  (8.64s)
+  PASS  high_value_12eok  (7.79s)
+  → 4/5 = 80%
+
+### gemma4:27b (2026 신규 등록. 비교 벤치 필요.) ###
+  FAIL  one_house_exempt  (1.58s)
+  FAIL  temp_two_house  (1.25s)
+  FAIL  unregistered  (1.25s)
+  FAIL  farmland_8yr  (1.36s)
+  FAIL  high_value_12eok  (1.33s)
+  → 0/5 = 0%
+
+=== 요약 ===
+  qwen3:32b             4/5 = 80%
+  gemma4:27b            0/5 = 0%
+
+리포트: data\eval\ollama_runs\compare_1776147597.json

@@ -1,0 +1,33 @@
+=== Ollama rule-firing eval (MODEL=gemma4:31b) — 5 시나리오 ===
+
+--- one_house_exempt ---
+설명: 서울에 사는 김씨. 유일한 주택 한 채를 7년 전에 8억에 매수해 계속 거주했고, 현재 시세 11억에 매도하려 한다. 양도차익은 3억. 조정대상지역이었다.
+기대 발동: ['TRANSFER_LTCG_TABLE2_ONE_HOUSE', 'TRANSFER_ONE_HOUSE_EXEMPT']
+  저장: data\eval\ollama_runs\one_house_exempt_gemma4_31b_1776147718.json
+  [PASS] precision=1.00 hit=['TRANSFER_LTCG_TABLE2_ONE_HOUSE', 'TRANSFER_ONE_HOUSE_EXEMPT'] miss=[]
+
+--- temp_two_house ---
+설명: 이씨는 5년 보유·거주한 종전주택이 있고, 작년(14개월 전) 신규주택을 구입해 이사했다. 이제 종전주택을 3억 양도차익으로 팔려 한다.
+기대 발동: ['TRANSFER_TEMP_TWO_HOUSE']
+  저장: data\eval\ollama_runs\temp_two_house_gemma4_31b_1776147756.json
+  [ERR] JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+--- unregistered ---
+설명: 박씨는 10년 전 상속받았지만 등기를 하지 않은 토지를 양도하려 한다. 양도차익은 1억 5천만원.
+기대 발동: ['TRANSFER_UNREGISTERED_AVOID']
+  저장: data\eval\ollama_runs\unregistered_gemma4_31b_1776147766.json
+  [ERR] JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+--- farmland_8yr ---
+설명: 최씨는 12년간 농지 소재지에 거주하며 직접 농사지은 논을 양도한다. 양도차익 2억. 근로·사업 소득 없음.
+기대 발동: ['TRANSFER_SELF_CULTIVATED_FARMLAND']
+  저장: data\eval\ollama_runs\farmland_8yr_gemma4_31b_1776147779.json
+  [PASS] precision=1.00 hit=['TRANSFER_SELF_CULTIVATED_FARMLAND'] miss=[]
+
+--- high_value_12eok ---
+설명: 정씨의 서울 본인 거주 아파트(1세대 1주택, 보유 6년·거주 4년). 양도가 18억, 양도차익 8억.
+기대 발동: ['TRANSFER_HIGH_VALUE_EXCESS_LTCG', 'TRANSFER_LTCG_TABLE2_ONE_HOUSE']
+기대 비발동: ['TRANSFER_ONE_HOUSE_EXEMPT']
+  저장: data\eval\ollama_runs\high_value_12eok_gemma4_31b_1776147792.json
+  [PASS] precision=1.00 hit=['TRANSFER_HIGH_VALUE_EXCESS_LTCG', 'TRANSFER_LTCG_TABLE2_ONE_HOUSE'] miss=[]
+
+
+결과: 3/5 통과

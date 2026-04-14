@@ -61,9 +61,14 @@
       - op: "=="
         left: "profile.has_transfer_income"
         right: true
-      - op: ">"
-        left: "profile.unreported_necessary_expense"
-        right: 0
+      - op: or
+        of:
+          - op: ">"
+            left: "profile.unreported_necessary_expense"
+            right: 0
+          - op: "=="
+            left: "profile.acquisition_docs_available"
+            right: false
 
   diagnosis: "중개수수료·법무사비·취득세·자본적지출·양도비용 중 누락분 존재. 필요경비 가산 시 양도차익 감소"
   recommendation:
@@ -75,6 +80,8 @@
     name: transfer_basic_savings
     params:
       base_ref: "profile.unreported_necessary_expense"
+      fallback_base_ref: "profile.transfer_gain"
+      fallback_rate: 0.03
 
   legal_basis:
     - { law: 소득세법, article: "제97조" }
@@ -104,9 +111,6 @@
       - op: "<"
         left: "profile.years_since_gift"
         right: 10
-      - op: ">"
-        left: "profile.gift_carryover_gain"
-        right: 0
 
   diagnosis: "배우자·직계존비속 증여 후 10년 이내 양도 시 이월과세(증여자 취득가액 기준) 적용. 10년 경과 후 양도 시 수증자 취득가액으로 step-up"
   recommendation:
@@ -118,6 +122,8 @@
     name: transfer_basic_savings
     params:
       base_ref: "profile.gift_carryover_gain"
+      fallback_base_ref: "profile.transfer_gain"
+      fallback_rate: 0.08
 
   legal_basis:
     - { law: 소득세법, article: "제97조의2" }

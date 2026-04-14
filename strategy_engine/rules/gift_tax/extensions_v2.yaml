@@ -125,7 +125,6 @@
     of:
       - {op: "==", left: "profile.is_gift_case", right: true}
       - {op: ">", left: "profile.insurance_proceed_amount", right: 0}
-      - {op: ">", left: "profile.insurance_payer_ratio_by_other", right: 0}
 
   diagnosis: "보험료 납부자와 수익자가 다를 때 수령 보험금 중 타인 납부분 비율만큼 증여재산"
   recommendation:

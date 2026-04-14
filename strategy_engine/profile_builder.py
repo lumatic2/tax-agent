@@ -69,6 +69,16 @@ _FLAT_TRIGGERS = {
     "is_multi_house_heavy_zone",
     "is_self_cultivated_farmland",
     "is_public_expropriation",
+    # 추가(2026-04-14): LLM 추출 profile에서 누락되던 필드 — flat 인식 안 되면 값이 버려짐
+    "other_income_net",
+    "housing_rental_income",
+    "interest_income",
+    "dividend_income",
+    "insurance_proceed_amount",
+    "free_loan_principal",
+    "low_price_transfer_market_value",
+    "inheritance_total",
+    "family_business_asset_value",
 }
 
 

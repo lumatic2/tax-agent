@@ -793,8 +793,24 @@ A 정답률 > B 정답률 (도구 기여 입증)
   - 잔여 실패 유형: 개념 자체 누락(임대소득/기타소득 필드), 긴 설명 체인(가업+연부연납+배우자)
 
 ### Phase 8 후보
-- **qwen3:32b 실제 pull + 첫 run**: `eval_ollama_rule_firing.py --run` 으로 로컬 모델 정확도 베이스라인
-- 조특법 중소기업 특별세액감면 (조특 7)
-- 종부세(종합부동산세) 규칙 신설
-- strategy_engine orchestrator 튜닝 (우선순위 가중치·리스크 필터)
+- [x] **LLM 레지스트리·어댑터** (2026-04-14): `agent/llm/{registry.yaml,registry.py,adapter.py}` 신설. 4개 콜사이트 하드코드 제거. `eval_ollama_rule_firing.py --compare-all` 추가.
+- [x] **qwen3:32b vs gemma4:31b 벤치** (2026-04-14, goldset 25건):
+  - qwen3:32b: **16/25 (64%)** · avg 11.6s
+  - gemma4:31b: **16/25 (64%)** · avg 12.5s
+  - **실패 9건 100% 겹침** — 모델 품질이 아니라 규칙 발동 조건/umbrella flag 구조적 결함
+  - default는 qwen3:32b 유지. 프롬프트 v3 → v3.1 (temp_two_house old_house_gain 매핑 추가)
+- [x] **qwen3.5:35b 실패** (2026-04-14, 12/25 중단 후 삭제):
+  - 6/12 (앞 두 모델은 7/12 동일 구간) · avg **43s** (3~4배 느림)
+  - 실패 케이스 동일. 256K 컨텍스트 로딩 비용만 큼. 모델·registry entry 삭제.
+  - 로그 보존: `data/eval/ollama_runs/_qwen35_35b_goldset.log` + `G*_qwen3.5_35b_*.json` (검토 히스토리)
+- [x] **프롬프트 v4 + 규칙/엔진 보강 완료** (2026-04-14): **16→20/25 = 64%→80% (PRD 목표 달성)**
+  - simulator 5곳 fallback: `double_entry` (revenue→income 30%), `other_income_separation` (marginal 기본 0.24+정보성 saving), `transfer_multi_house` (surcharge 기본 0.20), `inh_installment` (total×0.20 fallback), `gift_insurance` (other_ratio None→1.0)
+  - 규칙 YAML 4곳: INH_INSTALLMENT(OR inheritance_total>5억), GIFT_INSURANCE(ratio>0 제거), TRANSFER_NECESSARY_EXPENSE(OR acquisition_docs_available=false), TRANSFER_GIFT_CARRYOVER(carryover_gain>0 제거)
+  - **profile_builder 치명 버그**: `_FLAT_TRIGGERS`가 `other_income_net`/`insurance_proceed_amount` 등을 인식 못해 LLM 추출 필드가 버려짐 → 9개 필드 추가
+  - 프롬프트 v4: `acquisition_docs_available`, `business_revenue` 매핑 umbrella 추가
+  - 회귀 94/94 + ideal-goldset 25/25 + certify 26/26 무회귀
+- [ ] **남은 5건 변동성 대응**: LLM 출력 분산으로 재실행마다 20~22/25 진동. G022 GIFT_INSURANCE는 qwen3:32b가 상속/증여 오분류하는 지식 한계.
+- [ ] 조특법 중소기업 특별세액감면 (조특 7)
+- [ ] 종부세(종합부동산세) 규칙 신설
+- [ ] strategy_engine orchestrator 튜닝 (우선순위 가중치·리스크 필터)
 

@@ -55,9 +55,14 @@
       - op: "=="
         left: "profile.is_inheritance_case"
         right: true
-      - op: ">"
-        left: "profile.inheritance_tax_payable"
-        right: 20000000
+      - op: or
+        of:
+          - op: ">"
+            left: "profile.inheritance_tax_payable"
+            right: 20000000
+          - op: ">"
+            left: "profile.inheritance_total"
+            right: 500000000
 
   diagnosis: "납부세액 2천만 초과 — 10년 이내 연부연납 신청 가능(담보 제공 조건, 가산금 연 2.9%)"
   recommendation:
@@ -69,6 +74,7 @@
     name: inh_installment_cashflow_benefit
     params:
       tax_payable_ref: "profile.inheritance_tax_payable"
+      inheritance_total_ref: "profile.inheritance_total"
 
   legal_basis:
     - { law: 상속세및증여세법, article: "제71조" }

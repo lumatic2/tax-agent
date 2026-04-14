@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any
 
 from strategy_engine import run as strategy_run
+from agent.llm import default_model, list_models
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -70,8 +71,10 @@ Umbrella 플래그 (관련 세부 필드 사용 시 반드시 함께 설정):
 - 단순경비율 신고 → book_method: "단순", 복식부기 → book_method: "복식"
 - 상속주택 + 본인 거주 아파트 매각 → has_inherited_house: true, selling_ordinary_house: true, ordinary_house_gain 설정
 - 중과 유예기간 언급 → is_multi_house_heavy_zone: true, multi_house_defer_active: true, multi_house_surcharge_rate 설정
-- 종전주택 + 신규주택 취득 상황 → has_temp_two_house: true, months_since_new_house 설정
+- 종전주택 + 신규주택 취득 상황 → has_temp_two_house: true, months_since_new_house 설정, 종전주택 양도차익은 old_house_gain (transfer_gain 아님)
 - 증여 후 양도 → is_post_gift_transfer: true, years_since_gift 설정, gift_carryover_gain (취득가액 step-up 차액)
+- 영수증·증빙 없음·서류 미보관 언급 → acquisition_docs_available: false
+- 사업 매출(수입) 언급 → business_revenue 설정 + has_business_income: true (소득금액 계산 모르면 business_income은 생략해도 됨)
 
 필드 사전 (해당되는 것만 사용):
 
@@ -204,17 +207,20 @@ def _ollama_call(model: str, prompt: str, timeout: int = 300) -> str:
 
 
 def _extract_json(raw: str) -> dict[str, Any]:
-    """```json ... ``` 블록에서 JSON 추출."""
-    start = raw.find("```json")
-    if start < 0:
-        start = raw.find("```")
-    if start < 0:
+    """```json ... ``` 블록에서 JSON 추출.
+
+    Thinking 모델(gemma4 등)은 프롬프트를 에코하며 ```json 토큰을 여러 번 출력한다.
+    실제 최종 답은 '...done thinking.' 이후 마지막 블록. 마지막 fenced block을 우선.
+    """
+    marker = raw.rfind("```json")
+    if marker < 0:
+        marker = raw.rfind("```")
+    if marker < 0:
         raise ValueError("no fenced block")
-    start = raw.find("\n", start) + 1
-    end = raw.find("```", start)
-    if end < 0:
-        raise ValueError("unclosed fenced block")
-    return json.loads(raw[start:end].strip())
+    body_start = raw.find("\n", marker) + 1
+    end = raw.find("```", body_start)
+    body = raw[body_start:end] if end > 0 else raw[body_start:]
+    return json.loads(body.strip())
 
 
 def _score(profile: dict, scenario: Scenario) -> dict:
@@ -271,13 +277,71 @@ def _save_record(record: dict) -> Path:
     return path
 
 
+def _run_compare_all(args) -> int:
+    """레지스트리 등록된 모든 모델을 동일 시나리오로 돌려 비교 리포트 생성."""
+    if not args.run:
+        print("--compare-all 은 --run 과 함께 사용한다 (실제 호출 필요).", file=sys.stderr)
+        return 1
+
+    scenarios = load_goldset_scenarios() if args.from_goldset else SCENARIOS
+    if args.scenario:
+        scenarios = [s for s in scenarios if s.id == args.scenario]
+
+    models = list_models()
+    print(f"=== COMPARE-ALL — models={[m.name for m in models]} × {len(scenarios)} 시나리오 ===\n")
+
+    summary: dict[str, Any] = {"timestamp": int(time.time()), "results": {}}
+    for m in models:
+        print(f"\n### {m.name} ({m.notes}) ###")
+        passed = 0
+        per_scenario = []
+        for s in scenarios:
+            record = _run_scenario(s, m.ollama_tag, dry_run=False)
+            _save_record(record)
+            ok = record["status"] == "ok" and record["score"]["passed"]
+            if ok:
+                passed += 1
+            per_scenario.append({
+                "id": s.id,
+                "status": record["status"],
+                "passed": ok,
+                "miss": record.get("score", {}).get("miss", []),
+                "elapsed_s": record.get("elapsed_s"),
+            })
+            print(f"  {'PASS' if ok else 'FAIL'}  {s.id}  ({record.get('elapsed_s')}s)")
+        summary["results"][m.name] = {
+            "passed": passed,
+            "total": len(scenarios),
+            "rate": round(passed / len(scenarios), 3) if scenarios else 0.0,
+            "per_scenario": per_scenario,
+        }
+        print(f"  → {passed}/{len(scenarios)} = {passed/len(scenarios)*100:.0f}%")
+
+    RUNS_DIR.mkdir(parents=True, exist_ok=True)
+    report_path = RUNS_DIR / f"compare_{summary['timestamp']}.json"
+    report_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    print("\n=== 요약 ===")
+    for name, r in summary["results"].items():
+        print(f"  {name:20s}  {r['passed']}/{r['total']} = {r['rate']*100:.0f}%")
+    print(f"\n리포트: {report_path}")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default="qwen3:32b")
+    ap.add_argument("--model", default=None, help="registry name/tag. 생략 시 default")
     ap.add_argument("--scenario", help="단일 시나리오 id 선택")
     ap.add_argument("--run", action="store_true", help="실제 Ollama 호출 (기본 dry-run)")
     ap.add_argument("--from-goldset", action="store_true", help="goldset_v1.yaml 에서 시나리오 로드")
+    ap.add_argument("--compare-all", action="store_true",
+                    help="레지스트리 등록된 모든 모델로 동일 시나리오 실행 후 요약")
     args = ap.parse_args()
+
+    if args.compare_all:
+        return _run_compare_all(args)
+
+    model = args.model or default_model()
 
     scenarios = load_goldset_scenarios() if args.from_goldset else SCENARIOS
     if args.scenario:
@@ -287,7 +351,7 @@ def main():
             return 1
 
     dry = not args.run
-    mode = "DRY-RUN" if dry else f"MODEL={args.model}"
+    mode = "DRY-RUN" if dry else f"MODEL={model}"
     print(f"=== Ollama rule-firing eval ({mode}) — {len(scenarios)} 시나리오 ===\n")
 
     total = len(scenarios)
@@ -298,7 +362,7 @@ def main():
         print(f"기대 발동: {sorted(s.expected_fire)}")
         if s.expected_skip:
             print(f"기대 비발동: {sorted(s.expected_skip)}")
-        record = _run_scenario(s, args.model, dry)
+        record = _run_scenario(s, model, dry)
         if dry:
             print("  (dry-run — 프롬프트만 구성)\n")
             continue

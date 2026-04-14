@@ -1,0 +1,190 @@
+=== Ollama rule-firing eval (MODEL=qwen3:32b) — 25 시나리오 ===
+
+--- G001_single_salary_rent ---
+설명: 32살 직장인, 연봉 4,800만원. 서울 월세 55만원에 거주(무주택).
+IRP·연금저축 가입 이력 없음. 부모님 의료비 120만원 지출.
+기대 발동: ['CRED_MONTHLY_RENT', 'DED_PENSION_IRP_700']
+기대 비발동: ['CORP_LOSS_CARRYFORWARD', 'INH_SPOUSE_DEDUCTION']
+  저장: data\eval\ollama_runs\G001_single_salary_rent_qwen3_32b_1776151738.json
+  [PASS] precision=1.00 hit=['CRED_MONTHLY_RENT', 'DED_PENSION_IRP_700'] miss=[]
+
+--- G002_business_double_entry ---
+설명: 프리랜서 개발자, 연 매출 1억 2천, 단순경비율 신고 중.
+노란우산 미가입. 업종코드 940909.
+기대 발동: ['BOOK_DOUBLE_ENTRY_4800', 'RED_YELLOW_UMBRELLA']
+기대 비발동: ['CRED_RENT_MONTHLY']
+  저장: data\eval\ollama_runs\G002_business_double_entry_qwen3_32b_1776151746.json
+  [PASS] precision=1.00 hit=['BOOK_DOUBLE_ENTRY_4800', 'RED_YELLOW_UMBRELLA'] miss=[]
+
+--- G003_one_house_12eok ---
+설명: 15억 아파트 매각 예정. 1세대 1주택, 보유 8년·거주 4년. 양도차익 6억.
+기대 발동: ['TRANSFER_HIGH_VALUE_EXCESS_LTCG', 'TRANSFER_LTCG_TABLE2_ONE_HOUSE']
+기대 비발동: ['TRANSFER_ONE_HOUSE_EXEMPT', 'TRANSFER_SHORT_TERM_EXTEND']
+  저장: data\eval\ollama_runs\G003_one_house_12eok_qwen3_32b_1776151756.json
+  [PASS] precision=1.00 hit=['TRANSFER_HIGH_VALUE_EXCESS_LTCG', 'TRANSFER_LTCG_TABLE2_ONE_HOUSE'] miss=[]
+
+--- G004_inheritance_family_business ---
+설명: 부친 사망. 피상속인이 25년 영위한 제조업 법인 주식 400억 상속.
+배우자 법정상속분 150억.
+기대 발동: ['INH_FAMILY_BUSINESS_DEDUCTION', 'INH_INSTALLMENT_PAYMENT', 'INH_SPOUSE_DEDUCTION']
+기대 비발동: ['CRED_RENT_MONTHLY', 'TRANSFER_ONE_HOUSE_EXEMPT']
+  저장: data\eval\ollama_runs\G004_inheritance_family_business_qwen3_32b_1776151765.json
+  [PASS] precision=1.00 hit=['INH_FAMILY_BUSINESS_DEDUCTION', 'INH_INSTALLMENT_PAYMENT', 'INH_SPOUSE_DEDUCTION'] miss=[]
+
+--- G005_corp_rd_investment ---
+설명: 중소 제조법인, 과세표준 8억, R&D 지출 2억, 설비투자 5억(신성장).
+청년 3명 추가 채용.
+기대 발동: ['CORP_EMPLOYMENT_INCREASE_CREDIT', 'CORP_INTEGRATED_INVESTMENT_CREDIT', 'CORP_RD_TAX_CREDIT']
+기대 비발동: ['GIFT_SPLIT_10YEAR', 'TRANSFER_ONE_HOUSE_EXEMPT']
+  저장: data\eval\ollama_runs\G005_corp_rd_investment_qwen3_32b_1776151774.json
+  [PASS] precision=1.00 hit=['CORP_EMPLOYMENT_INCREASE_CREDIT', 'CORP_INTEGRATED_INVESTMENT_CREDIT', 'CORP_RD_TAX_CREDIT'] miss=[]
+
+--- G006_working_couple_kids ---
+설명: 맞벌이 직장인 부부(본인 연봉 7,200만). 자녀 2명(초·중). 교육비 500만,
+교회 기부 200만.
+기대 발동: ['CRED_CHILDREN', 'CRED_DONATION', 'CRED_EDUCATION']
+기대 비발동: ['CRED_MONTHLY_RENT', 'INH_SPOUSE_DEDUCTION']
+  저장: data\eval\ollama_runs\G006_working_couple_kids_qwen3_32b_1776151783.json
+  [PASS] precision=1.00 hit=['CRED_CHILDREN', 'CRED_DONATION', 'CRED_EDUCATION'] miss=[]
+
+--- G007_sme_youth ---
+설명: 27세 청년, 중소기업 입사 3년차 연봉 3,600만.
+기대 발동: ['RED_SME_EMPLOYMENT']
+기대 비발동: ['BOOK_DOUBLE_ENTRY_4800']
+  저장: data\eval\ollama_runs\G007_sme_youth_qwen3_32b_1776151794.json
+  [PASS] precision=1.00 hit=['RED_SME_EMPLOYMENT'] miss=[]
+
+--- G008_freelancer_financial ---
+설명: 프리랜서 사업소득 8천만, 이자 800만·배당 700만 금융소득 1,500만(2천만 이하).
+기대 발동: ['BOOK_DOUBLE_ENTRY_4800', 'FIN_SEPARATION_2000']
+기대 비발동: ['CRED_CHILDREN']
+  저장: data\eval\ollama_runs\G008_freelancer_financial_qwen3_32b_1776151810.json
+  [FAIL] precision=0.00 hit=[] miss=['BOOK_DOUBLE_ENTRY_4800', 'FIN_SEPARATION_2000']
+
+--- G009_housing_rental ---
+설명: 직장인이 부모 상속 오피스텔 임대. 연 임대소득 1,800만.
+기대 발동: ['SEP_HOUSING_RENTAL_2000']
+기대 비발동: ['SEP_OTHER_INCOME_300']
+  저장: data\eval\ollama_runs\G009_housing_rental_qwen3_32b_1776151819.json
+  [PASS] precision=1.00 hit=['SEP_HOUSING_RENTAL_2000'] miss=[]
+
+--- G010_other_income_small ---
+설명: 회사원이 학회 원고료 200만 수령.
+기대 발동: ['SEP_OTHER_INCOME_300']
+기대 비발동: ['FIN_SEPARATION_2000']
+  저장: data\eval\ollama_runs\G010_other_income_small_qwen3_32b_1776151833.json
+  [PASS] precision=1.00 hit=['SEP_OTHER_INCOME_300'] miss=[]
+
+--- G011_short_term_with_docs ---
+설명: 10개월 전 매수한 아파트를 급하게 매도. 양도차익 2억.
+중개수수료·법무사비 영수증 없음.
+기대 발동: ['TRANSFER_NECESSARY_EXPENSE', 'TRANSFER_SHORT_TERM_EXTEND']
+기대 비발동: ['TRANSFER_LTCG_TABLE1', 'TRANSFER_ONE_HOUSE_EXEMPT']
+  저장: data\eval\ollama_runs\G011_short_term_with_docs_qwen3_32b_1776151849.json
+  [PASS] precision=1.00 hit=['TRANSFER_NECESSARY_EXPENSE', 'TRANSFER_SHORT_TERM_EXTEND'] miss=[]
+
+--- G012_multi_house_defer_ltcg ---
+설명: 조정대상지역 2주택자, 한 채를 7년 보유 후 양도. 양도차익 5억.
+중과 유예기간 중.
+기대 발동: ['TRANSFER_LTCG_TABLE1', 'TRANSFER_MULTI_HOUSE_DEFER']
+기대 비발동: ['TRANSFER_ONE_HOUSE_EXEMPT', 'TRANSFER_SHORT_TERM_EXTEND']
+  저장: data\eval\ollama_runs\G012_multi_house_defer_ltcg_qwen3_32b_1776151857.json
+  [PASS] precision=1.00 hit=['TRANSFER_LTCG_TABLE1', 'TRANSFER_MULTI_HOUSE_DEFER'] miss=[]
+
+--- G013_inherited_plus_ordinary ---
+설명: 부친 사망으로 상속받은 주택 있음 + 본인 거주 아파트(5년 보유).
+본인 거주 아파트 양도 계획. 양도차익 3억.
+기대 발동: ['TRANSFER_INHERITED_HOUSE']
+기대 비발동: ['TRANSFER_SHORT_TERM_EXTEND']
+  저장: data\eval\ollama_runs\G013_inherited_plus_ordinary_qwen3_32b_1776151874.json
+  [PASS] precision=1.00 hit=['TRANSFER_INHERITED_HOUSE'] miss=[]
+
+--- G014_expropriation_bond_7y ---
+설명: 도시개발 수용. 15년 보유 토지, 양도차익 8억.
+보상금을 7년 만기 장기채권으로 수령 가능.
+기대 발동: ['TRANSFER_PUBLIC_EXPROPRIATION']
+기대 비발동: ['TRANSFER_SHORT_TERM_EXTEND']
+  저장: data\eval\ollama_runs\G014_expropriation_bond_7y_qwen3_32b_1776151894.json
+  [PASS] precision=1.00 hit=['TRANSFER_PUBLIC_EXPROPRIATION'] miss=[]
+
+--- G015_unregistered_gift_carryover ---
+설명: 부친에게서 5년 전 증여받은 부동산(미등기) 양도 계획. 양도차익 4억.
+기대 발동: ['TRANSFER_GIFT_CARRYOVER', 'TRANSFER_UNREGISTERED_AVOID']
+기대 비발동: ['TRANSFER_ONE_HOUSE_EXEMPT']
+  저장: data\eval\ollama_runs\G015_unregistered_gift_carryover_qwen3_32b_1776151902.json
+  [PASS] precision=1.00 hit=['TRANSFER_GIFT_CARRYOVER', 'TRANSFER_UNREGISTERED_AVOID'] miss=[]
+
+--- G016_large_corp_vehicle ---
+설명: 대기업 법인, 임원 전용 고급승용차 연 8,000만 비용. 운행일지 미작성.
+기대 발동: ['CORP_COMPANY_VEHICLE_EXCESS']
+기대 비발동: ['CORP_LOSS_CARRYFORWARD']
+  저장: data\eval\ollama_runs\G016_large_corp_vehicle_qwen3_32b_1776151912.json
+  [PASS] precision=1.00 hit=['CORP_COMPANY_VEHICLE_EXCESS'] miss=[]
+
+--- G017_corp_loss_usage ---
+설명: 법인 이월결손금 10억 보유, 당기 과세소득 15억(중견). 접대비 연 1억 지출.
+기대 발동: ['CORP_ENTERTAINMENT_LIMIT', 'CORP_LOSS_CARRYFORWARD']
+기대 비발동: ['CORP_COMPANY_VEHICLE_EXCESS']
+  저장: data\eval\ollama_runs\G017_corp_loss_usage_qwen3_32b_1776151919.json
+  [FAIL] precision=0.50 hit=['CORP_ENTERTAINMENT_LIMIT'] miss=['CORP_LOSS_CARRYFORWARD']
+
+--- G018_sme_loss_carryback ---
+설명: 중소법인, 당기 3억 결손. 직전년도 흑자로 4천만 법인세 납부.
+기대 발동: ['CORP_LOSS_CARRYBACK']
+기대 비발동: ['CORP_ENTERTAINMENT_LIMIT']
+  저장: data\eval\ollama_runs\G018_sme_loss_carryback_qwen3_32b_1776151929.json
+  [PASS] precision=1.00 hit=['CORP_LOSS_CARRYBACK'] miss=[]
+
+--- G019_executive_bonus_excess ---
+설명: 중소법인 대표, 정관 한도 5천만이나 실제 상여 2억 지급.
+기대 발동: ['CORP_EXECUTIVE_BONUS_EXCESS']
+기대 비발동: ['CORP_LOSS_CARRYBACK']
+  저장: data\eval\ollama_runs\G019_executive_bonus_excess_qwen3_32b_1776151939.json
+  [PASS] precision=1.00 hit=['CORP_EXECUTIVE_BONUS_EXCESS'] miss=[]
+
+--- G020_gift_split_10year ---
+설명: 부친이 자녀(성인)에게 3억 증여 계획. 5년 전 이미 4천만 증여함.
+기대 발동: ['GIFT_SPLIT_10YEAR']
+기대 비발동: ['INH_SPOUSE_DEDUCTION']
+  저장: data\eval\ollama_runs\G020_gift_split_10year_qwen3_32b_1776151947.json
+  [FAIL] precision=0.00 hit=[] miss=['GIFT_SPLIT_10YEAR']
+
+--- G021_free_loan_3eok ---
+설명: 부친이 자녀에게 3억 무이자 대여(차용증 작성).
+기대 발동: ['GIFT_FREE_LOAN_BENEFIT']
+기대 비발동: ['GIFT_INSURANCE_PROCEED']
+  저장: data\eval\ollama_runs\G021_free_loan_3eok_qwen3_32b_1776151955.json
+  [PASS] precision=1.00 hit=['GIFT_FREE_LOAN_BENEFIT'] miss=[]
+
+--- G022_insurance_transfer ---
+설명: 부친이 납부한 종신보험 10억 만기. 수익자는 자녀.
+기대 발동: ['GIFT_INSURANCE_PROCEED']
+기대 비발동: ['GIFT_FREE_LOAN_BENEFIT']
+  저장: data\eval\ollama_runs\G022_insurance_transfer_qwen3_32b_1776151961.json
+  [FAIL] precision=0.00 hit=[] miss=['GIFT_INSURANCE_PROCEED']
+
+--- G023_low_price_gift ---
+설명: 부친 소유 상가(시가 20억) 를 자녀에게 10억에 양도.
+기대 발동: ['GIFT_LOW_PRICE_TRANSFER']
+기대 비발동: ['GIFT_FAMILY_BUSINESS_SUCCESSION']
+  저장: data\eval\ollama_runs\G023_low_price_gift_qwen3_32b_1776151969.json
+  [PASS] precision=1.00 hit=['GIFT_LOW_PRICE_TRANSFER'] miss=[]
+
+--- G024_comprehensive_salaryman ---
+설명: 35세 무주택 직장인 연봉 5천, 월세 60만, 자녀 1명, IRP 미가입,
+부모 의료비 200만, 교육비 100만.
+기대 발동: ['CRED_CHILDREN', 'CRED_EDUCATION', 'CRED_MONTHLY_RENT', 'DED_PENSION_IRP_700', 'TIMING_MEDICAL_EXPENSE']
+기대 비발동: ['CORP_LOSS_CARRYFORWARD', 'TRANSFER_ONE_HOUSE_EXEMPT']
+  저장: data\eval\ollama_runs\G024_comprehensive_salaryman_qwen3_32b_1776151977.json
+  [FAIL] precision=0.80 hit=['CRED_CHILDREN', 'CRED_EDUCATION', 'DED_PENSION_IRP_700', 'TIMING_MEDICAL_EXPENSE'] miss=['CRED_MONTHLY_RENT']
+
+--- G025_corp_owner_multi_house ---
+설명: 중소법인 대표 겸 다주택자. 법인은 R&D 1억 지출 + 청년 2명 채용.
+본인은 7년 보유 아파트 1채 양도 계획(조정대상지역, 양도차익 3억).
+기대 발동: ['CORP_EMPLOYMENT_INCREASE_CREDIT', 'CORP_RD_TAX_CREDIT', 'TRANSFER_LTCG_TABLE1', 'TRANSFER_MULTI_HOUSE_DEFER']
+기대 비발동: ['INH_SPOUSE_DEDUCTION']
+  저장: data\eval\ollama_runs\G025_corp_owner_multi_house_qwen3_32b_1776151990.json
+  [PASS] precision=1.00 hit=['CORP_EMPLOYMENT_INCREASE_CREDIT', 'CORP_RD_TAX_CREDIT', 'TRANSFER_LTCG_TABLE1', 'TRANSFER_MULTI_HOUSE_DEFER'] miss=[]
+
+
+결과: 20/25 통과

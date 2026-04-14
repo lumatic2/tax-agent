@@ -22,7 +22,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 ICON_PATH = ROOT / 'assets' / 'icon.ico'
-MODEL = 'qwen3:32b'
+
+from agent.llm import default_model
+MODEL = default_model()
 
 st.set_page_config(
     page_title='Tax Agent',

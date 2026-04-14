@@ -8,15 +8,15 @@ import sys
 if sys.stdout.encoding.lower() != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-from langchain_ollama import ChatOllama
 from langchain_core.tools import tool
+from agent.llm import default_model, get_llm
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode, tools_condition
 from typing import TypedDict, Annotated
 import operator
 
-MODEL = 'qwen3:32b'
+MODEL = default_model()
 
 try:
     import tax_calculator as tc
@@ -313,7 +313,7 @@ SYSTEM_PROMPT = """당신은 대한민국 세무 전문가 AI입니다.
 
 # ── 그래프 구성 (모델 런타임 지정) ────────────────────────────────────────────
 def build_graph(model: str = MODEL):
-    llm = ChatOllama(model=model, temperature=0, num_predict=2048)
+    llm = get_llm(model, temperature=0, num_predict=2048)
     llm_with_tools = llm.bind_tools(tools)
 
     def agent_node(state: TaxAgentState):

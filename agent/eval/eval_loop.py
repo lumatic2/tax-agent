@@ -18,7 +18,7 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-from langchain_ollama import ChatOllama
+from agent.llm import get_llm
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import StateGraph
@@ -86,7 +86,7 @@ class AgentState(TypedDict):
 
 
 def build_agent(model: str):
-    llm = ChatOllama(model=model, temperature=0, num_predict=1024)
+    llm = get_llm(model, temperature=0, num_predict=1024)
 
     @tool
     def calculate_income_tax(gross_salary: int, national_pension: int = 0,

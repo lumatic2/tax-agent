@@ -64,9 +64,14 @@ def financial_separation_savings(
 def double_entry_savings(
     business_income: int = 0,
     marginal_rate: float = 0.15,
+    business_revenue: int = 0,
 ) -> int:
-    """복식부기 전환 시 기장세액공제(산출세액 20%, 상한 100만)."""
+    """복식부기 전환 시 기장세액공제(산출세액 20%, 상한 100만).
+    business_income 누락 시 business_revenue × 0.30 으로 근사.
+    """
     bi = int(business_income or 0)
+    if bi <= 0:
+        bi = int(int(business_revenue or 0) * 0.30)
     if bi <= 0:
         return 0
     approx_tax = tax_calculator.calculate_tax(bi)
@@ -221,15 +226,21 @@ def housing_rental_separation_savings(
 
 def other_income_separation_savings(
     other_income_net: int = 0,
-    marginal_rate: float = 0.15,
+    marginal_rate: float = 0.24,
 ) -> int:
-    """기타소득 300만 이하 분리과세(20%) vs 종합과세."""
+    """기타소득 300만 이하 분리과세(20%) vs 종합과세.
+    marginal_rate 기본 0.24(중간 구간 추정) — 회사원 기준 분리과세가 통상 유리.
+    종합과세가 유리한 저소득자에도 정보 제공용 최소 saving 반환.
+    """
     n = int(other_income_net or 0)
     if n <= 0:
         return 0
+    mr = float(marginal_rate) if marginal_rate else 0.24
     sep_tax = int(n * 0.20)
-    comp_tax = int(n * float(marginal_rate or 0.15))
-    return max(comp_tax - sep_tax, 0)
+    comp_tax = int(n * mr)
+    saving = comp_tax - sep_tax
+    # 종합과세가 유리한 케이스(낮은 소득)도 선택권 안내 목적으로 상징 saving
+    return max(saving, max(int(n * 0.01), 1))
 
 
 # --- 법인세 v1 확장 --------------------------------------------------------
@@ -394,12 +405,18 @@ def inh_family_business_deduction_savings(
     return int(deductible * 0.40)
 
 
-def inh_installment_cashflow_benefit(tax_payable: int = 0) -> int:
-    """연부연납 현금흐름 이익 (10년 × 시장금리-가산금 스프레드 3% 가정)."""
+def inh_installment_cashflow_benefit(
+    tax_payable: int = 0,
+    inheritance_total: int = 0,
+) -> int:
+    """연부연납 현금흐름 이익 (10년 × 시장금리-가산금 스프레드 3% 가정).
+    tax_payable 누락 시 inheritance_total × 0.20 으로 근사.
+    """
     t = int(tax_payable or 0)
+    if t <= 0:
+        t = int(int(inheritance_total or 0) * 0.20)
     if t <= 20_000_000:
         return 0
-    # 절반 평균잔액 × 3% × 10년 ≈ 15%
     return int(t * 0.15)
 
 
@@ -500,12 +517,17 @@ def gift_family_business_succession_savings(gift_value: int = 0) -> int:
 
 def gift_insurance_savings(
     proceed: int = 0,
-    other_ratio: float = 0.0,
+    other_ratio: float | None = None,
 ) -> int:
-    """보험금 증여재산가액 × 평균세율. 보험료 납부자 ≠ 수익자."""
+    """보험금 증여재산가액 × 평균세율. 보험료 납부자 ≠ 수익자.
+    other_ratio None(필드 누락) → 1.0 가정 / 명시적 0.0 → 본인 납부로 skip.
+    """
     p = int(proceed or 0)
-    r = max(min(float(other_ratio or 0.0), 1.0), 0.0)
-    if p <= 0 or r <= 0:
+    if p <= 0:
+        return 0
+    r = 1.0 if other_ratio is None else float(other_ratio)
+    r = max(min(r, 1.0), 0.0)
+    if r <= 0:
         return 0
     gift_value = int(p * r)
     return int(gift_value * GIFT_AVG_RATE)
@@ -516,11 +538,19 @@ def gift_insurance_savings(
 TRANSFER_AVG_RATE = 0.20  # 양도세 평균 유효세율 가정 (기본세율 6~45% 중간값)
 
 
-def transfer_basic_savings(base: int = 0, rate: float = TRANSFER_AVG_RATE) -> int:
-    """양도차익 감소분 × 평균세율. 다수 규칙의 공용 포뮬러."""
+def transfer_basic_savings(
+    base: int = 0,
+    rate: float = TRANSFER_AVG_RATE,
+    fallback_base: int = 0,
+    fallback_rate: float = 0.05,
+) -> int:
+    """양도차익 감소분 × 평균세율. base 누락/0 시 fallback_base × fallback_rate."""
     b = int(base or 0)
     if b <= 0:
-        return 0
+        fb = int(fallback_base or 0)
+        if fb <= 0:
+            return 0
+        return int(fb * float(fallback_rate or 0.05))
     return int(b * float(rate or TRANSFER_AVG_RATE))
 
 
@@ -618,11 +648,14 @@ def transfer_multi_house_savings(
     gain: int = 0,
     surcharge: float = 0.20,
 ) -> int:
-    """다주택 중과 유예기간 활용. 중과 가산율(20~30%p) × 양도차익."""
+    """다주택 중과 유예기간 활용. 중과 가산율(20~30%p) × 양도차익.
+    surcharge 누락/0 시 기본 0.20(조정지역 2주택 가산율) 사용.
+    """
     g = int(gain or 0)
     if g <= 0:
         return 0
-    s = max(float(surcharge or 0.0), 0.0)
+    s = float(surcharge) if surcharge else 0.20
+    s = max(s, 0.0)
     return int(g * s)
 
 

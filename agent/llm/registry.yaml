@@ -1,0 +1,30 @@
+# LLM 모델 레지스트리
+# 새 모델 등록: ollama pull <tag> 후 아래에 entry 추가.
+# bench.* 필드는 eval_ollama_rule_firing.py --compare-all 실행 후 수동 갱신.
+
+default: qwen3:32b
+
+models:
+  - name: qwen3:32b
+    ollama_tag: qwen3:32b
+    context: 32768
+    temperature: 0.0
+    num_predict: 1024
+    prompt_version: v4
+    notes: "Phase 8 default. v4로 20/25 달성(PRD 80%). gemma4:31b 동률. 속도 근소 우세."
+    bench:
+      goldset_v1: "20/25 (80%, v4)"
+      avg_elapsed_s: 11.6
+      date: "2026-04-14"
+
+  - name: gemma4:31b
+    ollama_tag: gemma4:31b
+    context: 131072
+    temperature: 0.0
+    num_predict: 1024
+    prompt_version: v3.1
+    notes: "qwen3:32b와 실패 9건 정확히 일치 -- 모델 품질이 아니라 규칙/필드 스펙 문제. Thinking 모델(프롬프트 에코) 주의."
+    bench:
+      goldset_v1: "16/25 (64%)"
+      avg_elapsed_s: 12.5
+      date: "2026-04-14"

@@ -29,6 +29,7 @@
     params:
       business_income_ref: "profile.business_income"
       marginal_rate_ref: "profile.marginal_rate"
+      business_revenue_ref: "profile.business_revenue"
 
   legal_basis:
     - { law: 소득세법, article: "제56조의2" }

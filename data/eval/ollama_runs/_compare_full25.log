@@ -1,0 +1,64 @@
+=== COMPARE-ALL — models=['qwen3:32b', 'gemma4:31b'] × 25 시나리오 ===
+
+
+### qwen3:32b (Phase 6 베이스라인. 긴 설명 체인에서 규칙 누락.) ###
+  PASS  G001_single_salary_rent  (21.84s)
+  FAIL  G002_business_double_entry  (5.52s)
+  PASS  G003_one_house_12eok  (8.24s)
+  FAIL  G004_inheritance_family_business  (9.38s)
+  PASS  G005_corp_rd_investment  (10.78s)
+  PASS  G006_working_couple_kids  (7.61s)
+  PASS  G007_sme_youth  (7.31s)
+  FAIL  G008_freelancer_financial  (9.15s)
+  PASS  G009_housing_rental  (16.61s)
+  FAIL  G010_other_income_small  (37.38s)
+  FAIL  G011_short_term_with_docs  (18.2s)
+  FAIL  G012_multi_house_defer_ltcg  (11.62s)
+  PASS  G013_inherited_plus_ordinary  (14.64s)
+  PASS  G014_expropriation_bond_7y  (9.83s)
+  FAIL  G015_unregistered_gift_carryover  (7.85s)
+  PASS  G016_large_corp_vehicle  (8.05s)
+  PASS  G017_corp_loss_usage  (11.56s)
+  PASS  G018_sme_loss_carryback  (8.23s)
+  PASS  G019_executive_bonus_excess  (9.24s)
+  PASS  G020_gift_split_10year  (10.15s)
+  PASS  G021_free_loan_3eok  (4.39s)
+  FAIL  G022_insurance_transfer  (9.47s)
+  PASS  G023_low_price_gift  (7.31s)
+  PASS  G024_comprehensive_salaryman  (10.04s)
+  FAIL  G025_corp_owner_multi_house  (16.59s)
+  → 16/25 = 64%
+
+### gemma4:31b (2026 신규 등록. 비교 벤치 필요.) ###
+  PASS  G001_single_salary_rent  (21.82s)
+  FAIL  G002_business_double_entry  (15.54s)
+  PASS  G003_one_house_12eok  (8.78s)
+  FAIL  G004_inheritance_family_business  (20.11s)
+  PASS  G005_corp_rd_investment  (15.83s)
+  PASS  G006_working_couple_kids  (11.25s)
+  PASS  G007_sme_youth  (10.88s)
+  FAIL  G008_freelancer_financial  (8.37s)
+  PASS  G009_housing_rental  (11.06s)
+  FAIL  G010_other_income_small  (6.0s)
+  FAIL  G011_short_term_with_docs  (21.42s)
+  FAIL  G012_multi_house_defer_ltcg  (9.99s)
+  PASS  G013_inherited_plus_ordinary  (17.62s)
+  PASS  G014_expropriation_bond_7y  (10.39s)
+  FAIL  G015_unregistered_gift_carryover  (18.59s)
+  PASS  G016_large_corp_vehicle  (5.67s)
+  PASS  G017_corp_loss_usage  (10.99s)
+  PASS  G018_sme_loss_carryback  (7.92s)
+  PASS  G019_executive_bonus_excess  (8.77s)
+  PASS  G020_gift_split_10year  (8.73s)
+  PASS  G021_free_loan_3eok  (6.58s)
+  FAIL  G022_insurance_transfer  (9.13s)
+  PASS  G023_low_price_gift  (10.83s)
+  PASS  G024_comprehensive_salaryman  (12.14s)
+  FAIL  G025_corp_owner_multi_house  (23.83s)
+  → 16/25 = 64%
+
+=== 요약 ===
+  qwen3:32b             16/25 = 64%
+  gemma4:31b            16/25 = 64%
+
+리포트: data\eval\ollama_runs\compare_1776148329.json

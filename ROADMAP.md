@@ -770,9 +770,17 @@ A 정답률 > B 정답률 (도구 기여 입증)
   - GIFT_FAMILY_BUSINESS_SUCCESSION — 가업승계 증여 특례 (조특 30의6): 10억 공제 + 120억까지 10% / 초과 20%
   - 회귀: catalog_v1 66/66 + 기존 33/33 + certify 26/26 무회귀 = 총 **119/119**
 
-### Phase 7 후보 (신규 세션으로 분리)
+- [x] **Phase 7 양도소득세 14규칙 완료** (2026-04-14): 37→51. 소득세 13→27.
+  - 7.1 양도차익 기본 (3): TRANSFER_ACQUISITION_DOC · NECESSARY_EXPENSE · GIFT_CARRYOVER
+  - 7.2 장특공제 (2): LTCG_TABLE1 · LTCG_TABLE2_ONE_HOUSE
+  - 7.3 1세대 1주택 (4): ONE_HOUSE_EXEMPT · TEMP_TWO_HOUSE · INHERITED_HOUSE · HIGH_VALUE_EXCESS_LTCG
+  - 7.4 세율·중과 (3): SHORT_TERM_EXTEND · UNREGISTERED_AVOID · MULTI_HOUSE_DEFER
+  - 7.5 특례·감면 (2): SELF_CULTIVATED_FARMLAND · PUBLIC_EXPROPRIATION
+  - 회귀: catalog_v1 94/94 + 기타 27/27 = **121/121**
 
-- **양도소득 영역** (소득세 현재 13규칙, 양도 전무) — 1세대 1주택 비과세·장특공제·일시적 2주택
+### Phase 8 후보
+
 - 조특법 중소기업 특별세액감면 (조특 7)
+- 종부세(종합부동산세) 규칙 신설
 - eval 하네스 실전 운용: qwen3:32b A/B 회귀를 정기 실행해 로컬 모델 유효성 추적
 

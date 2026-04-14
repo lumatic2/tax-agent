@@ -31,8 +31,8 @@ def test_catalog_counts_by_tax_type():
     counts = {}
     for r in rules:
         counts[r.tax_type] = counts.get(r.tax_type, 0) + 1
-    assert len(rules) == 37, f"전체 37개 예상, 실제 {len(rules)}"
-    assert counts.get("소득세") == 13
+    assert len(rules) == 51, f"전체 51개 예상, 실제 {len(rules)}"
+    assert counts.get("소득세") == 27
     assert counts.get("법인세") == 14
     assert counts.get("상속세") == 3
     assert counts.get("증여세") == 7
@@ -563,6 +563,292 @@ def test_inheritance_profile_no_income_or_corp_rules():
     assert "CRED_CHILDREN" not in ids
     assert "CORP_ENTERTAINMENT_LIMIT" not in ids
     assert "GIFT_SPLIT_10YEAR" not in ids
+    for rid in (
+        "TRANSFER_ACQUISITION_DOC", "TRANSFER_NECESSARY_EXPENSE", "TRANSFER_GIFT_CARRYOVER",
+        "TRANSFER_LTCG_TABLE1", "TRANSFER_LTCG_TABLE2_ONE_HOUSE",
+        "TRANSFER_ONE_HOUSE_EXEMPT", "TRANSFER_TEMP_TWO_HOUSE",
+        "TRANSFER_INHERITED_HOUSE", "TRANSFER_HIGH_VALUE_EXCESS_LTCG",
+        "TRANSFER_SHORT_TERM_EXTEND", "TRANSFER_UNREGISTERED_AVOID",
+        "TRANSFER_MULTI_HOUSE_DEFER", "TRANSFER_SELF_CULTIVATED_FARMLAND",
+        "TRANSFER_PUBLIC_EXPROPRIATION",
+    ):
+        assert rid not in ids, rid
+
+
+# --- Phase 7 양도소득 ------------------------------------------------------
+
+# Phase 7.1
+
+def test_transfer_acquisition_doc_applies():
+    r = run({
+        "has_transfer_income": True,
+        "acquisition_docs_available": False,
+        "acquisition_value_gap": 100_000_000,
+    })
+    assert _saving(r["candidates"], "TRANSFER_ACQUISITION_DOC") == 20_000_000  # 1억 × 20%
+
+
+def test_transfer_acquisition_doc_skips_when_docs_available():
+    r = run({
+        "has_transfer_income": True,
+        "acquisition_docs_available": True,
+        "acquisition_value_gap": 100_000_000,
+    })
+    assert "TRANSFER_ACQUISITION_DOC" not in _ids(r["candidates"])
+
+
+def test_transfer_necessary_expense_applies():
+    r = run({
+        "has_transfer_income": True,
+        "unreported_necessary_expense": 50_000_000,
+    })
+    assert _saving(r["candidates"], "TRANSFER_NECESSARY_EXPENSE") == 10_000_000  # 5천만 × 20%
+
+
+def test_transfer_necessary_expense_zero_skips():
+    r = run({"has_transfer_income": True, "unreported_necessary_expense": 0})
+    assert "TRANSFER_NECESSARY_EXPENSE" not in _ids(r["candidates"])
+
+
+def test_transfer_gift_carryover_applies():
+    r = run({
+        "is_post_gift_transfer": True,
+        "years_since_gift": 3,
+        "gift_carryover_gain": 200_000_000,
+    })
+    assert _saving(r["candidates"], "TRANSFER_GIFT_CARRYOVER") == 40_000_000
+
+
+def test_transfer_gift_carryover_past_10yr_skips():
+    r = run({
+        "is_post_gift_transfer": True,
+        "years_since_gift": 11,
+        "gift_carryover_gain": 200_000_000,
+    })
+    assert "TRANSFER_GIFT_CARRYOVER" not in _ids(r["candidates"])
+
+
+# Phase 7.2
+
+def test_transfer_ltcg_table1_applies():
+    # 현재 5년(10%) → 15년(30%) 목표, gap 20%p × 20% × 1억 = 4_000_000
+    r = run({
+        "has_transfer_income": True,
+        "transfer_gain": 100_000_000,
+        "holding_years": 5,
+    })
+    s = _saving(r["candidates"], "TRANSFER_LTCG_TABLE1")
+    assert s == int(100_000_000 * 0.20 * 0.20)
+
+
+def test_transfer_ltcg_table1_under_3yr_skips():
+    r = run({
+        "has_transfer_income": True,
+        "transfer_gain": 100_000_000,
+        "holding_years": 2,
+    })
+    assert "TRANSFER_LTCG_TABLE1" not in _ids(r["candidates"])
+
+
+def test_transfer_ltcg_table2_one_house_applies():
+    # 보유 5년(20%) + 거주 5년(20%) = 40%. 목표 80%(10+10) → gap 40%p × 20% × 1억
+    r = run({
+        "is_one_house": True,
+        "transfer_gain": 100_000_000,
+        "holding_years": 5,
+        "residence_years": 5,
+    })
+    s = _saving(r["candidates"], "TRANSFER_LTCG_TABLE2_ONE_HOUSE")
+    assert s == int(100_000_000 * 0.40 * 0.20)
+
+
+def test_transfer_ltcg_table2_full_skips():
+    r = run({
+        "is_one_house": True,
+        "transfer_gain": 100_000_000,
+        "holding_years": 12,
+        "residence_years": 12,
+    })
+    # residence 10 이미 충족 → applies_when에서 residence_years < 10 조건 미충족
+    assert "TRANSFER_LTCG_TABLE2_ONE_HOUSE" not in _ids(r["candidates"])
+
+
+# Phase 7.3
+
+def test_transfer_one_house_exempt_applies():
+    r = run({
+        "is_one_house": True,
+        "transfer_gain": 500_000_000,
+        "transfer_price": 1_000_000_000,
+    })
+    assert _saving(r["candidates"], "TRANSFER_ONE_HOUSE_EXEMPT") == 100_000_000
+
+
+def test_transfer_one_house_exempt_over_12eok_skips():
+    r = run({
+        "is_one_house": True,
+        "transfer_gain": 500_000_000,
+        "transfer_price": 1_500_000_000,
+    })
+    assert "TRANSFER_ONE_HOUSE_EXEMPT" not in _ids(r["candidates"])
+
+
+def test_transfer_temp_two_house_applies():
+    r = run({
+        "has_temp_two_house": True,
+        "months_since_new_house": 24,
+        "old_house_gain": 300_000_000,
+    })
+    assert _saving(r["candidates"], "TRANSFER_TEMP_TWO_HOUSE") == 60_000_000
+
+
+def test_transfer_temp_two_house_late_skips():
+    r = run({
+        "has_temp_two_house": True,
+        "months_since_new_house": 40,
+        "old_house_gain": 300_000_000,
+    })
+    assert "TRANSFER_TEMP_TWO_HOUSE" not in _ids(r["candidates"])
+
+
+def test_transfer_inherited_house_applies():
+    r = run({
+        "has_inherited_house": True,
+        "selling_ordinary_house": True,
+        "ordinary_house_gain": 400_000_000,
+    })
+    assert _saving(r["candidates"], "TRANSFER_INHERITED_HOUSE") == 80_000_000
+
+
+def test_transfer_inherited_house_no_sell_skips():
+    r = run({
+        "has_inherited_house": True,
+        "selling_ordinary_house": False,
+        "ordinary_house_gain": 400_000_000,
+    })
+    assert "TRANSFER_INHERITED_HOUSE" not in _ids(r["candidates"])
+
+
+def test_transfer_high_value_excess_applies():
+    # 양도가 20억, 차익 10억, 과세분 = 4억
+    # 현재 h=5(20%)+r=3(12%) = 32%, 목표 h=10(40%)+r=10(40%) = 80% → gap 48%p
+    # saving = 4억 × 48% × 20%
+    r = run({
+        "is_one_house": True,
+        "transfer_price": 2_000_000_000,
+        "transfer_gain": 1_000_000_000,
+        "holding_years": 5,
+        "residence_years": 3,
+    })
+    s = _saving(r["candidates"], "TRANSFER_HIGH_VALUE_EXCESS_LTCG")
+    assert s == int(400_000_000 * (0.80 - 0.32) * 0.20)
+
+
+def test_transfer_high_value_under_12eok_skips():
+    r = run({
+        "is_one_house": True,
+        "transfer_price": 1_000_000_000,
+        "transfer_gain": 500_000_000,
+        "holding_years": 5,
+        "residence_years": 3,
+    })
+    assert "TRANSFER_HIGH_VALUE_EXCESS_LTCG" not in _ids(r["candidates"])
+
+
+# Phase 7.4
+
+def test_transfer_short_term_1yr_applies():
+    # 10개월 → 70% - 20% = 50%p × 1억 = 5천만
+    r = run({
+        "has_transfer_income": True,
+        "transfer_gain": 100_000_000,
+        "holding_months": 10,
+    })
+    assert _saving(r["candidates"], "TRANSFER_SHORT_TERM_EXTEND") == 50_000_000
+
+
+def test_transfer_short_term_over_2yr_skips():
+    r = run({
+        "has_transfer_income": True,
+        "transfer_gain": 100_000_000,
+        "holding_months": 30,
+    })
+    assert "TRANSFER_SHORT_TERM_EXTEND" not in _ids(r["candidates"])
+
+
+def test_transfer_unregistered_applies():
+    r = run({
+        "is_unregistered_transfer": True,
+        "transfer_gain": 100_000_000,
+    })
+    assert _saving(r["candidates"], "TRANSFER_UNREGISTERED_AVOID") == 50_000_000
+
+
+def test_transfer_unregistered_registered_skips():
+    r = run({
+        "is_unregistered_transfer": False,
+        "transfer_gain": 100_000_000,
+    })
+    assert "TRANSFER_UNREGISTERED_AVOID" not in _ids(r["candidates"])
+
+
+def test_transfer_multi_house_applies():
+    r = run({
+        "is_multi_house_heavy_zone": True,
+        "multi_house_defer_active": True,
+        "transfer_gain": 200_000_000,
+        "multi_house_surcharge_rate": 0.30,
+    })
+    assert _saving(r["candidates"], "TRANSFER_MULTI_HOUSE_DEFER") == 60_000_000
+
+
+def test_transfer_multi_house_no_defer_skips():
+    r = run({
+        "is_multi_house_heavy_zone": True,
+        "multi_house_defer_active": False,
+        "transfer_gain": 200_000_000,
+        "multi_house_surcharge_rate": 0.30,
+    })
+    assert "TRANSFER_MULTI_HOUSE_DEFER" not in _ids(r["candidates"])
+
+
+# Phase 7.5
+
+def test_transfer_farmland_applies():
+    # 양도차익 3억 × 20% = 6천만, 1억 한도 내
+    r = run({
+        "is_self_cultivated_farmland": True,
+        "self_cultivation_years": 10,
+        "transfer_gain": 300_000_000,
+    })
+    assert _saving(r["candidates"], "TRANSFER_SELF_CULTIVATED_FARMLAND") == 60_000_000
+
+
+def test_transfer_farmland_under_8yr_skips():
+    r = run({
+        "is_self_cultivated_farmland": True,
+        "self_cultivation_years": 5,
+        "transfer_gain": 300_000_000,
+    })
+    assert "TRANSFER_SELF_CULTIVATED_FARMLAND" not in _ids(r["candidates"])
+
+
+def test_transfer_expropriation_bond_5y_applies():
+    # 양도차익 5억 × 20% = 1억(세액) × 30%(5년채) = 30_000_000
+    r = run({
+        "is_public_expropriation": True,
+        "transfer_gain": 500_000_000,
+        "expropriation_compensation_type": "bond_5y",
+    })
+    assert _saving(r["candidates"], "TRANSFER_PUBLIC_EXPROPRIATION") == 30_000_000
+
+
+def test_transfer_expropriation_not_public_skips():
+    r = run({
+        "is_public_expropriation": False,
+        "transfer_gain": 500_000_000,
+    })
+    assert "TRANSFER_PUBLIC_EXPROPRIATION" not in _ids(r["candidates"])
 
 
 if __name__ == "__main__":
@@ -633,6 +919,34 @@ if __name__ == "__main__":
         ("gift low eq skip", test_gift_low_valuation_equal_price_skips),
         ("scope income only", test_income_profile_no_corp_or_estate_rules),
         ("scope inh only", test_inheritance_profile_no_income_or_corp_rules),
+        ("transfer acq doc", test_transfer_acquisition_doc_applies),
+        ("transfer acq doc skip", test_transfer_acquisition_doc_skips_when_docs_available),
+        ("transfer necessary", test_transfer_necessary_expense_applies),
+        ("transfer necessary skip", test_transfer_necessary_expense_zero_skips),
+        ("transfer gift carryover", test_transfer_gift_carryover_applies),
+        ("transfer gift carryover skip", test_transfer_gift_carryover_past_10yr_skips),
+        ("transfer ltcg t1", test_transfer_ltcg_table1_applies),
+        ("transfer ltcg t1 skip", test_transfer_ltcg_table1_under_3yr_skips),
+        ("transfer ltcg t2", test_transfer_ltcg_table2_one_house_applies),
+        ("transfer ltcg t2 skip", test_transfer_ltcg_table2_full_skips),
+        ("transfer 1house exempt", test_transfer_one_house_exempt_applies),
+        ("transfer 1house skip", test_transfer_one_house_exempt_over_12eok_skips),
+        ("transfer temp 2house", test_transfer_temp_two_house_applies),
+        ("transfer temp 2house skip", test_transfer_temp_two_house_late_skips),
+        ("transfer inherited", test_transfer_inherited_house_applies),
+        ("transfer inherited skip", test_transfer_inherited_house_no_sell_skips),
+        ("transfer high value", test_transfer_high_value_excess_applies),
+        ("transfer high value skip", test_transfer_high_value_under_12eok_skips),
+        ("transfer short term", test_transfer_short_term_1yr_applies),
+        ("transfer short term skip", test_transfer_short_term_over_2yr_skips),
+        ("transfer unreg", test_transfer_unregistered_applies),
+        ("transfer unreg skip", test_transfer_unregistered_registered_skips),
+        ("transfer multi house", test_transfer_multi_house_applies),
+        ("transfer multi house skip", test_transfer_multi_house_no_defer_skips),
+        ("transfer farmland", test_transfer_farmland_applies),
+        ("transfer farmland skip", test_transfer_farmland_under_8yr_skips),
+        ("transfer exprop", test_transfer_expropriation_bond_5y_applies),
+        ("transfer exprop skip", test_transfer_expropriation_not_public_skips),
     ]
     passed = 0
     for name, fn in tests:

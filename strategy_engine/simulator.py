@@ -511,6 +511,151 @@ def gift_insurance_savings(
     return int(gift_value * GIFT_AVG_RATE)
 
 
+# --- 양도소득 v1 확장 (Phase 7) --------------------------------------------
+
+TRANSFER_AVG_RATE = 0.20  # 양도세 평균 유효세율 가정 (기본세율 6~45% 중간값)
+
+
+def transfer_basic_savings(base: int = 0, rate: float = TRANSFER_AVG_RATE) -> int:
+    """양도차익 감소분 × 평균세율. 다수 규칙의 공용 포뮬러."""
+    b = int(base or 0)
+    if b <= 0:
+        return 0
+    return int(b * float(rate or TRANSFER_AVG_RATE))
+
+
+def _ltcg1_rate(years: int) -> float:
+    y = int(years or 0)
+    if y < 3:
+        return 0.0
+    return min(y * 0.02, 0.30)
+
+
+def transfer_ltcg_table1_savings(
+    gain: int = 0,
+    current_years: int = 0,
+    target_years: int = 15,
+) -> int:
+    """보유기간 연장으로 얻는 장특공제 표1 추가 공제액 × 평균세율."""
+    g = int(gain or 0)
+    if g <= 0:
+        return 0
+    target = max(int(target_years or 15), int(current_years or 0))
+    gap = _ltcg1_rate(target) - _ltcg1_rate(current_years)
+    return int(g * max(gap, 0.0) * TRANSFER_AVG_RATE)
+
+
+def _ltcg2_rate(holding_years: int, residence_years: int) -> float:
+    h = max(int(holding_years or 0), 0)
+    r = max(int(residence_years or 0), 0)
+    if h < 3:
+        return 0.0
+    h_rate = min(h * 0.04, 0.40)
+    r_rate = min(r * 0.04, 0.40)
+    return min(h_rate + r_rate, 0.80)
+
+
+def transfer_ltcg_table2_savings(
+    gain: int = 0,
+    holding_years: int = 0,
+    residence_years: int = 0,
+) -> int:
+    """1세대 1주택 장특공제 표2 — 거주 10년 추가 달성 시 얻는 추가 공제."""
+    g = int(gain or 0)
+    if g <= 0:
+        return 0
+    current = _ltcg2_rate(holding_years, residence_years)
+    target = _ltcg2_rate(max(int(holding_years or 0), 10), 10)
+    gap = max(target - current, 0.0)
+    return int(g * gap * TRANSFER_AVG_RATE)
+
+
+def transfer_high_value_excess_savings(
+    gain: int = 0,
+    price: int = 0,
+    holding_years: int = 0,
+    residence_years: int = 0,
+) -> int:
+    """12억 초과 1세대 1주택 — 과세분 장특공제 표2 극대화로 얻는 절세액."""
+    g = int(gain or 0)
+    p = int(price or 0)
+    if g <= 0 or p <= 1_200_000_000:
+        return 0
+    taxable = int(g * (p - 1_200_000_000) / p)
+    current_rate = _ltcg2_rate(holding_years, residence_years)
+    target_rate = _ltcg2_rate(max(int(holding_years or 0), 10), 10)
+    gap = max(target_rate - current_rate, 0.0)
+    return int(taxable * gap * TRANSFER_AVG_RATE)
+
+
+def transfer_short_term_savings(
+    gain: int = 0,
+    current_months: int = 0,
+) -> int:
+    """단기양도 세율 회피 — 현재 보유기간 기준 단기세율과 기본세율(20%) 차액."""
+    g = int(gain or 0)
+    if g <= 0:
+        return 0
+    m = int(current_months or 0)
+    if m < 12:
+        diff = 0.50
+    elif m < 24:
+        diff = 0.40
+    else:
+        return 0
+    return int(g * diff)
+
+
+def transfer_unregistered_savings(gain: int = 0) -> int:
+    """미등기 양도 70% → 기본세율 20%. 장특공제 배제 감안으로 50%p 차액."""
+    g = int(gain or 0)
+    if g <= 0:
+        return 0
+    return int(g * 0.50)
+
+
+def transfer_multi_house_savings(
+    gain: int = 0,
+    surcharge: float = 0.20,
+) -> int:
+    """다주택 중과 유예기간 활용. 중과 가산율(20~30%p) × 양도차익."""
+    g = int(gain or 0)
+    if g <= 0:
+        return 0
+    s = max(float(surcharge or 0.0), 0.0)
+    return int(g * s)
+
+
+def transfer_farmland_savings(gain: int = 0) -> int:
+    """8년 자경농지 — 양도세 100% 감면, 1과세기간 1억 한도."""
+    g = int(gain or 0)
+    if g <= 0:
+        return 0
+    tax = int(g * TRANSFER_AVG_RATE)
+    return min(tax, 100_000_000)
+
+
+def transfer_expropriation_savings(
+    gain: int = 0,
+    compensation_type: str = "cash",
+) -> int:
+    """공익사업 수용 감면. 현금 10% / 3년채 15% / 5년채 30% / 7년채 40%."""
+    g = int(gain or 0)
+    if g <= 0:
+        return 0
+    t = str(compensation_type or "cash").lower()
+    rate_map = {
+        "cash": 0.10,
+        "bond_3y": 0.15,
+        "bond_5y": 0.30,
+        "bond_7y": 0.40,
+    }
+    reduction_rate = rate_map.get(t, 0.10)
+    tax = int(g * TRANSFER_AVG_RATE)
+    saved = int(tax * reduction_rate)
+    return min(saved, 100_000_000)
+
+
 FORMULAS = {
     "financial_separation_savings": financial_separation_savings,
     "double_entry_savings": double_entry_savings,
@@ -543,6 +688,15 @@ FORMULAS = {
     "gift_free_loan_savings": gift_free_loan_savings,
     "gift_free_real_estate_use_savings": gift_free_real_estate_use_savings,
     "gift_insurance_savings": gift_insurance_savings,
+    "transfer_basic_savings": transfer_basic_savings,
+    "transfer_ltcg_table1_savings": transfer_ltcg_table1_savings,
+    "transfer_ltcg_table2_savings": transfer_ltcg_table2_savings,
+    "transfer_high_value_excess_savings": transfer_high_value_excess_savings,
+    "transfer_short_term_savings": transfer_short_term_savings,
+    "transfer_unregistered_savings": transfer_unregistered_savings,
+    "transfer_multi_house_savings": transfer_multi_house_savings,
+    "transfer_farmland_savings": transfer_farmland_savings,
+    "transfer_expropriation_savings": transfer_expropriation_savings,
 }
 
 

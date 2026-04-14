@@ -60,6 +60,15 @@ _FLAT_TRIGGERS = {
     "is_corporation",
     "is_inheritance_case",
     "is_gift_case",
+    "has_transfer_income",
+    "is_one_house",
+    "has_temp_two_house",
+    "has_inherited_house",
+    "is_post_gift_transfer",
+    "is_unregistered_transfer",
+    "is_multi_house_heavy_zone",
+    "is_self_cultivated_farmland",
+    "is_public_expropriation",
 }
 
 

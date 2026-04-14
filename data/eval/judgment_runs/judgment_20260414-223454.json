@@ -1,0 +1,134 @@
+{
+  "summary": {
+    "total": 3,
+    "rm": 0,
+    "sm": 2,
+    "fa": 3,
+    "elapsed_s": 132.7
+  },
+  "runs": [
+    {
+      "case_id": "J002_household_expense_home_office",
+      "score": {
+        "case_id": "J002_household_expense_home_office",
+        "issue_id": "GRAY_HOUSEHOLD_EXPENSE",
+        "expected_ruling": "안분인정",
+        "actual_ruling": "불인정",
+        "ruling_match": false,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 3,
+        "decisive_in_context": null,
+        "elapsed_s": 55.6
+      },
+      "judgment": {
+        "ruling": "불인정",
+        "confidence": 0.6,
+        "reasoning": "자택 전체를 사업장으로 사용한 것으로 주장(office_ratio_claimed=1.0)하지만, 실제 사무실 면적은 10㎡(전체 85㎡의 약 11.76%)에 불과함. 대법원 판례(대법원-2022-두-32382)는 객관적 구분이 가능한 범위 내에서 안분을 인정하나, 납세자가 주장하는 100% 비율은 실제 업무사용면적과 명확히 불일치하여 객관적 근거 부족. 소득세법 제33조 제1항 제5호의 가사관련비 불산입 원칙 적용.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "대법원-2022-두-32382",
+            "사건명": "종합소득세경정거부처분취소"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법",
+            "article": "제33조"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법 시행령",
+            "article": "제78조"
+          }
+        ],
+        "caveats": [
+          "사무실 면적 산정 근거(면적 측정 방법, 업무 전용 여부)에 대한 추가 증빙 필요",
+          "통신비·월세 등 세부 항목별 구분 가능성 검토 필요",
+          "adversary_flagged[severity=0.8]: 납세자 측 판단은 사무실 면적(10㎡)과 전체 주택 면적(85㎡)의 명확한 불일치를 지적하면서도, 업무사용면적 비율을 기준으로 안분을 인정할 수 있는 소득세법 시행령 제78조 제1항 제1호의 구체적 적용을 누락하였다."
+        ]
+      }
+    },
+    {
+      "case_id": "J007_dependent_spouse_retirement_lumpsum",
+      "score": {
+        "case_id": "J007_dependent_spouse_retirement_lumpsum",
+        "issue_id": "GRAY_DEPENDENT_QUALIFICATION",
+        "expected_ruling": "공제부인",
+        "actual_ruling": "공제인정",
+        "ruling_match": false,
+        "source_match": false,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 1,
+        "decisive_in_context": null,
+        "elapsed_s": 40.6
+      },
+      "judgment": {
+        "ruling": "공제인정",
+        "confidence": 0.6,
+        "reasoning": "배우자 퇴직급여 3,000만원에 근속연수공제(5년×100만원=500만원)를 차감한 퇴직소득금액은 -470만원으로 0원 처리됩니다(소득세법 제48조). 이는 100만원 초과 기준에 해당하지 않으므로 공제가 인정됩니다. 프로필에 명시된 추가 소득은 0원으로 소득종합산정에 영향을 미치지 않습니다.",
+        "cited_sources": [
+          {
+            "type": "statute",
+            "law": "소득세법 시행령",
+            "article": "제106조"
+          }
+        ],
+        "caveats": [
+          "기타 비과세 소득이 추가로 존재하는 경우 재산정 필요",
+          "근속연수공제 산식 적용 시 퇴직급여액과 근속연수의 정확한 확인 필요",
+          "rejected_non_whitelist_sources: [\"statute:('소득세법', '제48조')\"]",
+          "adversary_flagged[severity=0.9]: 납세자 측은 퇴직급여 산정 시 근속연수공제를 잘못 적용하여 퇴직소득금액을 -470만원으로 계산했으나, 소득세법 제48조에 따르면 퇴직급여에서 근속연수공제를 차감한 금액이 음수일 경우 0으로 처리되며, 이는 100만원 초과 기준에 해당하지 않으므로 공제가 인정된다는 주장이 논리적 오류를 포함합니다."
+        ]
+      }
+    },
+    {
+      "case_id": "J105_corp_rd_drug_development_phase",
+      "score": {
+        "case_id": "J105_corp_rd_drug_development_phase",
+        "issue_id": "GRAY_CORP_RD_CAPITALIZE",
+        "expected_ruling": "일부자본화",
+        "actual_ruling": "전액당기비용",
+        "ruling_match": false,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 3,
+        "decisive_in_context": null,
+        "elapsed_s": 36.6
+      },
+      "judgment": {
+        "ruling": "전액당기비용",
+        "confidence": 0.6,
+        "reasoning": "서울행정법원 2016년 판례에 따르면, 기술적 실현가능성·경제적 효익 기대 등 자산인식 6요건이 충족되지 않은 연구개발비는 세무상 당기비용 처리되어야 합니다. 쟁점 회사가 임상2상 단계에 있으며 기술적 실현가능성 관련 문서가 없는 점에서, K-IFRS 자본화 기준을 충족하지 못하므로 전액 당기비용 처리가 의무화됩니다. 회계상 자본화한 50억 원은 세무상 인정되지 않습니다.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "서울행정법원-2014-구합-68188",
+            "사건명": "개발비 회계처리가 회계기준을 위배하였다고 볼 수 없고, 자산인식요건을 충족한 것으로 볼 수 없어 손금인정됨"
+          },
+          {
+            "type": "statute",
+            "law": "법인세법",
+            "article": "제40조"
+          },
+          {
+            "type": "statute",
+            "law": "법인세법 시행령",
+            "article": "제24조"
+          }
+        ],
+        "caveats": [
+          "기술적 실현가능성 관련 증빙이 추가로 제출될 경우 일부 자본화 인정 가능성 있음",
+          "임상2상 이후 단계에서 자산인식요건 충족 여부에 따라 세무처리가 달라질 수 있음",
+          "adversary_flagged[severity=0.8]: 납세자 측은 기술적 실현가능성 관련 문서의 부재를 자산인식요건 미충족의 유일한 근거로 삼았으나, K-IFRS 38호는 문서 외에도 내부 평가·전문가 의견·시장 분석 등 객관적 증거를 인정하며, 임상2상 단계 자체가 자산인식요건 충족 가능성을 배제하지 않는다."
+        ]
+      }
+    }
+  ]
+}

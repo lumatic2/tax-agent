@@ -119,3 +119,386 @@
     - TRANSFER_ONE_HOUSE_EXEMPT
     - GIFT_SPLIT_10YEAR
   notes: "SME R&D 25% + 신성장 투자 12% + 고용 통합공제 청년 1,450만/년 × 3년"
+
+
+# ============================================================
+# v2 확장 (2026-04-14) — 소득세 일반 (5)
+# ============================================================
+
+- id: G006_working_couple_kids
+  description: |
+    맞벌이 직장인 부부(본인 연봉 7,200만). 자녀 2명(초·중). 교육비 500만,
+    교회 기부 200만.
+  profile:
+    has_earned_income: true
+    gross_salary: 72_000_000
+    children_under_20_count: 2
+    education_expense: 5_000_000
+    donation_amount: 2_000_000
+  expected:
+    - CRED_CHILDREN
+    - CRED_EDUCATION
+    - CRED_DONATION
+  forbidden:
+    - CRED_MONTHLY_RENT
+    - INH_SPOUSE_DEDUCTION
+  notes: "자녀 2명 35만 + 교육비 15% + 기부 15%"
+
+
+- id: G007_sme_youth
+  description: |
+    27세 청년, 중소기업 입사 3년차 연봉 3,600만.
+  profile:
+    has_earned_income: true
+    gross_salary: 36_000_000
+    is_sme_employee: true
+    sme_worker_type: "youth"
+    sme_years_employed: 3.0
+  expected:
+    - RED_SME_EMPLOYMENT
+  forbidden:
+    - BOOK_DOUBLE_ENTRY_4800
+  notes: "청년 90% 5년 감면, 연 200만 한도"
+
+
+- id: G008_freelancer_financial
+  description: |
+    프리랜서 사업소득 8천만, 이자 800만·배당 700만 금융소득 1,500만(2천만 이하).
+  profile:
+    has_business_income: true
+    business_revenue: 80_000_000
+    business_income: 50_000_000
+    interest_income: 8_000_000
+    dividend_income: 7_000_000
+    financial_income_total: 15_000_000
+    book_method: "단순"
+  expected:
+    - FIN_SEPARATION_2000
+    - BOOK_DOUBLE_ENTRY_4800
+  forbidden:
+    - CRED_CHILDREN
+  notes: "금융 2천만 이하 분리과세 유지 + 복식부기 전환"
+
+
+- id: G009_housing_rental
+  description: |
+    직장인이 부모 상속 오피스텔 임대. 연 임대소득 1,800만.
+  profile:
+    has_earned_income: true
+    gross_salary: 60_000_000
+    housing_rental_income: 18_000_000
+    is_registered_rental: false
+  expected:
+    - SEP_HOUSING_RENTAL_2000
+  forbidden:
+    - SEP_OTHER_INCOME_300
+  notes: "2천만 이하 분리과세 선택 유리"
+
+
+- id: G010_other_income_small
+  description: |
+    회사원이 학회 원고료 200만 수령.
+  profile:
+    has_earned_income: true
+    gross_salary: 55_000_000
+    other_income_net: 2_500_000
+  expected:
+    - SEP_OTHER_INCOME_300
+  forbidden:
+    - FIN_SEPARATION_2000
+  notes: "300만 이하 분리과세 20% 유지"
+
+
+# ============================================================
+# v2 확장 — 양도소득 (5)
+# ============================================================
+
+- id: G011_short_term_with_docs
+  description: |
+    10개월 전 매수한 아파트를 급하게 매도. 양도차익 2억.
+    중개수수료·법무사비 영수증 없음.
+  profile:
+    has_transfer_income: true
+    transfer_gain: 200_000_000
+    holding_months: 10
+    holding_years: 0
+    unreported_necessary_expense: 15_000_000
+    acquisition_docs_available: true
+  expected:
+    - TRANSFER_SHORT_TERM_EXTEND
+    - TRANSFER_NECESSARY_EXPENSE
+  forbidden:
+    - TRANSFER_ONE_HOUSE_EXEMPT
+    - TRANSFER_LTCG_TABLE1
+  notes: "1년 미만 70% 세율 회피 + 경비 가산"
+
+
+- id: G012_multi_house_defer_ltcg
+  description: |
+    조정대상지역 2주택자, 한 채를 7년 보유 후 양도. 양도차익 5억.
+    중과 유예기간 중.
+  profile:
+    has_transfer_income: true
+    is_multi_house_heavy_zone: true
+    multi_house_defer_active: true
+    multi_house_surcharge_rate: 0.20
+    transfer_gain: 500_000_000
+    holding_years: 7
+    holding_months: 84
+  expected:
+    - TRANSFER_MULTI_HOUSE_DEFER
+    - TRANSFER_LTCG_TABLE1
+  forbidden:
+    - TRANSFER_SHORT_TERM_EXTEND
+    - TRANSFER_ONE_HOUSE_EXEMPT
+  notes: "중과 유예기간 + 표1 14%p 추가"
+
+
+- id: G013_inherited_plus_ordinary
+  description: |
+    부친 사망으로 상속받은 주택 있음 + 본인 거주 아파트(5년 보유).
+    본인 거주 아파트 양도 계획. 양도차익 3억.
+  profile:
+    has_transfer_income: true
+    has_inherited_house: true
+    selling_ordinary_house: true
+    ordinary_house_gain: 300_000_000
+    transfer_gain: 300_000_000
+    holding_years: 5
+    holding_months: 60
+  expected:
+    - TRANSFER_INHERITED_HOUSE
+  forbidden:
+    - TRANSFER_SHORT_TERM_EXTEND
+  notes: "상속주택 주택 수 제외, 일반주택 비과세"
+
+
+- id: G014_expropriation_bond_7y
+  description: |
+    도시개발 수용. 15년 보유 토지, 양도차익 8억.
+    보상금을 7년 만기 장기채권으로 수령 가능.
+  profile:
+    has_transfer_income: true
+    is_public_expropriation: true
+    expropriation_compensation_type: "bond_7y"
+    transfer_gain: 800_000_000
+    holding_years: 15
+    holding_months: 180
+  expected:
+    - TRANSFER_PUBLIC_EXPROPRIATION
+  forbidden:
+    - TRANSFER_SHORT_TERM_EXTEND
+  notes: "7년 만기 채권 40% 감면, 1억 한도"
+
+
+- id: G015_unregistered_gift_carryover
+  description: |
+    부친에게서 5년 전 증여받은 부동산(미등기) 양도 계획. 양도차익 4억.
+  profile:
+    has_transfer_income: true
+    is_unregistered_transfer: true
+    is_post_gift_transfer: true
+    years_since_gift: 5
+    gift_carryover_gain: 150_000_000
+    transfer_gain: 400_000_000
+    holding_years: 5
+    holding_months: 60
+  expected:
+    - TRANSFER_UNREGISTERED_AVOID
+    - TRANSFER_GIFT_CARRYOVER
+  forbidden:
+    - TRANSFER_ONE_HOUSE_EXEMPT
+  notes: "미등기 회피 + 10년 이월과세 경고"
+
+
+# ============================================================
+# v2 확장 — 법인세 (4)
+# ============================================================
+
+- id: G016_large_corp_vehicle
+  description: |
+    대기업 법인, 임원 전용 고급승용차 연 8,000만 비용. 운행일지 미작성.
+  profile:
+    is_corporation: true
+    is_sme_corporation: false
+    corp_tax_rate: 0.21
+    company_vehicle_expense: 80_000_000
+    has_vehicle_log: false
+  expected:
+    - CORP_COMPANY_VEHICLE_EXCESS
+  forbidden:
+    - CORP_LOSS_CARRYFORWARD
+  notes: "연 1,500만 초과분 손금불산입 추징 리스크"
+
+
+- id: G017_corp_loss_usage
+  description: |
+    법인 이월결손금 10억 보유, 당기 과세소득 15억(중견). 접대비 연 1억 지출.
+  profile:
+    is_corporation: true
+    is_sme_corporation: false
+    corp_tax_rate: 0.19
+    corp_taxable_income: 1_500_000_000
+    loss_carryforward_available: 1_000_000_000
+    entertainment_paid: 100_000_000
+    entertainment_limit: 40_000_000
+    entertainment_excess: 60_000_000
+  expected:
+    - CORP_LOSS_CARRYFORWARD
+    - CORP_ENTERTAINMENT_LIMIT
+  forbidden:
+    - CORP_COMPANY_VEHICLE_EXCESS
+  notes: "이월결손 80% 한도 공제 + 접대비 한도초과 리스크"
+
+
+- id: G018_sme_loss_carryback
+  description: |
+    중소법인, 당기 3억 결손. 직전년도 흑자로 4천만 법인세 납부.
+  profile:
+    is_corporation: true
+    is_sme_corporation: true
+    current_year_loss: 300_000_000
+    prior_year_tax_paid: 40_000_000
+    prior_year_taxable_income: 200_000_000
+  expected:
+    - CORP_LOSS_CARRYBACK
+  forbidden:
+    - CORP_ENTERTAINMENT_LIMIT
+  notes: "결손금 소급공제 환급세액 신청 가능"
+
+
+- id: G019_executive_bonus_excess
+  description: |
+    중소법인 대표, 정관 한도 5천만이나 실제 상여 2억 지급.
+  profile:
+    is_corporation: true
+    is_sme_corporation: true
+    executive_bonus_paid: 200_000_000
+    executive_bonus_resolution_amount: 50_000_000
+    executive_bonus_excess: 150_000_000
+    corp_tax_rate: 0.09
+  expected:
+    - CORP_EXECUTIVE_BONUS_EXCESS
+  forbidden:
+    - CORP_LOSS_CARRYBACK
+  notes: "한도초과 1.5억 손금불산입"
+
+
+# ============================================================
+# v2 확장 — 증여세 (4)
+# ============================================================
+
+- id: G020_gift_split_10year
+  description: |
+    부친이 자녀(성인)에게 3억 증여 계획. 5년 전 이미 4천만 증여함.
+  profile:
+    is_gift_case: true
+    gift_planned_amount: 300_000_000
+    gift_prior_10yr_amount: 40_000_000
+    gift_total_with_prior_10yr: 340_000_000
+    gift_exemption_limit: 50_000_000
+  expected:
+    - GIFT_SPLIT_10YEAR
+  forbidden:
+    - INH_SPOUSE_DEDUCTION
+  notes: "10년 합산 5천만 공제 초과, 분할 타이밍 조정"
+
+
+- id: G021_free_loan_3eok
+  description: |
+    부친이 자녀에게 3억 무이자 대여(차용증 작성).
+  profile:
+    is_gift_case: true
+    free_loan_principal: 300_000_000
+    free_loan_actual_rate: 0.0
+  expected:
+    - GIFT_FREE_LOAN_BENEFIT
+  forbidden:
+    - GIFT_INSURANCE_PROCEED
+  notes: "3억 × 4.6% = 1,380만 연간 증여이익 (1천만 임계 초과 과세)"
+
+
+- id: G022_insurance_transfer
+  description: |
+    부친이 납부한 종신보험 10억 만기. 수익자는 자녀.
+  profile:
+    is_gift_case: true
+    insurance_proceed_amount: 1_000_000_000
+    insurance_payer_ratio_by_other: 1.0
+  expected:
+    - GIFT_INSURANCE_PROCEED
+  forbidden:
+    - GIFT_FREE_LOAN_BENEFIT
+  notes: "납부자 ≠ 수익자 → 전액 증여재산"
+
+
+- id: G023_low_price_gift
+  description: |
+    부친 소유 상가(시가 20억) 를 자녀에게 10억에 양도.
+  profile:
+    is_gift_case: true
+    low_price_transfer_market_value: 2_000_000_000
+    low_price_transfer_actual_price: 1_000_000_000
+  expected:
+    - GIFT_LOW_PRICE_TRANSFER
+  forbidden:
+    - GIFT_FAMILY_BUSINESS_SUCCESSION
+  notes: "저가양수 증여의제 — 차액 10억 - 시가 30%(6억) = 4억 증여가액"
+
+
+# ============================================================
+# v2 확장 — 복합 (2)
+# ============================================================
+
+- id: G024_comprehensive_salaryman
+  description: |
+    35세 무주택 직장인 연봉 5천, 월세 60만, 자녀 1명, IRP 미가입,
+    부모 의료비 200만, 교육비 100만.
+  profile:
+    has_earned_income: true
+    gross_salary: 50_000_000
+    is_homeless_household: true
+    monthly_rent: 600_000
+    children_under_20_count: 1
+    irp_pension: 0
+    pension_savings: 0
+    medical_expense: 2_000_000
+    education_expense: 1_000_000
+  expected:
+    - CRED_MONTHLY_RENT
+    - CRED_CHILDREN
+    - CRED_EDUCATION
+    - DED_PENSION_IRP_700
+    - TIMING_MEDICAL_EXPENSE
+  forbidden:
+    - TRANSFER_ONE_HOUSE_EXEMPT
+    - CORP_LOSS_CARRYFORWARD
+  notes: "5개 규칙 복합 발동 — 종합 절세 설계"
+
+
+- id: G025_corp_owner_multi_house
+  description: |
+    중소법인 대표 겸 다주택자. 법인은 R&D 1억 지출 + 청년 2명 채용.
+    본인은 7년 보유 아파트 1채 양도 계획(조정대상지역, 양도차익 3억).
+  profile:
+    is_corporation: true
+    is_sme_corporation: true
+    rd_expense: 100_000_000
+    employment_increase_total: 2
+    employment_increase_youth: 2
+    employment_increase_regular: 0
+    has_transfer_income: true
+    is_multi_house_heavy_zone: true
+    multi_house_defer_active: true
+    multi_house_surcharge_rate: 0.20
+    transfer_gain: 300_000_000
+    holding_years: 7
+    holding_months: 84
+  expected:
+    - CORP_RD_TAX_CREDIT
+    - CORP_EMPLOYMENT_INCREASE_CREDIT
+    - TRANSFER_MULTI_HOUSE_DEFER
+    - TRANSFER_LTCG_TABLE1
+  forbidden:
+    - INH_SPOUSE_DEDUCTION
+  notes: "법인+개인 양도 동시 설계"

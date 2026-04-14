@@ -783,10 +783,9 @@ A 정답률 > B 정답률 (도구 기여 입증)
   - B1: `eval_ollama_rule_firing.py` — Ollama 하네스 skeleton (dry-run). 모델 pull 후 `--run`
   - B3: `eval_goldset.py` + `data/eval/goldset_v1.yaml` — PRD 80% 측정. 현재 5/5 (100%, 베이스라인)
   - 회귀: 121 → **128/128** 무회귀
+- [x] **골드셋 5→25 확장** (2026-04-14): 소득세/양도/법인세/증여/복합 20케이스 추가. 25/25 = 100%. 51규칙 중 약 80% 커버
 
 ### Phase 8 후보
-
-- **골드셋 확장**: 5 → 30+ 케이스. 세무사 검토 실사례 기반
 - **qwen3:32b 실제 pull + 첫 run**: `eval_ollama_rule_firing.py --run` 으로 로컬 모델 정확도 베이스라인
 - 조특법 중소기업 특별세액감면 (조특 7)
 - 종부세(종합부동산세) 규칙 신설

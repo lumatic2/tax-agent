@@ -44,13 +44,37 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
 
-PROMPT_TEMPLATE = """다음은 한국 세법 상담 프로파일이다. 아래 설명을 읽고 `strategy_engine` 이 이해할 수 있는 flat JSON 프로파일을 추출하라.
+PROMPT_TEMPLATE = """다음 한국 세법 상담 설명에서 flat JSON 프로파일을 추출하라.
 
-규칙:
-- 반드시 ```json 과 ``` 로 감싼 한 개의 JSON 객체만 출력한다.
-- 필드는 `has_transfer_income`, `is_one_house`, `transfer_gain`, `holding_years` 등 snake_case.
-- 값은 숫자/boolean/문자열 중 하나. 금액은 정수(원). 불명확하면 생략한다 (추측 금지).
-- 설명에 없는 필드는 추가하지 말 것.
+출력 규칙:
+- ```json 과 ``` 로 감싼 한 개의 JSON 객체만 출력 (thinking 금지).
+- 설명에 명시된 내용만. 추측·가정 금지.
+
+통화 변환 (정확히):
+- "1억" = 100000000 (0이 8개)
+- "8억" = 800000000
+- "12억" = 1200000000
+- "3천만" = 30000000
+
+양도소득 필드 사전 (해당하는 것만 사용):
+- has_transfer_income (bool) — 양도거래 존재
+- is_one_house (bool) — 1세대 1주택
+- has_temp_two_house (bool) — 일시적 2주택
+- has_inherited_house (bool) — 상속주택 보유
+- is_unregistered_transfer (bool) — 미등기 자산 양도
+- is_multi_house_heavy_zone (bool) — 조정대상지역 다주택
+- is_self_cultivated_farmland (bool) — 농지 소재지 거주 자경
+- is_public_expropriation (bool) — 공익사업 수용
+- is_post_gift_transfer (bool) — 증여받은 자산 양도
+- transfer_gain (int, 원) — 양도차익
+- transfer_price (int, 원) — 양도가액
+- holding_years (int) — 보유 연수
+- holding_months (int) — 보유 개월수
+- residence_years (int) — 거주 연수
+- self_cultivation_years (int) — 자경 연수
+- years_since_gift (int) — 증여 후 경과 연수
+- months_since_new_house (int) — 신규주택 취득 후 개월수
+- expropriation_compensation_type ("cash"|"bond_3y"|"bond_5y"|"bond_7y")
 
 설명:
 {description}

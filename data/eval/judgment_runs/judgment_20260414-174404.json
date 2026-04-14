@@ -1,0 +1,100 @@
+{
+  "summary": {
+    "total": 2,
+    "rm": 2,
+    "sm": 2,
+    "fa": 2,
+    "elapsed_s": 39.2
+  },
+  "runs": [
+    {
+      "case_id": "J005_cash_receipt_mandatory_industry",
+      "score": {
+        "case_id": "J005_cash_receipt_mandatory_industry",
+        "issue_id": "GRAY_DOUBLE_CASH_RECEIPT",
+        "expected_ruling": "전액부과",
+        "actual_ruling": "전액부과",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.95,
+        "cited_count": 3,
+        "elapsed_s": 21.4
+      },
+      "judgment": {
+        "ruling": "전액부과",
+        "confidence": 0.95,
+        "reasoning": "의무발행업종(실내건축공사업)이 10만원 이상 현금거래(1,500만원)에 현금영수증 미발행한 경우, 소득세법 제162조의3에 따라 공급가액 20% 가산세 부과 대상입니다. 서울행정법원 2023년 판례는 종이세금계산서 발급도 현금영수증 의무를 면제하지 못한다고 판단했으며(사건번호: 서울행정법원-2023-구합-4063), 대법원 2025년 판례도 의무업종 여부를 엄격히 인정한 사례입니다. 법인 고객에게 세금계산서를 발급했더라도 현금영수증 미발행 자체는 별도 가산세 부과 사유입니다.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "서울행정법원-2023-구합-4063",
+            "사건명": "주민등록분 종이세금계산서를 발급한 경우 현금영수증미발급가산세의 부과처분 적법 여부"
+          },
+          {
+            "type": "precedent",
+            "사건번호": "대법원-2025-두-34506",
+            "사건명": "원고의 사업이 현금영수증 의무발행업종에 해당하는지 여부"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법",
+            "article": "제162조의3"
+          }
+        ],
+        "caveats": [
+          "세금계산서 발급이 현금영수증 의무를 완전히 대체하는지에 대한 구체적 해석이 추가 필요",
+          "거래처가 개인/법인 구분이 명확한지에 따라 감면 가능성 여부가 달라질 수 있음"
+        ]
+      }
+    },
+    {
+      "case_id": "J006_officetel_residential_use",
+      "score": {
+        "case_id": "J006_officetel_residential_use",
+        "issue_id": "GRAY_RENTAL_VS_BUSINESS",
+        "expected_ruling": "부동산임대로분류",
+        "actual_ruling": "부동산임대로분류",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.9,
+        "cited_count": 4,
+        "elapsed_s": 17.8
+      },
+      "judgment": {
+        "ruling": "부동산임대로분류",
+        "confidence": 0.9,
+        "reasoning": "건축물대장 용도가 '업무시설'이며 임차인이 레지던스업자(상업적 주거서비스 제공)인 점, 부가가치세 과세 대상임을 고려할 때 대법원 2016-두-61587 판례에 따라 주택임대용역에 해당하지 않습니다. 서울행정법원 2020-구합-75569 판례도 오피스텔 신축분양업이 주거용 임대에 해당하지 않는다고 판단한 바 있습니다.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "대법원-2016-두-61587",
+            "사건명": "레지던스업 영위를 위하여 임차인이 이 사건 오피스텔을 임차하였고, 부가가치세가 포함된 차임을 수령하였으므로 주택임대용역으로 보기 어려움"
+          },
+          {
+            "type": "precedent",
+            "사건번호": "서울행정법원-2020-구합-75569",
+            "사건명": "오피스텔 신축분양업의 사업자는 상시주거용 주택 임대 용역에 해당하지 않는다고 본 사례"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법",
+            "article": "제19조"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법 시행령",
+            "article": "제122조의2"
+          }
+        ],
+        "caveats": [
+          "임차인의 실제 사용 목적(단기 투자용 vs 장기 거주용)에 대한 구체적 증빙이 추가적으로 필요한 경우가 있음",
+          "건축물대장 용도와 실제 사용 용도가 상이한 경우 재검토 필요"
+        ]
+      }
+    }
+  ]
+}

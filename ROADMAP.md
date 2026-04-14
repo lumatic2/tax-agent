@@ -1,11 +1,11 @@
 # Tax Agent 로드맵
 
-> 마지막 업데이트: 2026-04-13
+> 마지막 업데이트: 2026-04-14
 
 > 정우승·이철재 「세법 워크북」 목차 구조를 기반으로 소득세 전체를 커버하고,
 > 이후 부가세·법인세로 확장하는 단계별 계획.
 >
-> **현재 상태:** Phase 1~4 전 세목 Level 4 완료. Phase 4 기출 실증: 1차 6/6 완료, 2차 2024 39/39 + 2025 39/39 완료. **2차 서술형 전수 검증 완료.**
+> **현재 상태:** Phase 1~5 완료 (4세목 Level 4 + strategy_engine 22규칙 57/57 + LLM 레지스트리/골드셋 80%). **Phase 6 착수 — 판단형 세무 에이전트(회색지대 판례·예규 RAG + adversarial self-check)**.
 >
 > **전략: 수직 완성 우선** — 한 세목을 실제 세무사 검토 수준(숫자 일치 80%+)으로
 > 완전히 끝낸 뒤 다음 세목으로 이동.
@@ -466,6 +466,59 @@ Phase 2 **Level 4 달성** (2026-04-12). Phase 3 시작.
 - [x] 5-A-5: 규칙 카탈로그 v1 확장 — **22개 규칙** (소득세 13 + 법인세 5 + 상속세 2 + 증여세 2). 19종 estimator 공식 추가, profile_builder 전 세목 필드 defaults. `eval_strategy_catalog_v1.py` 30/30 통과 (각 신규 규칙 적용/비적용 + 크로스-세목 스코프 격리 2종) — 2026-04-14
 
 **Phase 5-A 통합 회귀**: eval_strategy_rules 12/12 + e2e 7/7 + corp_risk 8/8 + catalog_v1 30/30 = **57/57** + certify_phase1 26/26 유지
+
+---
+
+## Phase 6 — 판단형 세무 에이전트 (Judgment Layer)
+
+> **배경**: Phase 1~5로 계산·룰베이스·LLM 프롬프트까지 "정답이 있는 문제"는 다 풀었다. 세무사 10명분이 되려면 회색지대 판단·증빙 적격성·세무조사 리스크 같은 **정답이 없는 판단**을 다뤄야 한다.
+>
+> **전략**: 판례·예규 RAG + LLM 추론 + adversarial self-check(세무조사관 페르소나) 4단계 파이프라인. **MVP는 소득세 회색지대 10케이스에 한정**하여 수직 검증부터 한다.
+
+### 아키텍처 (strategy_engine 후단에 부착)
+
+```
+strategy_engine.run(profile)
+        ↓
+[1] Issue Extractor   — profile + 발동규칙에서 회색지대 이슈 식별
+[2] Legal Retriever   — 하이브리드 RAG (로컬 코어 + law-mcp on-demand)
+[3] Reasoning Engine  — LLM이 판례·예규 근거로 판단 + 신뢰도
+[4] Audit Adversary   — 세무조사관 페르소나로 반박·보강증빙 요구
+        ↓
+출력: {issue, 판단, 신뢰도, 근거조문·판례, 반박포인트, 보강증빙}
+```
+
+### 모듈 구성
+
+- `reasoning_engine/issue_extractor.py` — 회색지대 이슈 플래그
+- `reasoning_engine/legal_retriever.py` — 하이브리드 RAG (BM25 로컬 + law-mcp 폴백)
+- `reasoning_engine/reasoner.py` — LLM 판단 (프롬프트 v5, JSON 출력)
+- `reasoning_engine/adversary.py` — 조사관 self-check
+- `reasoning_engine/orchestrator.py` — 4단계 실행
+- `reasoning_engine/issues/income_tax_gray.yaml` — 10개 회색지대 이슈 정의
+- `data/precedent_corpus.json` · `data/admin_rule_corpus.json` — 로컬 코어 캐시 (~100건씩)
+- `data/eval/judgment_goldset_v1.yaml` · `eval_judgment_v1.py` — 판단 품질 평가
+
+### 착수 순서
+
+- [ ] 6-A: 회색지대 이슈 카탈로그 10종 정의 + `judgment_goldset_v1.yaml` 작성 — **expected_ruling은 국세청 예규/유권해석/판례 원문 인용**, 스펙트럼(인정/조건부/불인정/경계) 커버
+  - 예시 이슈: `GRAY_CAR_BUSINESS_RATIO`, `GRAY_HOUSEHOLD_EXPENSE`, `GRAY_DONATION_ELIGIBILITY`, `GRAY_ENTERTAINMENT_VS_MEETING`, `GRAY_DOUBLE_CASH_RECEIPT`, `GRAY_RENTAL_VS_BUSINESS`, `GRAY_DEPENDENT_QUALIFICATION`, `GRAY_DEEMED_DIVIDEND`, `GRAY_OTHER_INCOME_VS_BUSINESS`, `GRAY_ONE_HOUSE_TRANSFER_NONTAXABLE`
+- [ ] 6-B: `agent/law_client.py` 확장 (`search_precedents`/`get_precedent`/`search_admin_rules`/`get_admin_rule`) + `scripts/build_precedent_corpus.py`로 6-A authoritative_sources 전수 수집 + BM25 검색 구현
+- [ ] 6-C: `reasoner.py` + `orchestrator.py` 프로토타입 — 프롬프트 v5, 출력 JSON 스키마 `{ruling, confidence, reasoning, cited_sources, caveats}`, retrieved_legal 화이트리스트 강제(할루시네이션 방지), 단일 케이스(`GRAY_CAR_BUSINESS_RATIO`) end-to-end 검증
+- [ ] 6-D: `adversary.py` — 세무조사관 페르소나(국세청 조사4국), 출력 `{counterargument, probe_questions, required_evidence, risk_escalation}`, 반박 강도에 따라 confidence cap
+- [ ] 6-E: `eval_judgment_v1.py` — 3메트릭(ruling_match / source_match / forbidden_avoided), 목표 **10케이스에서 8/7/10 달성**, 실패 시 프롬프트 v5 반복 튜닝
+
+### 비용·리스크 통제
+
+- **할루시네이션**: retrieved_legal에 없는 판례번호 인용 금지(출력 후 case_id 존재 검증)
+- **비용**: reasoner+adversary 2콜 = 케이스당 2×LLM. risk medium↑ rule만 게이트 통과
+- **프롬프트 분리**: v4는 strategy용, v5는 reasoning용. registry.yaml `prompts: {strategy: v4, reasoning: v5}` 확장
+
+### Phase 6 완료 기준
+
+- `eval_judgment_v1.py`: ruling_match ≥ 8/10, source_match ≥ 7/10, forbidden_avoided = 10/10
+- 기존 회귀 유지: `eval_strategy_catalog_v1.py` 57/57 + `eval_goldset.py` ≥ 80%
+- Phase 6 성공 → Phase 7에서 법인세/부가세/상증세로 횡확장
 
 ---
 

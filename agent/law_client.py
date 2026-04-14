@@ -257,6 +257,98 @@ def search_tax_articles(query: str, limit: int = 3) -> list[dict[str, Any]]:
     return out
 
 
+# ── 판례·행정규칙 검색 (Phase 6 reasoning_engine 용) ─────────────────────────
+#
+# 주의: law.go.kr DRF가 반환하는 precedent_id는 국세법령정보시스템 판례 저장소를
+# 가리키며, lawService.do?target=prec&ID=...로 직접 조회하면 404에 가까운
+# "일치하는 판례 없음" 응답이 자주 반환된다(저장소 분리 이슈). 이 때문에 판례는
+# 본문 대신 메타데이터(사건명·사건번호·선고일자)만 저장하고, 사건명이 판결
+# 요지를 담고 있다는 성질을 이용해 RAG를 구성한다. 행정규칙(고시·훈령 등)은
+# get_admin_rule이 정상 동작해 전문 저장 가능.
+
+def search_precedents(query: str, limit: int = 10) -> list[dict[str, Any]]:
+    """판례 검색 (law.go.kr DRF lawSearch.do target=prec).
+
+    반환: [{precedent_id, 사건번호, 사건명, 선고일자, 법원명, 사건종류명, 데이터출처명}]
+    """
+    params = {
+        'OC': OC, 'target': 'prec', 'query': query,
+        'type': 'JSON', 'display': str(limit),
+    }
+    r = httpx.get(f'{BASE_URL}/lawSearch.do', params=params, timeout=15)
+    r.raise_for_status()
+    data = r.json()
+    body = data.get('PrecSearch', data) or {}
+    rows = body.get('prec', [])
+    if isinstance(rows, dict):
+        rows = [rows]
+    out: list[dict[str, Any]] = []
+    for row in rows[:limit]:
+        out.append({
+            'precedent_id': _to_str(row.get('판례일련번호') or row.get('ID')),
+            '사건번호': _to_str(row.get('사건번호')),
+            '사건명': _to_str(row.get('사건명')),
+            '선고일자': _to_str(row.get('선고일자')),
+            '법원명': _to_str(row.get('법원명')) or None,
+            '사건종류명': _to_str(row.get('사건종류명')) or None,
+            '데이터출처명': _to_str(row.get('데이터출처명')) or None,
+        })
+    return out
+
+
+def search_admin_rules(query: str, limit: int = 10) -> list[dict[str, Any]]:
+    """행정규칙 검색 (고시·훈령·예규 등) — lawSearch.do target=admrul."""
+    params = {
+        'OC': OC, 'target': 'admrul', 'query': query,
+        'type': 'JSON', 'display': str(limit),
+    }
+    r = httpx.get(f'{BASE_URL}/lawSearch.do', params=params, timeout=15)
+    r.raise_for_status()
+    data = r.json()
+    body = data.get('AdmRulSearch', data) or {}
+    rows = body.get('admrul', [])
+    if isinstance(rows, dict):
+        rows = [rows]
+    out: list[dict[str, Any]] = []
+    for row in rows[:limit]:
+        out.append({
+            'rule_id': _to_str(row.get('행정규칙일련번호') or row.get('ID')),
+            '행정규칙ID': _to_str(row.get('행정규칙ID')),
+            '행정규칙명': _to_str(row.get('행정규칙명')),
+            '행정규칙종류': _to_str(row.get('행정규칙종류')) or None,
+            '소관부처명': _to_str(row.get('소관부처명')) or None,
+            '발령일자': _to_str(row.get('발령일자')) or None,
+            '시행일자': _to_str(row.get('시행일자')) or None,
+            '현행연혁구분': _to_str(row.get('현행연혁구분')) or None,
+        })
+    return out
+
+
+def get_admin_rule(rule_id: str) -> dict[str, Any]:
+    """행정규칙 본문 조회 — lawService.do target=admrul.
+
+    DRF 응답 구조: AdmRulService { 행정규칙기본정보{...}, 조문내용: [...] }.
+    """
+    params = {'OC': OC, 'target': 'admrul', 'ID': rule_id, 'type': 'JSON'}
+    r = httpx.get(f'{BASE_URL}/lawService.do', params=params, timeout=15)
+    r.raise_for_status()
+    data = r.json()
+    body = data.get('AdmRulService', data) or {}
+    base = body.get('행정규칙기본정보') or {}
+    articles = body.get('조문내용') or []
+    if isinstance(articles, str):
+        articles = [articles]
+    return {
+        'rule_id': rule_id,
+        '행정규칙명': _to_str(base.get('행정규칙명')),
+        '행정규칙종류': _to_str(base.get('행정규칙종류')) or None,
+        '소관부처명': _to_str(base.get('담당부서기관명') or base.get('소관부처명')) or None,
+        '발령일자': _to_str(base.get('발령일자')) or None,
+        '시행일자': _to_str(base.get('시행일자')) or None,
+        '조문내용': [_to_str(a) for a in articles if a],
+    }
+
+
 if __name__ == '__main__':
     import sys as _sys
     if _sys.stdout.encoding.lower() != 'utf-8':

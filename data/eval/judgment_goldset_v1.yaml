@@ -1,0 +1,385 @@
+# 판단 품질 골드셋 v1 — Phase 6 MVP (소득세 회색지대 10케이스)
+#
+# 각 케이스는 reasoning_engine 4단계 파이프라인 출력을 채점:
+#   ruling_match            판단 결과(인정/조건부/불인정)가 expected_ruling과 일치
+#   source_match            cited_sources에 authoritative_sources 중 최소 1건 포함
+#   forbidden_reasoning     오답 패턴 키워드 미등장
+#
+# authoritative_sources는 law-mcp 검색 결과 중 판례 사건명이 쟁점을 직접
+# 다루는 것으로 선별. precedent_id는 국세법령정보시스템 DB 기준.
+# 조문만 있는 이슈(차량·가사비)는 statutes 필드로 대체.
+#
+# 목표: 10케이스에서 ruling_match ≥ 8, source_match ≥ 7, forbidden_avoided = 10
+
+- id: J001_car_business_ratio_weak_log
+  issue_id: GRAY_CAR_BUSINESS_RATIO
+  description: |
+    프리랜서 디자이너(개인사업자). 연 매출 1억. BMW 업무용 승용차 구입가 8천만,
+    감가상각비 연 1,600만원 필요경비 계상. 운행기록부는 작성했으나 월별
+    주요 미팅 메모 수준으로 정확한 km·목적지 기록은 없음. 업무사용비율 60% 주장.
+  profile:
+    has_business_income: true
+    business_revenue: 100_000_000
+    car_purchase_price: 80_000_000
+    car_depreciation_claimed: 16_000_000
+    operating_log_kept: partial
+    claimed_business_ratio: 0.60
+  expected_ruling: 한도내인정
+  expected_ruling_detail: |
+    운행기록부가 "정확한 km·목적지" 요건을 충족하지 못하면 업무사용비율 증빙이
+    부실한 것으로 보아 연간 1,500만원 한도만 인정. 나머지 100만원은 필요경비
+    부인.
+  authoritative_sources:
+    - type: statute
+      law: 소득세법
+      article: 제33조의2
+    - type: statute
+      law: 소득세법 시행령
+      article: 제78조의3
+      note: 운행기록부 요건 — 사용일자·운전자·주행거리·업무용 사용거리 상세
+    - type: admin_rule
+      rule_id: "2100000257314"
+      행정규칙명: 업무용승용차 운행기록 방법에 관한 고시 (국세청)
+      시행일자: "2025.04.01"
+      note: |
+        제2조 운행기록부 서식 요건 (차종·등록번호·사용일자·사용자·운행내역).
+        제3조 과세관청 요청 시 업무목적 소명(관리규정·출장명령서 등).
+        메모 수준 기록은 요건 미충족.
+  forbidden_reasoning:
+    - 운행기록부가 있으므로 주장한 비율대로 인정
+    - 60% 업무사용이니 감가상각비 60% 전액 필요경비
+  notes: |
+    시행령 §78의3 운행기록부 요건이 엄격 — 날짜·km·목적·거래처까지 명시.
+    메모 수준은 실무상 인정 안 됨. 국세청 해석 일관.
+
+- id: J002_household_expense_home_office
+  issue_id: GRAY_HOUSEHOLD_EXPENSE
+  description: |
+    재택 프리랜서 개발자. 85㎡ 아파트 거주, 그 중 한 방(10㎡)을 업무 전용
+    공간으로 사용. 월 관리비·전기료·인터넷 합계 연 480만원을 필요경비로 전액 계상.
+    사업자 등록상 주소지 = 자택 주소.
+  profile:
+    has_business_income: true
+    business_location: 자택
+    home_total_area_sqm: 85
+    office_area_sqm: 10
+    household_expense_annual: 4_800_000
+    office_ratio_claimed: 1.0
+  expected_ruling: 안분인정
+  expected_ruling_detail: |
+    가사관련비는 원칙 불산입(§33①5)이나 업무사용면적비율로 안분 가능.
+    10/85 ≒ 11.8%만 필요경비 인정 (약 56만원). 전액 계상은 부인.
+  authoritative_sources:
+    - type: statute
+      law: 소득세법
+      article: 제33조
+      note: 제1항 5호 - 가사관련비 필요경비 불산입
+    - type: statute
+      law: 소득세법 시행령
+      article: 제78조
+  forbidden_reasoning:
+    - 사업장 주소이므로 전액 필요경비 인정
+    - 가사관련비는 무조건 전액 부인
+  notes: |
+    면적비율이 가장 객관적 기준. 시간비율·매출비율 주장은 예규상 근거 약함.
+
+- id: J003_donation_unregistered_religious
+  issue_id: GRAY_DONATION_ELIGIBILITY
+  description: |
+    회사원(근로소득자) A씨. 2025년 중 지역 소규모 종교단체(사찰)에 현금 500만원
+    기부하고 영수증 수령. 해당 단체는 법인격 없는 임의단체이며 지정기부금단체
+    고시에 등재되지 않음.
+  profile:
+    has_earned_income: true
+    donation_amount: 5_000_000
+    donation_type: 종교단체
+    donee_is_designated_organization: false
+  expected_ruling: 공제불인정
+  expected_ruling_detail: |
+    지정기부금단체가 아닌 단체에 지출한 금액은 필요경비 산입 및 기부금 특별
+    세액공제 대상에 해당하지 않음. 영수증 유무와 무관하게 기부금 공제 부인.
+  authoritative_sources:
+    - type: precedent
+      precedent_id: "348478"
+      사건번호: 서울고등법원2023누57540
+      사건명: 기부금세액공제의 규정은 엄격해석에 따라야하고, 쟁점금액 지출 당시 지정기부금단체가 아닌 한, 기부금세액공제 대상에 해당하지 아니함
+      선고일자: "2024.02.02"
+    - type: precedent
+      precedent_id: "615067"
+      사건번호: 서울고등법원-2025-누-6431
+      사건명: 비지정기부금단체에 지출된 기부금은 필요경비 산입 및 기부금 특별세액공제 대상에 해당하지 않음
+      선고일자: "2025.10.22"
+    - type: statute
+      law: 소득세법
+      article: 제34조
+  forbidden_reasoning:
+    - 종교단체 영수증이 있으므로 공제 인정
+    - 기부금 한도(소득금액 10%) 내이므로 인정
+  notes: |
+    대법원·하급심 일관: 지정 시점 기준 엄격해석. 기부 당시 지정되지 않았으면
+    이후 지정돼도 소급 불가.
+
+- id: J004_entertainment_vs_meeting_sales_promotion
+  issue_id: GRAY_ENTERTAINMENT_VS_MEETING
+  description: |
+    개인사업자(도소매업). 2025년 거래처 대리점에 판매장려 명목으로 현금·상품권
+    총 2,000만원 지급. 판매촉진비로 손익계산서 계상. 거래처별 지급명세·계약서
+    없이 관행적 지급.
+  profile:
+    has_business_income: true
+    sales_promotion_expense: 20_000_000
+    has_contract_or_agreement: false
+    payment_records_by_client: false
+  expected_ruling: 접대비인정
+  expected_ruling_detail: |
+    판매촉진비 명목이라도 계약·기준 없이 임의로 거래처에 지급한 금액은
+    접대비(기업업무추진비)로 재분류되어 한도 규제 적용. 필요경비 인정 일부만.
+  authoritative_sources:
+    - type: precedent
+      precedent_id: "615491"
+      사건번호: 대전고등법원2025누397
+      사건명: 판매촉진비의 접대비 해당 여부
+      선고일자: "2025.11.11"
+    - type: precedent
+      precedent_id: "343906"
+      사건번호: 서울고등법원-2022-누-34236
+      사건명: 자동차 판매대리인이 구매자에게 임의 지급한 할인금은 접대비에 해당
+      선고일자: "2022.10.27"
+    - type: statute
+      law: 소득세법
+      article: 제35조
+  forbidden_reasoning:
+    - 판매촉진비 명목이므로 전액 필요경비
+    - 매출에누리로 보아 매출에서 차감
+  notes: |
+    대법원·고등법원 일관: 지급경위·액수·계약유무로 실질 판단. 계약 없고
+    임의 지급이면 접대비.
+
+- id: J005_cash_receipt_mandatory_industry
+  issue_id: GRAY_DOUBLE_CASH_RECEIPT
+  description: |
+    실내건축 및 건축마무리 공사업 개인사업자. 법인·개인 혼재 거래. 법인
+    거래처에 세금계산서만 발급하고 현금영수증은 미발행. 국세청이 20% 가산세
+    부과 처분.
+  profile:
+    has_business_income: true
+    industry_code: 실내건축공사업
+    is_cash_receipt_mandatory_industry: true
+    issued_tax_invoice_to_corporate_client: true
+    cash_receipt_issued: false
+    transaction_amount: 15_000_000
+  expected_ruling: 전액부과
+  expected_ruling_detail: |
+    사업자(법인·개인 포함)를 대상으로 하는 경우에도 현금영수증 의무발행업종
+    대상에 해당. 세금계산서 발급만으로는 현금영수증 발급의무 면제 안 됨.
+    가산세 처분 적법.
+  authoritative_sources:
+    - type: precedent
+      precedent_id: "616913"
+      사건번호: 서울고등법원-2024-누-63337
+      사건명: 사업자를 대상으로 실내건축 및 건축마무리 공사업을 하는 경우도 현금영수증 발급의무 대상사업자에 해당함
+      선고일자: "2025.08.21"
+    - type: precedent
+      precedent_id: "612515"
+      사건번호: 대법원-2025-두-34506
+      사건명: 원고의 사업이 현금영수증 의무발행업종에 해당하는지 여부
+      선고일자: "2025.11.06"
+    - type: statute
+      law: 소득세법
+      article: 제162조의3
+  forbidden_reasoning:
+    - 법인 거래처에는 현금영수증 의무 없음
+    - 세금계산서 발급으로 의무 대체 가능
+  notes: |
+    핵심 착오: "현금영수증은 개인 소비자 대상"이라는 오해. 의무발행업종은
+    거래상대방 구분 없이 적용.
+
+- id: J006_officetel_residential_use
+  issue_id: GRAY_RENTAL_VS_BUSINESS
+  description: |
+    소유 오피스텔(건축물대장 용도: 업무시설) 1실을 레지던스업 사업자에게
+    임대. 임차인이 숙박업 영위. 임차인으로부터 받는 월 임대료에 부가세 포함.
+    임대인은 이를 주택임대(면세)로 신고.
+  profile:
+    has_rental_income: true
+    property_type: 오피스텔
+    building_registry_use: 업무시설
+    tenant_type: 레지던스업자
+    rent_includes_vat: true
+    declared_as: 주택임대
+  expected_ruling: 부동산임대로분류
+  expected_ruling_detail: |
+    임차인이 레지던스업(숙박업)을 영위하고 부가세가 포함된 차임을 수령하는
+    이상 "상시 주거용 주택 임대"로 보기 어려움. 주택임대 면세 부인, 일반
+    부동산임대 과세.
+  authoritative_sources:
+    - type: precedent
+      precedent_id: "309304"
+      사건번호: 대법원-2016-두-61587
+      사건명: 레지던스업 영위를 위하여 임차인이 이 사건 오피스텔을 임차하였고, 부가가치세가 포함된 차임을 수령하였으므로 주택임대용역으로 보기 어려움
+      선고일자: "2017.02.23"
+    - type: precedent
+      precedent_id: "346982"
+      사건번호: 서울행정법원-2020-구합-75569
+      사건명: 오피스텔 신축분양업의 사업자는 상시주거용 주택 임대 용역에 해당하지 않는다고 본 사례
+      선고일자: "2022.04.14"
+    - type: statute
+      law: 소득세법
+      article: 제19조
+  forbidden_reasoning:
+    - 건축물대장이 업무시설이라도 주거 사용 시 주택임대
+    - 임차인 용도와 무관하게 실제 거주가 있으면 면세
+  notes: |
+    핵심 판단 기준: 임차인 용도(주거 vs 영리) + 차임에 부가세 포함 여부.
+
+- id: J007_dependent_spouse_retirement_lumpsum
+  issue_id: GRAY_DEPENDENT_QUALIFICATION
+  description: |
+    근로자 B씨. 배우자가 2025년 중 중도퇴직해 퇴직급여 3,000만원 수령(근속 5년).
+    이외 다른 소득 없음. B씨는 배우자 기본공제(150만) 적용 가능한지.
+  profile:
+    has_earned_income: true
+    spouse_has_retirement_income: true
+    spouse_retirement_lumpsum: 30_000_000
+    spouse_years_of_service: 5
+    spouse_other_income: 0
+  expected_ruling: 공제부인
+  expected_ruling_detail: |
+    퇴직소득금액 = 퇴직급여 - 근속연수공제(5년×100만=500만) = 2,500만원.
+    소득세법 §50 부양가족 기본공제 요건 "연간 소득금액 100만원 이하"를
+    초과하므로 배우자 공제 부인. 퇴직소득은 분류과세지만 소득요건 판정시
+    합산되는 "소득금액"에 포함됨에 주의.
+
+    대조군: 근속 20년/퇴직급여 3,000만이면 근속연수공제 4,000만이 퇴직급여를
+    초과해 소득금액 0원 → 공제 인정. 근속연수 차이로 결론이 뒤집히는 것이
+    이 이슈의 회색지대성.
+  authoritative_sources:
+    - type: statute
+      law: 소득세법
+      article: 제50조
+      note: 제1항 3호 — 배우자로서 연간 소득금액 합계액이 100만원 이하일 것
+    - type: statute
+      law: 소득세법
+      article: 제48조
+      note: 퇴직소득금액 계산 — 퇴직급여에서 퇴직소득공제 차감
+  forbidden_reasoning:
+    - 퇴직소득은 분류과세이므로 소득요건에서 제외
+    - 근로소득이 없으므로 500만원 기준 적용
+  notes: |
+    실무 빈발 오류: "분류과세=소득요건 제외"로 잘못 이해. 법문상 "연간
+    소득금액"은 모든 과세소득 포함.
+
+- id: J008_deemed_dividend_spouse_crossgift_buyback
+  issue_id: GRAY_DEEMED_DIVIDEND
+  description: |
+    법인 대주주 C씨가 배우자에게 주식을 증여(증여가액 5억)하고, 배우자가
+    그 증여가액 그대로 회사에 양도해 회사가 자기주식 소각. C씨 경정청구:
+    증여·양도 분리거래로서 양도소득만 과세되어야 한다고 주장.
+  profile:
+    has_dividend_income: true
+    corporate_event: 주식소각
+    transaction_sequence: [증여, 양도, 소각]
+    giftor: 본인
+    giftee: 배우자
+    gift_value: 500_000_000
+    buyback_price: 500_000_000
+  expected_ruling: 의제배당과세
+  expected_ruling_detail: |
+    일련의 거래를 경제적 실질로 볼 때 C씨가 법인 이익잉여금을 배당받은 것과
+    동일 효과. 증여·양도·소각을 단일 거래로 재구성하여 C씨에게 의제배당
+    소득세 과세 적법.
+  authoritative_sources:
+    - type: precedent
+      precedent_id: "613735"
+      사건번호: 대법원-2025-두-34754
+      사건명: 보유주식을 배우자에게 증여하고 다시 회사가 증여가액으로 매수하여 소각한 이 거래를 의제배당에 대한 회피로 본 당초 처분은 적법함
+      선고일자: "2025.12.11"
+    - type: precedent
+      precedent_id: "615407"
+      사건번호: 대법원-2025-두-34916
+      사건명: 배우자가 증여받은 주식을 법인에 양도하고 법인이 이를 소각한 거래의 경제적 실질의 귀속을 원고로 보아 의제배당소득으로 부과한 처분은 적법
+      선고일자: "2025.12.11"
+    - type: statute
+      law: 소득세법
+      article: 제17조
+      note: 제2항 1호 — 자본감소 의제배당
+  forbidden_reasoning:
+    - 증여·양도는 별개 거래이므로 각각 과세
+    - 배우자가 실제 대가를 수령했으므로 귀속자는 배우자
+  notes: |
+    국세기본법 §14 실질과세 원칙 + 조세회피 재구성. 2025년 대법원 복수 사건
+    동일 취지.
+
+- id: J009_lecture_fee_irregular_professor
+  issue_id: GRAY_OTHER_INCOME_VS_BUSINESS
+  description: |
+    대학교수 D씨. 본업 외 2025년 중 외부 강연 15회 수행, 총 강연료 수입
+    2,000만원. 일부는 단기 특강, 일부는 동일 기관 정기 연속강의(월 1회×6개월).
+    기타소득으로 신고하려 함.
+  profile:
+    has_earned_income: true
+    irregular_lecture_count: 15
+    irregular_lecture_income: 20_000_000
+    has_recurring_series_contract: true
+    series_months: 6
+    declared_as: 기타소득
+  expected_ruling: 사업소득재분류
+  expected_ruling_detail: |
+    외부 강연이 계속·반복성을 갖추면 사업소득. 연 15회·6개월 정기 계약은
+    계속반복 인정. 필요경비 의제(80%) 적용 안 되고 실제 경비 입증 필요.
+  authoritative_sources:
+    - type: precedent
+      precedent_id: "248064"
+      사건번호: 서울고등법원-2008-누-38010
+      사건명: 계속성과 반복성이 있는 강연료는 사업소득으로 보는 것임
+      선고일자: "2009.12.10"
+    - type: statute
+      law: 소득세법
+      article: 제19조
+    - type: statute
+      law: 소득세법
+      article: 제21조
+      note: 제1항 19호 — 일시적 인적용역 대가
+  forbidden_reasoning:
+    - 본업(교수)이 있으므로 부업은 무조건 기타소득
+    - 강연료는 항상 기타소득 필요경비 80% 의제
+  notes: |
+    판례는 본업 유무와 무관하게 "활동의 계속·반복성"으로 판단.
+
+- id: J010_one_house_false_transfer
+  issue_id: GRAY_ONE_HOUSE_TRANSFER_NONTAXABLE
+  description: |
+    E씨가 2주택 보유 중 1채를 친동생에게 매매 형식으로 이전한 후, 2개월 뒤
+    다른 1채를 양도. 1세대 1주택 비과세 주장. 국세청 조사 결과 친동생과
+    대금 수수·자금 출처 불명확, 매매계약 형식만 존재.
+  profile:
+    has_capital_gain: true
+    property_type: 주택
+    prior_house_count: 2
+    recent_disposition: 친족매매
+    recent_disposition_cash_flow_verified: false
+    time_between_disposition_and_sale_months: 2
+    claimed_one_house_nontaxable: true
+  expected_ruling: 과세전환
+  expected_ruling_detail: |
+    비과세 혜택만을 목적으로 한 가장매매로 판단될 경우 1세대 1주택 비과세
+    대상 아님. 실제 소유권 이전 실질이 없으면 2주택자 양도로 과세.
+  authoritative_sources:
+    - type: precedent
+      precedent_id: "616841"
+      사건번호: 창원지방법원-2024-구단-10943
+      사건명: 1세대 1주택 비과세 혜택을 받기 위하여 쟁점 주택을 가장매매한 경우 비과세 대상에 해당하지 않음
+      선고일자: "2025.12.24"
+    - type: statute
+      law: 소득세법
+      article: 제89조
+      note: 제1항 3호 — 1세대 1주택 비과세
+    - type: statute
+      law: 소득세법 시행령
+      article: 제154조
+  forbidden_reasoning:
+    - 매매계약서가 있으므로 소유권 이전 인정
+    - 일시적 2주택 특례(3년 내 양도)로 비과세
+  notes: |
+    국세청 조사 시 대금 수수 계좌·자금출처가 핵심. 등기만으로는 실질 판정
+    불충분.

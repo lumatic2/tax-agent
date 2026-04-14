@@ -1,0 +1,152 @@
+- id: GIFT_LOW_PRICE_TRANSFER
+  name: "특수관계자 저가양수·고가양도 증여의제"
+  category: reduction
+  tax_type: 증여세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - {op: "==", left: "profile.is_gift_case", right: true}
+      - {op: ">", left: "profile.low_price_transfer_market_value", right: 0}
+      - {op: ">", left: "profile.low_price_transfer_market_value", right: "profile.low_price_transfer_actual_price"}
+
+  diagnosis: "특수관계자 간 양수·양도 거래가 시가 대비 30% 또는 3억 이상 차이 — 상증법 §35 증여의제 대상"
+  recommendation:
+    action: "감정평가·유사거래 증빙으로 시가 정당성 입증"
+    detail: "차액 = 시가 − 실제거래가. 증여가액 = max(0, 차액 − min(시가×30%, 3억)). 30% 또는 3억 미만이면 과세 제외"
+
+  estimator:
+    type: formula
+    name: gift_low_price_transfer_savings
+    params:
+      market_ref: "profile.low_price_transfer_market_value"
+      actual_ref: "profile.low_price_transfer_actual_price"
+
+  legal_basis:
+    - {law: 상속세및증여세법, article: "제35조"}
+    - {law: 상속세및증여세법시행령, article: "제26조"}
+
+  risk:
+    level: high
+    flags: ["특수관계자_거래", "세무조사_트리거"]
+    caveat: "시가 입증 자료 미비 시 보충적 평가방법으로 증액 가능"
+
+  source:
+    ref: "상증법 35조 — 저가양수·고가양도"
+    updated: 2026-04-14
+
+
+- id: GIFT_FREE_LOAN_BENEFIT
+  name: "금전 무상·저리 대여 증여이익"
+  category: reduction
+  tax_type: 증여세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - {op: "==", left: "profile.is_gift_case", right: true}
+      - {op: ">", left: "profile.free_loan_principal", right: 100000000}
+      - {op: "<", left: "profile.free_loan_actual_rate", right: 0.046}
+
+  diagnosis: "특수관계자 간 1억 초과 금전 무상·저리(4.6% 미만) 대여 시 이자율 차액을 매년 증여이익으로 과세"
+  recommendation:
+    action: "적정이자(연 4.6%) 수취 또는 차용계약서·이자지급증빙 정비"
+    detail: "연간 증여이익 = 원금 × (4.6% − 실제 이자율). 매년 반복 과세이므로 대여 잔존기간 전체에 누적 영향"
+
+  estimator:
+    type: formula
+    name: gift_free_loan_savings
+    params:
+      principal_ref: "profile.free_loan_principal"
+      actual_rate_ref: "profile.free_loan_actual_rate"
+
+  legal_basis:
+    - {law: 상속세및증여세법, article: "제41조의4"}
+    - {law: 상속세및증여세법시행령, article: "제31조의4"}
+
+  risk:
+    level: high
+    flags: ["반복과세", "특수관계자_거래"]
+    caveat: "연 1천만 미만 이익은 과세 제외(상증령 §31의4②). 대여 연장 시 매년 재평가"
+
+  source:
+    ref: "CPA 2차 2025 Q7-2 금전무상대출"
+    updated: 2026-04-14
+
+
+- id: GIFT_FREE_REAL_ESTATE_USE
+  name: "부동산 무상사용 증여의제"
+  category: reduction
+  tax_type: 증여세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - {op: "==", left: "profile.is_gift_case", right: true}
+      - {op: ">", left: "profile.free_use_property_value", right: 0}
+      - {op: "==", left: "profile.free_use_is_gratuitous", right: true}
+
+  diagnosis: "특수관계자로부터 부동산을 무상 사용 시 5년간 무상사용이익의 현재가치가 1억 초과면 증여의제(상증법 §37)"
+  recommendation:
+    action: "적정 임대료 지급 또는 사용대차 계약 재정비"
+    detail: "증여가액 = 부동산가액 × 2% × 3.7908(10%, 5년 연금현가계수). 5년 경과 시 경정청구 가능"
+
+  estimator:
+    type: formula
+    name: gift_free_real_estate_use_savings
+    params:
+      property_value_ref: "profile.free_use_property_value"
+
+  legal_basis:
+    - {law: 상속세및증여세법, article: "제37조"}
+    - {law: 상속세및증여세법시행령, article: "제27조"}
+
+  risk:
+    level: medium
+    flags: ["5년_재산정"]
+    caveat: "5년마다 재평가. 무상사용가치 1억 미만은 과세 제외"
+
+  source:
+    ref: "CPA 2차 2025 Q7-1 부동산무상사용 (증여재산가액 151,628,000)"
+    updated: 2026-04-14
+
+
+- id: GIFT_INSURANCE_PROCEED
+  name: "보험금 증여 — 납부자 ≠ 수익자"
+  category: reduction
+  tax_type: 증여세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - {op: "==", left: "profile.is_gift_case", right: true}
+      - {op: ">", left: "profile.insurance_proceed_amount", right: 0}
+      - {op: ">", left: "profile.insurance_payer_ratio_by_other", right: 0}
+
+  diagnosis: "보험료 납부자와 수익자가 다를 때 수령 보험금 중 타인 납부분 비율만큼 증여재산"
+  recommendation:
+    action: "보험계약 당사자 정비 또는 명의변경"
+    detail: "증여재산가액 = 보험금 × (타인이 납부한 보험료 / 총 보험료). 계약자·피보험자·수익자 3자를 일치시키면 증여 회피"
+
+  estimator:
+    type: formula
+    name: gift_insurance_savings
+    params:
+      proceed_ref: "profile.insurance_proceed_amount"
+      other_ratio_ref: "profile.insurance_payer_ratio_by_other"
+
+  legal_basis:
+    - {law: 상속세및증여세법, article: "제34조"}
+
+  risk:
+    level: medium
+    flags: ["계약재정비_필요"]
+    caveat: "만기·중도해지 외 상속개시로 수령하는 사망보험금은 상속재산(상증법 §8) — 증여 아닌 상속으로 과세"
+
+  source:
+    ref: "CPA 2차 2025 Q7-2 보험금 증여 (9,750,000)"
+    updated: 2026-04-14

@@ -31,11 +31,11 @@ def test_catalog_counts_by_tax_type():
     counts = {}
     for r in rules:
         counts[r.tax_type] = counts.get(r.tax_type, 0) + 1
-    assert len(rules) == 28, f"전체 28개 예상, 실제 {len(rules)}"
+    assert len(rules) == 32, f"전체 32개 예상, 실제 {len(rules)}"
     assert counts.get("소득세") == 13
     assert counts.get("법인세") == 11
     assert counts.get("상속세") == 2
-    assert counts.get("증여세") == 2
+    assert counts.get("증여세") == 6
 
 
 # --- 소득세 신규 규칙 ------------------------------------------------------
@@ -383,6 +383,56 @@ def test_corp_loss_carryback_non_sme_skips():
     assert "CORP_LOSS_CARRYBACK" not in _ids(r["candidates"])
 
 
+# --- 증여세 v2 (Phase 6) — 2025 Q7 실증 근거 4규칙 -----------------------
+
+_GIFT_BASE = {"is_gift_case": True}
+
+
+def test_gift_low_price_transfer_over_threshold():
+    r = run({**_GIFT_BASE, "low_price_transfer_market_value": 1_000_000_000, "low_price_transfer_actual_price": 500_000_000})
+    # gap 500M − min(300M, 300M) = 200M × 20% = 40M
+    assert _saving(r["candidates"], "GIFT_LOW_PRICE_TRANSFER") == 40_000_000
+
+
+def test_gift_low_price_transfer_within_30pct_skips():
+    r = run({**_GIFT_BASE, "low_price_transfer_market_value": 1_000_000_000, "low_price_transfer_actual_price": 800_000_000})
+    assert "GIFT_LOW_PRICE_TRANSFER" not in _ids(r["candidates"])
+
+
+def test_gift_free_loan_benefit_over_100m():
+    r = run({**_GIFT_BASE, "free_loan_principal": 500_000_000, "free_loan_actual_rate": 0.0})
+    # 500M × 4.6% = 23M × 20% = 4.6M
+    assert _saving(r["candidates"], "GIFT_FREE_LOAN_BENEFIT") == 4_600_000
+
+
+def test_gift_free_loan_under_100m_skips():
+    r = run({**_GIFT_BASE, "free_loan_principal": 50_000_000, "free_loan_actual_rate": 0.0})
+    assert "GIFT_FREE_LOAN_BENEFIT" not in _ids(r["candidates"])
+
+
+def test_gift_free_real_estate_use_large_property():
+    r = run({**_GIFT_BASE, "free_use_property_value": 2_000_000_000, "free_use_is_gratuitous": True})
+    # 2B × 2% × 3.7908 = 151,632,000 × 20% = 30,326,400
+    assert _saving(r["candidates"], "GIFT_FREE_REAL_ESTATE_USE") == 30_326_400
+
+
+def test_gift_free_real_estate_small_property_skips_saving():
+    r = run({**_GIFT_BASE, "free_use_property_value": 500_000_000, "free_use_is_gratuitous": True})
+    # 500M × 0.07582 = 37.9M < 1억 → saving 0 → generator 필터로 제외
+    assert "GIFT_FREE_REAL_ESTATE_USE" not in _ids(r["candidates"])
+
+
+def test_gift_insurance_proceed_partial_other_payer():
+    r = run({**_GIFT_BASE, "insurance_proceed_amount": 100_000_000, "insurance_payer_ratio_by_other": 0.5})
+    # 50M × 20% = 10M
+    assert _saving(r["candidates"], "GIFT_INSURANCE_PROCEED") == 10_000_000
+
+
+def test_gift_insurance_self_payer_skips():
+    r = run({**_GIFT_BASE, "insurance_proceed_amount": 100_000_000, "insurance_payer_ratio_by_other": 0.0})
+    assert "GIFT_INSURANCE_PROCEED" not in _ids(r["candidates"])
+
+
 # --- 스코프 격리 (크로스-세목 오발동 금지) ------------------------------
 
 def test_income_profile_no_corp_or_estate_rules():
@@ -396,6 +446,8 @@ def test_income_profile_no_corp_or_estate_rules():
         "CORP_DEEMED_DIVIDEND_WITHHOLDING", "CORP_LOSS_CARRYBACK",
         "INH_SPOUSE_DEDUCTION", "INH_INSTALLMENT_PAYMENT",
         "GIFT_SPLIT_10YEAR", "GIFT_LOW_VALUATION",
+        "GIFT_LOW_PRICE_TRANSFER", "GIFT_FREE_LOAN_BENEFIT",
+        "GIFT_FREE_REAL_ESTATE_USE", "GIFT_INSURANCE_PROCEED",
     ):
         assert rid not in ids, f"{rid} 오발동 (개인 소득세 프로필)"
 
@@ -448,6 +500,14 @@ if __name__ == "__main__":
         ("corp deemed zero skip", test_corp_deemed_dividend_zero_skips),
         ("corp carryback", test_corp_loss_carryback_sme_partial_ratio),
         ("corp carryback non-sme skip", test_corp_loss_carryback_non_sme_skips),
+        ("gift low price", test_gift_low_price_transfer_over_threshold),
+        ("gift low price within 30 skip", test_gift_low_price_transfer_within_30pct_skips),
+        ("gift free loan", test_gift_free_loan_benefit_over_100m),
+        ("gift loan <100m skip", test_gift_free_loan_under_100m_skips),
+        ("gift real estate", test_gift_free_real_estate_use_large_property),
+        ("gift real estate small skip", test_gift_free_real_estate_small_property_skips_saving),
+        ("gift insurance", test_gift_insurance_proceed_partial_other_payer),
+        ("gift insurance self skip", test_gift_insurance_self_payer_skips),
         ("inh spouse", test_inh_spouse_deduction_maximize),
         ("inh spouse skip", test_inh_spouse_deduction_small_estate_skips),
         ("inh installment", test_inh_installment_large_payable),

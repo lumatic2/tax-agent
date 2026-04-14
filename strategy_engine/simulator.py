@@ -326,6 +326,72 @@ def gift_low_valuation_savings(
     return int(diff * 0.20)
 
 
+# --- 증여세 v2 확장 (Phase 6) ---------------------------------------------
+
+GIFT_AVG_RATE = 0.20  # 증여세 평균 유효세율 가정 (10~50% 누진의 중간값)
+
+
+def gift_low_price_transfer_savings(
+    market: int = 0,
+    actual: int = 0,
+) -> int:
+    """저가양수 증여이익 = max(0, 차액 − min(시가×30%, 3억)) × 평균세율.
+
+    상증법 §35 ①: 특수관계자 간 시가 대비 30% 또는 3억 이상 저가·고가 거래.
+    """
+    m = int(market or 0)
+    a = int(actual or 0)
+    gap = max(m - a, 0)
+    threshold = min(int(m * 0.30), 300_000_000)
+    gift_value = max(gap - threshold, 0)
+    return int(gift_value * GIFT_AVG_RATE)
+
+
+def gift_free_loan_savings(
+    principal: int = 0,
+    actual_rate: float = 0.0,
+) -> int:
+    """금전 무상·저리 대여 연간 증여이익 × 평균세율.
+
+    상증법 §41의4: 1억 초과 대여. 적정이자율 4.6%. 연 1천만 미만 이익은 과세 제외.
+    """
+    p = int(principal or 0)
+    if p <= 100_000_000:
+        return 0
+    rate_gap = max(0.046 - float(actual_rate or 0.0), 0.0)
+    annual_benefit = int(p * rate_gap)
+    if annual_benefit < 10_000_000:
+        return 0
+    return int(annual_benefit * GIFT_AVG_RATE)
+
+
+def gift_free_real_estate_use_savings(property_value: int = 0) -> int:
+    """부동산 무상사용 증여의제 = 부동산가액 × 2% × 3.7908 × 평균세율.
+
+    상증법 §37: 5년간 무상사용이익 현재가치 1억 초과 시 과세.
+    """
+    pv = int(property_value or 0)
+    if pv <= 0:
+        return 0
+    gift_value = int(pv * 0.02 * 3.7908)
+    if gift_value < 100_000_000:
+        return 0
+    return int(gift_value * GIFT_AVG_RATE)
+
+
+def gift_insurance_savings(
+    proceed: int = 0,
+    other_ratio: float = 0.0,
+) -> int:
+    """보험금 증여재산가액 × 평균세율. 보험료 납부자 ≠ 수익자."""
+    p = int(proceed or 0)
+    r = max(min(float(other_ratio or 0.0), 1.0), 0.0)
+    if p <= 0 or r <= 0:
+        return 0
+    gift_value = int(p * r)
+    return int(gift_value * GIFT_AVG_RATE)
+
+
 FORMULAS = {
     "financial_separation_savings": financial_separation_savings,
     "double_entry_savings": double_entry_savings,
@@ -349,6 +415,10 @@ FORMULAS = {
     "inh_installment_cashflow_benefit": inh_installment_cashflow_benefit,
     "gift_split_savings": gift_split_savings,
     "gift_low_valuation_savings": gift_low_valuation_savings,
+    "gift_low_price_transfer_savings": gift_low_price_transfer_savings,
+    "gift_free_loan_savings": gift_free_loan_savings,
+    "gift_free_real_estate_use_savings": gift_free_real_estate_use_savings,
+    "gift_insurance_savings": gift_insurance_savings,
 }
 
 

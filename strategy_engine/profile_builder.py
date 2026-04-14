@@ -184,6 +184,16 @@ def _fill_defaults(p: dict, tax_result: dict) -> dict:
     p.setdefault("low_value_asset_fair_price", 0)
     p.setdefault("low_value_asset_expected_price", 0)
 
+    # 증여세 v2 확장 (Phase 6 — 2025 Q7 실증 근거 4규칙)
+    p.setdefault("low_price_transfer_market_value", 0)
+    p.setdefault("low_price_transfer_actual_price", 0)
+    p.setdefault("free_loan_principal", 0)
+    p.setdefault("free_loan_actual_rate", 0.0)
+    p.setdefault("free_use_property_value", 0)
+    p.setdefault("free_use_is_gratuitous", False)
+    p.setdefault("insurance_proceed_amount", 0)
+    p.setdefault("insurance_payer_ratio_by_other", 0.0)
+
     total = p["gross_salary"] + p["business_income"] + p["financial_income_total"]
     p.setdefault("marginal_rate", _marginal_rate(total, tax_result))
     p.setdefault("tax_result", tax_result)

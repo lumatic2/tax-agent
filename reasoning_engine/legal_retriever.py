@@ -15,7 +15,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from agent.law_client import search_admin_rules, search_precedents
+from agent.law_client import get_admin_rule, get_precedent, search_admin_rules, search_precedents
 
 ROOT = Path(__file__).parents[1]
 PRECEDENT_FILE = ROOT / 'data' / 'precedent_corpus.json'
@@ -150,16 +150,95 @@ def retrieve_admin_rules(
     return out
 
 
+def _resolve_decisive_precedent(pid: str) -> dict[str, Any] | None:
+    """로컬 corpus 우선, 없으면 law-mcp로 단건 조회."""
+    for c in _load_precedents():
+        if str(c.get('precedent_id')) == str(pid):
+            return dict(c, _pinned=True)
+    try:
+        data = get_precedent(str(pid))
+    except Exception:
+        return None
+    if not data:
+        return None
+    return dict(data, _pinned=True, _source='live_fetch')
+
+
+def _resolve_decisive_admin_rule(rid: str) -> dict[str, Any] | None:
+    for c in _load_admin_rules():
+        if str(c.get('rule_id')) == str(rid):
+            return dict(c, _pinned=True)
+    try:
+        data = get_admin_rule(str(rid))
+    except Exception:
+        return None
+    if not data:
+        return None
+    return dict(data, _pinned=True, _source='live_fetch')
+
+
+def _pin_decisive(
+    decisive: list[dict[str, Any]] | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """decisive_sources를 precedent/admin_rule로 분리하여 실자료로 해석.
+
+    해석 순서 (merge 전략):
+      1) 로컬 corpus에서 ID 매칭 → base dict
+      2) law-mcp 단건 조회 (live_fetch) → base dict
+      3) 둘 다 없으면 빈 base
+      → issue yaml의 decisive_source 메타(판결요지·사건명 등)를 base에 merge-on-top.
+        yaml 메타가 corpus 빈 필드를 보강하고, 서로 값이 있으면 yaml 우선.
+    """
+    prec_out: list[dict[str, Any]] = []
+    adm_out: list[dict[str, Any]] = []
+    for d in decisive or []:
+        t = d.get('type')
+        if t == 'precedent' and d.get('precedent_id'):
+            base = _resolve_decisive_precedent(d['precedent_id']) or {}
+            merged = {**base, **{k: v for k, v in d.items() if v not in (None, '')}}
+            merged['_pinned'] = True
+            if '_source' not in merged:
+                merged['_source'] = 'issue_yaml'
+            prec_out.append(merged)
+        elif t == 'admin_rule' and d.get('rule_id'):
+            base = _resolve_decisive_admin_rule(d['rule_id']) or {}
+            merged = {**base, **{k: v for k, v in d.items() if v not in (None, '')}}
+            merged['_pinned'] = True
+            if '_source' not in merged:
+                merged['_source'] = 'issue_yaml'
+            adm_out.append(merged)
+    return prec_out, adm_out
+
+
 def retrieve(
     query: str,
     issue_id: str | None = None,
     k_precedents: int = 3,
     k_admin_rules: int = 2,
+    decisive_sources: list[dict[str, Any]] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
-    """판례 + 행정규칙 동시 검색. reasoner 입력으로 쓰는 통합 인터페이스."""
+    """판례 + 행정규칙 동시 검색. decisive_sources가 주어지면 top에 강제 주입.
+
+    decisive_sources 스키마: [{type: precedent, precedent_id: "..."}, ...]
+    핀된 자료는 검색 스코어와 무관하게 반환의 맨 앞에 배치되어 reasoner가
+    반드시 보게 된다. 핀된 개수만큼 일반 검색 k를 차감.
+    """
+    pinned_prec, pinned_adm = _pin_decisive(decisive_sources)
+    pinned_prec_ids = {str(p.get('precedent_id')) for p in pinned_prec}
+    pinned_adm_ids = {str(p.get('rule_id')) for p in pinned_adm}
+
+    prec_k = max(0, k_precedents - len(pinned_prec))
+    adm_k = max(0, k_admin_rules - len(pinned_adm))
+
+    prec = retrieve_precedents(query, issue_id, k=prec_k) if prec_k else []
+    prec = [p for p in prec if str(p.get('precedent_id')) not in pinned_prec_ids]
+
+    adm = retrieve_admin_rules(query, issue_id, k=adm_k) if adm_k else []
+    adm = [a for a in adm if str(a.get('rule_id')) not in pinned_adm_ids]
+
     return {
-        'precedents': retrieve_precedents(query, issue_id, k=k_precedents),
-        'admin_rules': retrieve_admin_rules(query, issue_id, k=k_admin_rules),
+        'precedents': pinned_prec + prec,
+        'admin_rules': pinned_adm + adm,
     }
 
 

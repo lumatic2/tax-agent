@@ -324,6 +324,27 @@ def search_admin_rules(query: str, limit: int = 10) -> list[dict[str, Any]]:
     return out
 
 
+def get_precedent(precedent_id: str) -> dict[str, Any]:
+    """판례 단건 조회 — lawService.do target=prec.
+
+    반환 필드는 search_precedents와 호환되도록 매핑.
+    """
+    params = {'OC': OC, 'target': 'prec', 'ID': precedent_id, 'type': 'JSON'}
+    r = httpx.get(f'{BASE_URL}/lawService.do', params=params, timeout=15)
+    r.raise_for_status()
+    data = r.json()
+    body = data.get('PrecService', data) or {}
+    return {
+        'precedent_id': precedent_id,
+        '사건번호': _to_str(body.get('사건번호')),
+        '사건명': _to_str(body.get('사건명')),
+        '선고일자': _to_str(body.get('선고일자')),
+        '법원명': _to_str(body.get('법원명')) or None,
+        '판시사항': _to_str(body.get('판시사항')) or None,
+        '판결요지': _to_str(body.get('판결요지')) or None,
+    }
+
+
 def get_admin_rule(rule_id: str) -> dict[str, Any]:
     """행정규칙 본문 조회 — lawService.do target=admrul.
 

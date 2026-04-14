@@ -93,6 +93,7 @@ def run(
         issue_id=issue_id,
         k_precedents=k_precedents,
         k_admin_rules=k_admin_rules,
+        decisive_sources=issue.get('decisive_sources'),
     )
     judgment_v1 = reason(issue, profile, retrieved, model=model)
     out: dict[str, Any] = {

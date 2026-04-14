@@ -475,6 +475,37 @@ Phase 2 **Level 4 달성** (2026-04-12). Phase 3 시작.
 - [x] `eval_execution_planner.py` 6/6 통과 (각 세목 basic + strategy/judgment 통합 + unsupported)
 - [ ] 세목별 신고서 서식(pdf) 출력은 Phase 8 이후
 
+### Phase 5-C — 신고서 PDF 서식 출력 (로드맵)
+
+**단기 (Phase 5-C-1, 1~2일)** — reportlab 기반 PDF 생성
+- `execution_planner_pdf.py` — generate_tax_return_draft() dict → PDF
+- 한글 폰트(NanumGothic) 등록, 국세청 서식 근접 표 레이아웃
+- 세목별 템플릿 4종(소득세·법인세·부가세·상증세)
+- 행항목 표 + 적용전략 박스 + 판단이슈 박스 + 체크리스트·주의사항
+- `eval_execution_planner_pdf.py` — 각 세목 PDF 생성 + 파일 크기·페이지 수 assert
+
+**중기 (Phase 5-C-2, 1~2주)** — 국세청 홈택스 전자신고 연동
+- 홈택스 XML/ENC 포맷 스펙 분석 (공식 개발자 가이드)
+- 종합소득세·법인세 전자신고 파일 생성기
+- 세무사 검증 1회 (실제 제출 가능성 확인, 실제 제출은 금지)
+- ANTHROPIC_API_KEY 금지 정책 준수 — 로컬 생성만
+
+---
+
+## Phase 7-A — 판단 레이어 근본 개선 (decisive_sources)
+
+> **배경**: Phase 7 부가세 67%·상증세 J302 미달 원인은 프롬프트가 아니라 **검색 천장**.
+> 결정판례가 retrieved_legal에 없으면 어떤 프롬프트로도 못 뒤집는다.
+
+- [x] 7-A-1: issue yaml 스키마에 `decisive_sources` 필드 추가 (결정판례·예규 ID + 메타)
+- [x] 7-A-2: `legal_retriever.py` — `_pin_decisive()` top-k 강제 + corpus/yaml merge 전략
+- [x] 7-A-3: `agent/law_client.py` — `get_precedent()` 추가
+- [x] 7-A-4: `reasoner.py` — 결정판례 판결요지 프롬프트 노출 + 지시 0번 최우선 규칙
+- [x] 7-A-5: `eval_judgment_v1.py` — `decisive_in_context` 메트릭 추가
+- [x] 7-A-6: J302/J202/J205 핀 추가 → 3건 모두 스폿체크 통과
+      (J302 conf 0.95, J202 전액불공제 ✓, J205 일반과세전환 ✓)
+- [ ] 7-A-7: 전체 30 회귀 병렬 실행 중 (Ollama 포화로 지연, 최종 집계 대기)
+
 ---
 
 ## Phase 6 — 판단형 세무 에이전트 (Judgment Layer)

@@ -20,6 +20,7 @@ dependencies = [
   "langchain-core>=0.3",
   "langchain-ollama>=0.2",
   "pywebview>=5.0",
+  "reportlab>=4.4.10",
 ]
 
 [project.scripts]

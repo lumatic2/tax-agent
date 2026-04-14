@@ -23,7 +23,7 @@ from typing import Any
 
 import yaml
 
-from reasoning_engine.orchestrator import run as orchestrate
+from reasoning_engine.orchestrator import _find_issue, run as orchestrate
 
 ROOT = Path(__file__).parent
 GOLDSET_DIR = ROOT / 'data' / 'eval'
@@ -85,6 +85,25 @@ def score_case(case: dict[str, Any], judgment: dict[str, Any]) -> dict[str, Any]
     }
 
 
+def decisive_in_context(issue: dict[str, Any], retrieved: dict[str, Any]) -> bool | None:
+    """진단 메트릭: issue.decisive_sources가 retrieved에 포함되었는가.
+
+    None 반환: issue에 decisive_sources 미정의 (해당 없음).
+    True/False: 정의됐다면 retrieved에 최소 1건 포함 여부.
+    """
+    decisive = issue.get('decisive_sources') or []
+    if not decisive:
+        return None
+    prec_ids = {str(p.get('precedent_id')) for p in retrieved.get('precedents') or []}
+    adm_ids = {str(a.get('rule_id')) for a in retrieved.get('admin_rules') or []}
+    for d in decisive:
+        if d.get('type') == 'precedent' and str(d.get('precedent_id')) in prec_ids:
+            return True
+        if d.get('type') == 'admin_rule' and str(d.get('rule_id')) in adm_ids:
+            return True
+    return False
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument('--cases', default='', help='comma-separated case id prefixes (J001,J003)')
@@ -112,14 +131,24 @@ def main() -> None:
             judgment = run['judgment']
         except Exception as e:
             judgment = {'ruling': None, 'reasoning': f'[ERROR] {e}', 'cited_sources': [], 'confidence': 0.0}
-            run = {'error': str(e)}
+            run = {'error': str(e), 'retrieved': {}}
         score = score_case(case, judgment)
+        try:
+            issue = _find_issue(case['issue_id'])
+            score['decisive_in_context'] = decisive_in_context(issue, run.get('retrieved') or {})
+        except Exception:
+            score['decisive_in_context'] = None
         score['elapsed_s'] = round(time.time() - ts, 1)
         results.append(score)
         flags = []
         flags.append('R✓' if score['ruling_match'] else 'R✗')
         flags.append('S✓' if score['source_match'] else 'S✗')
         flags.append('F✓' if score['forbidden_avoided'] else 'F✗')
+        dic = score.get('decisive_in_context')
+        if dic is True:
+            flags.append('D✓')
+        elif dic is False:
+            flags.append('D✗')
         print(
             f"   {' '.join(flags)} "
             f"[{score['actual_ruling']} vs {score['expected_ruling']}] "
@@ -139,6 +168,10 @@ def main() -> None:
     print(f"ruling_match:     {rm}/{total} (target ≥ 8)")
     print(f"source_match:     {sm}/{total} (target ≥ 7)")
     print(f"forbidden_avoid:  {fa}/{total} (target = 10)")
+    pinned = [r for r in results if r.get('decisive_in_context') is not None]
+    if pinned:
+        dic_true = sum(1 for r in pinned if r['decisive_in_context'])
+        print(f"decisive_in_ctx:  {dic_true}/{len(pinned)} (pinned issues only)")
 
     if args.save_runs:
         RUNS_DIR.mkdir(parents=True, exist_ok=True)

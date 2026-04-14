@@ -46,6 +46,9 @@ PROMPT_V5 = """\
 {admin_rules_text}
 
 ## 지시
+0. **[결정판례]** 마크된 판례가 있다면 그 판결요지를 **최우선 기준**으로 삼아라.
+   결정판례의 쟁점이 본 사안과 동일하면 동일 결론을 따라야 한다. 일반 검색 판례나
+   보수적 해석을 앞세워 결정판례를 거스르지 말 것.
 1. ruling_spectrum 중 하나를 선택하라. 새 결과 만들지 말 것.
 2. reasoning은 한국어로 3~5문장. 프로필의 구체 수치·사실관계와 판례·행정규칙을 연결하라.
 3. cited_sources는 반드시 위 화이트리스트에서만 인용하라. 각 항목 형식:
@@ -71,10 +74,16 @@ def _format_precedents(precedents: list[dict[str, Any]]) -> str:
         return '(해당 이슈에 매칭된 판례 없음)'
     lines = []
     for p in precedents:
-        lines.append(
-            f"- 사건번호: {p.get('사건번호', '?')} / 선고일자: {p.get('선고일자', '?')}\n"
+        marker = '**[결정판례]**' if p.get('_pinned') else '-'
+        header = (
+            f"{marker} 사건번호: {p.get('사건번호', '?')} / 선고일자: {p.get('선고일자', '?')}\n"
             f"  사건명: {p.get('사건명', '')}"
         )
+        holding = p.get('판결요지') or p.get('판시사항')
+        if holding:
+            holding_short = str(holding).strip().replace('\n', ' ')[:300]
+            header += f"\n  판결요지: {holding_short}"
+        lines.append(header)
     return '\n'.join(lines)
 
 

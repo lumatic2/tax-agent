@@ -151,11 +151,12 @@
     revenue_spouse_name: 80_000_000
     same_business_type: true
     same_location: true
-  expected_ruling: 명의분산부인
+  expected_ruling: 일반과세전환
   expected_ruling_detail: |
     동일 사업장·동일 업종 + 가족 명의 분산 시 실질사업자(원고) 합산 매출로
     판정 — 1억 6천만 > 1억 400만 기준 초과 → 일반과세 강제 전환. 과거 신고
-    분에 대해 일반과세 추징.
+    분에 대해 일반과세 추징. (명의분산부인의 실질적 효과가 일반과세전환이며
+    ruling_spectrum에서는 "일반과세전환"이 처분 결과를 직접 지칭.)
   authoritative_sources:
     - type: precedent
       precedent_id: "353992"

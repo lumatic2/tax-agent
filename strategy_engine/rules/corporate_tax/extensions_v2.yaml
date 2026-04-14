@@ -1,0 +1,234 @@
+- id: CORP_BAD_DEBT_RESERVE_EXCESS
+  name: "대손충당금 한도초과 손금불산입"
+  category: reduction
+  tax_type: 법인세
+  priority: medium
+
+  applies_when:
+    op: and
+    of:
+      - {op: "==", left: "profile.is_corporation", right: true}
+      - {op: ">", left: "profile.bad_debt_reserve_paid", right: 0}
+      - {op: ">", left: "profile.bad_debt_reserve_paid", right: "profile.bad_debt_reserve_limit"}
+
+  diagnosis: "대손충당금 한도(Max[매출채권 잔액 × 1%, 실제 대손실적률]) 초과 설정액은 손금불산입 후 익년도 환입처리"
+  recommendation:
+    action: "대손실적률 재산정 + 채권분류표 정비"
+    detail: "직전 3년 평균 대손실적률 계산으로 한도 확대. 회수불능 채권은 대손확정 처리로 직접 손금 귀속"
+
+  estimator:
+    type: formula
+    name: corp_rate_exposure
+    params:
+      base_amount_ref: "profile.bad_debt_reserve_excess"
+      corp_tax_rate_ref: "profile.corp_tax_rate"
+
+  legal_basis:
+    - {law: 법인세법, article: "제34조"}
+    - {law: 법인세법시행령, article: "제61조"}
+    - {law: 법인세법시행령, article: "제62조"}
+
+  risk:
+    level: medium
+    flags: ["손금불산입"]
+    caveat: "한도 초과분은 익년도 자동 환입되어 익금 산입"
+
+  source:
+    ref: "CPA 2차 2025 Q4 대손충당금"
+    updated: 2026-04-14
+
+
+- id: CORP_RETIREMENT_RESERVE_EXCESS
+  name: "퇴직급여충당금 한도초과 손금불산입"
+  category: reduction
+  tax_type: 법인세
+  priority: medium
+
+  applies_when:
+    op: and
+    of:
+      - {op: "==", left: "profile.is_corporation", right: true}
+      - {op: ">", left: "profile.retirement_reserve_paid", right: 0}
+      - {op: ">", left: "profile.retirement_reserve_paid", right: "profile.retirement_reserve_limit"}
+
+  diagnosis: "2016년 이후 신규 퇴직급여충당금 설정은 원칙적 손금불산입(0%) — 사외적립(DB/DC/IRP) 전환 필요"
+  recommendation:
+    action: "퇴직연금 사외적립으로 전환"
+    detail: "확정급여형(DB)·확정기여형(DC)·IRP로 사외적립 시 전액 손금산입. 내부 충당은 대부분 손금불산입"
+
+  estimator:
+    type: formula
+    name: corp_rate_exposure
+    params:
+      base_amount_ref: "profile.retirement_reserve_excess"
+      corp_tax_rate_ref: "profile.corp_tax_rate"
+
+  legal_basis:
+    - {law: 법인세법, article: "제33조"}
+    - {law: 법인세법시행령, article: "제60조"}
+
+  risk:
+    level: medium
+    flags: ["손금불산입"]
+    caveat: "사외적립 제도 가입 여부 및 퇴직급여 추계액 기준 한도 재점검"
+
+  source:
+    ref: "CPA 2차 2025 Q4 퇴직급여충당금"
+    updated: 2026-04-14
+
+
+- id: CORP_COMPANY_VEHICLE_EXCESS
+  name: "업무용승용차 연 1,500만 초과 손금불산입"
+  category: reduction
+  tax_type: 법인세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - {op: "==", left: "profile.is_corporation", right: true}
+      - {op: ">", left: "profile.company_vehicle_expense", right: 15000000}
+      - {op: "==", left: "profile.has_vehicle_log", right: false}
+
+  diagnosis: "운행기록부 미작성 시 업무용승용차 관련비용은 연 1,500만원 한도 — 초과분 손금불산입"
+  recommendation:
+    action: "운행기록부 작성 + 업무전용자동차보험 가입"
+    detail: "운행기록부 작성 시 업무사용비율 × 전체비용 손금산입 가능(한도 미적용). 감가상각 연 800만 한도는 별도 적용"
+
+  estimator:
+    type: formula
+    name: corp_company_vehicle_savings
+    params:
+      expense_ref: "profile.company_vehicle_expense"
+      corp_tax_rate_ref: "profile.corp_tax_rate"
+
+  legal_basis:
+    - {law: 법인세법, article: "제27조의2"}
+    - {law: 법인세법시행령, article: "제50조의2"}
+
+  risk:
+    level: medium
+    flags: ["손금불산입"]
+    caveat: "운행기록부 + 업무전용보험 동시 충족이 손금산입 전제조건"
+
+  source:
+    ref: "CPA 2차 2025 Q4 업무용승용차"
+    updated: 2026-04-14
+
+
+- id: CORP_ESO_NONDEDUCTIBLE
+  name: "주식매수선택권 행사차익 손금산입 요건 미충족"
+  category: reduction
+  tax_type: 법인세
+  priority: medium
+
+  applies_when:
+    op: and
+    of:
+      - {op: "==", left: "profile.is_corporation", right: true}
+      - {op: ">", left: "profile.eso_exercise_cost", right: 0}
+      - op: not
+        of:
+          - {op: "==", left: "profile.is_venture_or_sme", right: true}
+
+  diagnosis: "비벤처·비중소법인은 주식매수선택권 행사차익을 손금산입할 수 없음 — 성과급·상여 대체 검토"
+  recommendation:
+    action: "벤처기업 인증 추진 또는 상여 전환"
+    detail: "벤처·중소기업은 주식매수선택권 행사차익 손금산입 가능(법인세법 19조의2). 미해당 시 상여로 지급 후 근로소득 원천징수 처리"
+
+  estimator:
+    type: formula
+    name: corp_rate_exposure
+    params:
+      base_amount_ref: "profile.eso_exercise_cost"
+      corp_tax_rate_ref: "profile.corp_tax_rate"
+
+  legal_basis:
+    - {law: 법인세법, article: "제19조의2"}
+    - {law: 법인세법시행령, article: "제19조"}
+
+  risk:
+    level: medium
+    flags: ["손금불산입"]
+    caveat: "벤처기업확인서 · 중소기업 졸업 여부 · 부여계약의 법정요건 충족 여부 정밀 검토"
+
+  source:
+    ref: "CPA 2차 2024 Q4 주식매수선택권"
+    updated: 2026-04-14
+
+
+- id: CORP_DEEMED_DIVIDEND_WITHHOLDING
+  name: "의제배당 원천징수 의무 발생"
+  category: reduction
+  tax_type: 법인세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - {op: "==", left: "profile.is_corporation", right: true}
+      - {op: ">", left: "profile.deemed_dividend_amount", right: 0}
+
+  diagnosis: "감자·주식소각·해산 등으로 발생한 의제배당은 14% 원천징수 의무 — 주민세 1.4% 별도"
+  recommendation:
+    action: "원천징수 이행 및 지급명세서 제출"
+    detail: "의제배당액 = 주주 수령액 − 주식 취득가액. 14% 원천징수 후 익월 10일까지 납부, 지급명세서 다음해 2월말까지 제출"
+
+  estimator:
+    type: formula
+    name: corp_deemed_dividend_withholding
+    params:
+      amount_ref: "profile.deemed_dividend_amount"
+
+  legal_basis:
+    - {law: 법인세법, article: "제16조"}
+    - {law: 소득세법, article: "제127조"}
+
+  risk:
+    level: high
+    flags: ["원천징수", "지급명세서", "가산세"]
+    caveat: "원천징수 누락 시 원천징수불이행 가산세 10% + 미납가산세(연 10.95%)"
+
+  source:
+    ref: "CPA 2차 2025 Q4 의제배당"
+    updated: 2026-04-14
+
+
+- id: CORP_LOSS_CARRYBACK
+  name: "중소기업 결손금 소급공제 환급"
+  category: refund
+  tax_type: 법인세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - {op: "==", left: "profile.is_corporation", right: true}
+      - {op: "==", left: "profile.is_sme_corporation", right: true}
+      - {op: ">", left: "profile.current_year_loss", right: 0}
+      - {op: ">", left: "profile.prior_year_tax_paid", right: 0}
+
+  diagnosis: "중소기업은 당기 결손금을 직전 1년에 소급공제하여 이미 납부한 법인세를 환급받을 수 있음"
+  recommendation:
+    action: "결손금 소급공제 환급신청서 제출"
+    detail: "법인세 과세표준 신고기한까지 환급신청서 제출. 환급세액 = min(결손금 × 직전 평균세율, 직전 납부세액). 이월공제와 택1"
+
+  estimator:
+    type: formula
+    name: corp_loss_carryback_refund
+    params:
+      loss_ref: "profile.current_year_loss"
+      prior_tax_paid_ref: "profile.prior_year_tax_paid"
+      prior_taxable_income_ref: "profile.prior_year_taxable_income"
+
+  legal_basis:
+    - {law: 법인세법, article: "제72조"}
+
+  risk:
+    level: low
+    flags: ["환급", "중소기업_전용"]
+    caveat: "중소기업 요건 유지 필수. 직전 연도도 중소기업이어야 하며 이월공제와 중복 적용 불가"
+
+  source:
+    ref: "CPA 2차 2024 Q5 결손금 소급공제"
+    updated: 2026-04-14

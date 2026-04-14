@@ -740,7 +740,21 @@ A 정답률 > B 정답률 (도구 기여 입증)
 - [x] `local-ai-workstation/` 원본 13개 파일 `git rm` 완료 (commit ec5c830)
 - [x] **eval 하네스 재연결 완료** (2026-04-14): `agent/eval/{eval_loop,tax_verifier}.py`의 broken sys.path 제거 + output path 정상화 + 패키지 실행 경로(`python -m agent.eval.eval_loop`)로 전환. 스모크 테스트 통과(imports OK, ground-truth verify PASS).
 
-### Phase 6 후보
+### Phase 6 — strategy_engine v2 (진행 중)
 
-- 저가 양수 증여·비상장주식 평가 등 **strategy_engine 카탈로그 공백 메우기** (현 22규칙 → 30+ 목표)
+- [x] **법인세 v2 6규칙 추가 완료** (2026-04-14): 22→28 규칙. 2차 실증 78/78 근거 기반.
+  - CORP_BAD_DEBT_RESERVE_EXCESS — 대손충당금 한도초과 (법34·령61·62)
+  - CORP_RETIREMENT_RESERVE_EXCESS — 퇴직급여충당금 한도초과 (법33·령60)
+  - CORP_COMPANY_VEHICLE_EXCESS — 업무용승용차 1,500만 초과 (법27의2·령50의2)
+  - CORP_ESO_NONDEDUCTIBLE — 주식매수선택권 비벤처·비중소 손금불산입 리스크 (법19의2)
+  - CORP_DEEMED_DIVIDEND_WITHHOLDING — 의제배당 원천징수 14% (법16·소127)
+  - CORP_LOSS_CARRYBACK — 중소기업 결손금 소급공제 환급 (법72)
+  - 회귀: eval_strategy_catalog_v1 42/42 + 기존 57/57 + certify 26/26 무회귀 = 총 **95/95**
+- [ ] 증여세 4규칙 (저가양수·금전무상대여·부동산무상사용·보험금) — 2025 Q7 실증 근거
+- [ ] 비상장주식 평가 모듈 (상증법 63조) — 증여·상속·부당행위 공용
+- [ ] 조특법 세액공제 3종 (R&D·통합투자·고용증대)
+- [ ] 가업상속·가업승계 증여 특례 2종
+
+### Phase 7 후보 (장기)
+
 - eval 하네스 실전 운용: qwen3:32b A/B 회귀를 정기 실행해 로컬 모델 유효성 추적

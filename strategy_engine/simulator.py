@@ -248,6 +248,39 @@ def corp_loss_carryforward_savings(
     return int(usable * float(corp_tax_rate or 0.19))
 
 
+def corp_company_vehicle_savings(
+    expense: int = 0,
+    corp_tax_rate: float = 0.19,
+) -> int:
+    """업무용승용차 연 1,500만 초과분에 대한 손금불산입 익스포저."""
+    excess = max(int(expense or 0) - 15_000_000, 0)
+    return int(excess * float(corp_tax_rate or 0.19))
+
+
+def corp_deemed_dividend_withholding(amount: int = 0) -> int:
+    """의제배당 원천징수 14% (지방소득세 별도)."""
+    return int(max(int(amount or 0), 0) * 0.14)
+
+
+def corp_loss_carryback_refund(
+    loss: int = 0,
+    prior_tax_paid: int = 0,
+    prior_taxable_income: int = 0,
+) -> int:
+    """중소기업 결손금 소급공제 환급세액.
+
+    환급세액 = 직전 납부세액 × min(당기결손 / 직전과세표준, 1.0)
+    직전과세표준 정보가 없으면 직전 납부세액 전액으로 보수적 추정.
+    """
+    loss_i = int(loss or 0)
+    prior_tax = int(prior_tax_paid or 0)
+    prior_ti = int(prior_taxable_income or 0)
+    if loss_i <= 0 or prior_tax <= 0:
+        return 0
+    ratio = min(loss_i / prior_ti, 1.0) if prior_ti > 0 else 1.0
+    return int(prior_tax * ratio)
+
+
 # --- 상속세 v1 확장 --------------------------------------------------------
 
 def inh_spouse_deduction_savings(
@@ -309,6 +342,9 @@ FORMULAS = {
     "housing_rental_separation_savings": housing_rental_separation_savings,
     "other_income_separation_savings": other_income_separation_savings,
     "corp_loss_carryforward_savings": corp_loss_carryforward_savings,
+    "corp_company_vehicle_savings": corp_company_vehicle_savings,
+    "corp_deemed_dividend_withholding": corp_deemed_dividend_withholding,
+    "corp_loss_carryback_refund": corp_loss_carryback_refund,
     "inh_spouse_deduction_savings": inh_spouse_deduction_savings,
     "inh_installment_cashflow_benefit": inh_installment_cashflow_benefit,
     "gift_split_savings": gift_split_savings,

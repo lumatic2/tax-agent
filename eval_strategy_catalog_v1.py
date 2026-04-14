@@ -1,7 +1,10 @@
-"""strategy_engine v1 카탈로그 회귀 (22규칙).
+"""strategy_engine v1+v2 카탈로그 회귀 (28규칙).
 
-각 신규 규칙(15개)을 적용/비적용 페어로 검증.
+각 신규 규칙(21개)을 적용/비적용 페어로 검증.
 카운트·스코프 격리는 전체 셋 수준에서 확인.
+
+v2 (Phase 6): 법인세 6규칙 추가 — 실증 근거 기반
+  대손충당금·퇴직급여충당금·업무용승용차·주식매수선택권·의제배당·결손금소급공제
 """
 
 from __future__ import annotations
@@ -28,9 +31,9 @@ def test_catalog_counts_by_tax_type():
     counts = {}
     for r in rules:
         counts[r.tax_type] = counts.get(r.tax_type, 0) + 1
-    assert len(rules) == 22, f"전체 22개 예상, 실제 {len(rules)}"
+    assert len(rules) == 28, f"전체 28개 예상, 실제 {len(rules)}"
     assert counts.get("소득세") == 13
-    assert counts.get("법인세") == 5
+    assert counts.get("법인세") == 11
     assert counts.get("상속세") == 2
     assert counts.get("증여세") == 2
 
@@ -297,6 +300,89 @@ def test_gift_low_valuation_equal_price_skips():
     assert "GIFT_LOW_VALUATION" not in _ids(r["candidates"])
 
 
+# --- 법인세 v2 (Phase 6) — 실증 근거 6규칙 ------------------------------
+
+_CORP_BASE = {"is_corporation": True, "corp_tax_rate": 0.19}
+
+
+def test_corp_bad_debt_reserve_excess():
+    r = run({**_CORP_BASE, "bad_debt_reserve_paid": 100_000_000, "bad_debt_reserve_limit": 80_000_000})
+    # excess 20M × 19% = 3.8M
+    assert _saving(r["candidates"], "CORP_BAD_DEBT_RESERVE_EXCESS") == 3_800_000
+
+
+def test_corp_bad_debt_within_limit_skips():
+    r = run({**_CORP_BASE, "bad_debt_reserve_paid": 80_000_000, "bad_debt_reserve_limit": 100_000_000})
+    assert "CORP_BAD_DEBT_RESERVE_EXCESS" not in _ids(r["candidates"])
+
+
+def test_corp_retirement_reserve_excess():
+    r = run({**_CORP_BASE, "retirement_reserve_paid": 50_000_000, "retirement_reserve_limit": 20_000_000})
+    # excess 30M × 19% = 5.7M
+    assert _saving(r["candidates"], "CORP_RETIREMENT_RESERVE_EXCESS") == 5_700_000
+
+
+def test_corp_retirement_reserve_within_limit_skips():
+    r = run({**_CORP_BASE, "retirement_reserve_paid": 10_000_000, "retirement_reserve_limit": 20_000_000})
+    assert "CORP_RETIREMENT_RESERVE_EXCESS" not in _ids(r["candidates"])
+
+
+def test_corp_company_vehicle_no_log_over_limit():
+    r = run({**_CORP_BASE, "company_vehicle_expense": 25_000_000, "has_vehicle_log": False})
+    # excess over 15M → 10M × 19% = 1.9M
+    assert _saving(r["candidates"], "CORP_COMPANY_VEHICLE_EXCESS") == 1_900_000
+
+
+def test_corp_company_vehicle_with_log_skips():
+    r = run({**_CORP_BASE, "company_vehicle_expense": 25_000_000, "has_vehicle_log": True})
+    assert "CORP_COMPANY_VEHICLE_EXCESS" not in _ids(r["candidates"])
+
+
+def test_corp_eso_nondeductible_regular_corp():
+    r = run({**_CORP_BASE, "eso_exercise_cost": 30_000_000, "is_venture_or_sme": False})
+    # 30M × 19% = 5.7M
+    assert _saving(r["candidates"], "CORP_ESO_NONDEDUCTIBLE") == 5_700_000
+
+
+def test_corp_eso_venture_exemption_skips():
+    r = run({**_CORP_BASE, "eso_exercise_cost": 30_000_000, "is_venture_or_sme": True})
+    assert "CORP_ESO_NONDEDUCTIBLE" not in _ids(r["candidates"])
+
+
+def test_corp_deemed_dividend_withholding_applies():
+    r = run({**_CORP_BASE, "deemed_dividend_amount": 100_000_000})
+    # 100M × 14% = 14M
+    assert _saving(r["candidates"], "CORP_DEEMED_DIVIDEND_WITHHOLDING") == 14_000_000
+
+
+def test_corp_deemed_dividend_zero_skips():
+    r = run({**_CORP_BASE, "deemed_dividend_amount": 0})
+    assert "CORP_DEEMED_DIVIDEND_WITHHOLDING" not in _ids(r["candidates"])
+
+
+def test_corp_loss_carryback_sme_partial_ratio():
+    r = run({
+        **_CORP_BASE,
+        "is_sme_corporation": True,
+        "current_year_loss": 50_000_000,
+        "prior_year_tax_paid": 30_000_000,
+        "prior_year_taxable_income": 100_000_000,
+    })
+    # 30M × (50M/100M) = 15M
+    assert _saving(r["candidates"], "CORP_LOSS_CARRYBACK") == 15_000_000
+
+
+def test_corp_loss_carryback_non_sme_skips():
+    r = run({
+        **_CORP_BASE,
+        "is_sme_corporation": False,
+        "current_year_loss": 50_000_000,
+        "prior_year_tax_paid": 30_000_000,
+        "prior_year_taxable_income": 100_000_000,
+    })
+    assert "CORP_LOSS_CARRYBACK" not in _ids(r["candidates"])
+
+
 # --- 스코프 격리 (크로스-세목 오발동 금지) ------------------------------
 
 def test_income_profile_no_corp_or_estate_rules():
@@ -305,6 +391,9 @@ def test_income_profile_no_corp_or_estate_rules():
     for rid in (
         "CORP_EXECUTIVE_BONUS_EXCESS", "CORP_UNFAIR_HIGH_PRICE_PURCHASE",
         "CORP_ENTERTAINMENT_LIMIT", "CORP_DONATION_LIMIT", "CORP_LOSS_CARRYFORWARD",
+        "CORP_BAD_DEBT_RESERVE_EXCESS", "CORP_RETIREMENT_RESERVE_EXCESS",
+        "CORP_COMPANY_VEHICLE_EXCESS", "CORP_ESO_NONDEDUCTIBLE",
+        "CORP_DEEMED_DIVIDEND_WITHHOLDING", "CORP_LOSS_CARRYBACK",
         "INH_SPOUSE_DEDUCTION", "INH_INSTALLMENT_PAYMENT",
         "GIFT_SPLIT_10YEAR", "GIFT_LOW_VALUATION",
     ):
@@ -347,6 +436,18 @@ if __name__ == "__main__":
         ("corp donation", test_corp_donation_limit_over),
         ("corp loss sme", test_corp_loss_carryforward_sme),
         ("corp loss 80pct", test_corp_loss_carryforward_general_limited_to_80pct),
+        ("corp bad debt", test_corp_bad_debt_reserve_excess),
+        ("corp bad debt skip", test_corp_bad_debt_within_limit_skips),
+        ("corp retire", test_corp_retirement_reserve_excess),
+        ("corp retire skip", test_corp_retirement_reserve_within_limit_skips),
+        ("corp vehicle", test_corp_company_vehicle_no_log_over_limit),
+        ("corp vehicle log skip", test_corp_company_vehicle_with_log_skips),
+        ("corp eso", test_corp_eso_nondeductible_regular_corp),
+        ("corp eso venture skip", test_corp_eso_venture_exemption_skips),
+        ("corp deemed div", test_corp_deemed_dividend_withholding_applies),
+        ("corp deemed zero skip", test_corp_deemed_dividend_zero_skips),
+        ("corp carryback", test_corp_loss_carryback_sme_partial_ratio),
+        ("corp carryback non-sme skip", test_corp_loss_carryback_non_sme_skips),
         ("inh spouse", test_inh_spouse_deduction_maximize),
         ("inh spouse skip", test_inh_spouse_deduction_small_estate_skips),
         ("inh installment", test_inh_installment_large_payable),

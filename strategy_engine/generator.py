@@ -17,6 +17,7 @@ STRATEGY_CATEGORIES = {
     "bookkeeping",
     "timing",
     "reduction",
+    "refund",
 }
 
 

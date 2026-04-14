@@ -142,6 +142,28 @@ def _fill_defaults(p: dict, tax_result: dict) -> dict:
     p.setdefault("corp_taxable_income", 0)
     p.setdefault("is_sme_corporation", False)
 
+    # 법인세 v2 확장 (Phase 6 — 실증 근거 6규칙)
+    p.setdefault("bad_debt_reserve_paid", 0)
+    p.setdefault("bad_debt_reserve_limit", 0)
+    p.setdefault(
+        "bad_debt_reserve_excess",
+        max(p["bad_debt_reserve_paid"] - p["bad_debt_reserve_limit"], 0),
+    )
+    p.setdefault("retirement_reserve_paid", 0)
+    p.setdefault("retirement_reserve_limit", 0)
+    p.setdefault(
+        "retirement_reserve_excess",
+        max(p["retirement_reserve_paid"] - p["retirement_reserve_limit"], 0),
+    )
+    p.setdefault("company_vehicle_expense", 0)
+    p.setdefault("has_vehicle_log", False)
+    p.setdefault("eso_exercise_cost", 0)
+    p.setdefault("is_venture_or_sme", False)
+    p.setdefault("deemed_dividend_amount", 0)
+    p.setdefault("current_year_loss", 0)
+    p.setdefault("prior_year_tax_paid", 0)
+    p.setdefault("prior_year_taxable_income", 0)
+
     # 상속세 v1 추가 필드
     p.setdefault("is_inheritance_case", False)
     p.setdefault("spouse_exists", False)

@@ -15,6 +15,11 @@ dependencies = [
   "rich>=13.7.0",
   "fpdf2>=2.8.7",
   "pyyaml>=6.0.3",
+  "streamlit>=1.38",
+  "langgraph>=0.2",
+  "langchain-core>=0.3",
+  "langchain-ollama>=0.2",
+  "pywebview>=5.0",
 ]
 
 [project.scripts]
@@ -38,4 +43,4 @@ py-modules = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["strategy_engine*"]
+include = ["strategy_engine*", "agent*"]

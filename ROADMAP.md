@@ -721,27 +721,24 @@ A 정답률 > B 정답률 (도구 기여 입증)
   - [x] 2025 Q6: 연결납세 — 2/2
   - [x] 2025 Q7: 증여세(부동산 무상사용·금전무상대출·보험금) — 5/5 (JSON 누락 2건 보완)
 - [x] Phase 5-A **strategy_engine 카탈로그화 완료** (2026-04-14): 22규칙 + 57/57 회귀 + certify 26/26 무회귀
+- [x] Phase 5-B **프론트엔드 통합 완료** (2026-04-14): `local-ai-workstation` → `tax-agent` 이전 + UI 4탭 + LangGraph 6 tool + `TaxAgent.exe` 재빌드
+  - [x] 1-2. 13개 파일 복사 + import 경로 재편 (`sys.path` 제거, `tax_rag` → `agent.rag`, `.env` 경로 단순화)
+  - [x] 3. pyproject 의존성 5종 추가 (`streamlit`, `langgraph`, `langchain-core`, `langchain-ollama`, `pywebview`)
+  - [x] 4. PyInstaller spec 전면 재작성 (패키지형 `strategy_engine` + YAML rules 번들)
+  - [x] 5. Streamlit 부팅 테스트 (HTTP 200, 로그 청정)
+  - [x] 6. UI 5탭(소득세·법인세·상속세·증여세·법령검색) + LangGraph `@tool` 6개
+  - [x] 7. `TaxAgent.exe` 재빌드 96MB + 바탕화면 바로가기 갱신
+  - [x] 7-A. Ollama 자동 기동 로직 추가 (`tax_app.py`의 `ensure_ollama`)
+  - [x] 7-B. 140GB 모델 C:→D: 이동 (시스템 env `OLLAMA_MODELS=D:\ollama\models` 정합성 복구)
+  - [x] 7-C. 소득세 탭 결정론적 엔진 직접 호출 (qwen3:32b이 툴 우회하는 케이스 보정 — `tax_calculator` + `strategy_engine.run` 직접)
+  - [x] 7-D. 사용자 GUI 실증 완료 (절세 전략 섹션 채워짐 확인)
+  - [x] 8. `local-ai-workstation/{infrastructure,phase1_automation/tax_rag,assets}` 13개 파일 `git rm` 완료 (2026-04-14, commit ec5c830)
 
-### 다음 세션 — Phase 5-B: 프론트엔드 통합 (`local-ai-workstation` → `tax-agent` 이전)
+### 이어서 할 일 — Phase 5-B 마감 + Phase 6
 
-> **배경**: 바탕화면 `Tax Agent.exe`는 별도 프로젝트 `~/projects/local-ai-workstation`에 있음 (Streamlit + LangGraph + Ollama qwen3:32b). 이미 `sys.path.insert('../tax-agent')`로 백엔드를 import 중. 유지보수 단순화 위해 세무 관련 자산을 전부 `tax-agent`로 이전하기로 결정.
-
-**이전 대상**:
-- `infrastructure/tax_dashboard.py`, `tax_app.py`(pywebview), `start_tax_app.bat`, `create_shortcut.ps1` → `tax-agent/app/`
-- `phase1_automation/track_b_poc.py`, `law_client.py`, `tax_verifier.py`, `eval_loop.py`, `tax_rag/` → `tax-agent/agent/`
-- `TaxAgentDebug.spec`, `infrastructure/tax_agent.spec` → `tax-agent/packaging/`
-- `assets/icon.ico`, `icon_1024.png`, `make_desktop_shortcut.ps1` → `tax-agent/assets/`
-
-**비-이전**: phase0_benchmark, phase2_advanced(투자), hardware.md, roi-analysis.md는 `local-ai-workstation`에 잔류.
-
-**작업 순서** (PlanMode 권장, 대공사):
-1. 디렉토리 생성 + 파일 복사 (원본 유지, 검증 후 정리)
-2. import 경로 수정: `sys.path.insert('../tax-agent')` 제거, `tax_rag` → `agent.rag`, 등
-3. `pyproject.toml` 의존성 추가: `streamlit`, `langgraph`, `langchain-core`, `langchain-ollama`, `pywebview` → `uv sync`
-4. PyInstaller `.spec` 경로 갱신 + **YAML 리소스 번들링 추가** (`strategy_engine/rules/**/*.yaml` datas, `yaml` hiddenimports)
-5. Streamlit 런타임 테스트 — 새 엔진(22규칙) 동작 확인
-6. **UI 확장**: 현 소득세 탭 외 **법인세·상속세·증여세 탭 3개 추가** + LangGraph `@tool` 3개 추가 (`get_corporate_tax_strategies`, `get_inheritance_strategies`, `get_gift_strategies`)
-7. `.exe` 재빌드 + 바탕화면 바로가기 갱신 (타깃 경로 변경)
-8. ROADMAP 갱신 + 원본 `local-ai-workstation` 세무 폴더 정리(검증 후)
-
-**백엔드 준비 상태**: `strategy_engine.run(profile)`이 이미 4세목 전부 지원. API 변경 불필요.
+1. **사용자 GUI 실증** — `바탕화면 → Tax Agent.lnk` 더블클릭 → 4개 탭 각각 1건씩 시나리오 테스트. 실패 시 콘솔 로그(`--streamlit` 재실행 모드)로 디버깅.
+2. 검증 완료 시 `local-ai-workstation/` 원본 13개 파일 `git rm` — 정리 대상 목록:
+   - `infrastructure/tax_dashboard.py`, `tax_app.py`, `start_tax_app.bat`, `create_shortcut.ps1`, `tax_agent.spec`
+   - `phase1_automation/track_b_poc.py`, `law_client.py`, `tax_verifier.py`, `eval_loop.py`, `tax_rag/`
+   - `assets/icon.ico`, `icon_1024.png`, `make_desktop_shortcut.ps1`
+3. (Phase 6 후보) 저가 양수 증여·비상장주식 평가 등 누락 규칙 추가, eval 하네스(`agent/eval/eval_loop.py`) 재연결.

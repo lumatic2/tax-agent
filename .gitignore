@@ -1,6 +1,7 @@
 node_modules/
 .env
 dist/
+build/
 __pycache__/
 *.pyc
 .venv/
@@ -10,6 +11,9 @@ __pycache__/
 data/*.xml
 extract_art17.py
 tax_agent.egg-info/
+
+# Claude Code 로컬 캐시 (워크트리 lock, 세션 설정 등)
+.claude/
 
 # 변경 이유:
 # - 법령 개정 감지 리포트는 매 실행 시 갱신되는 휘발성 결과물이라 버전관리 노이즈를 줄인다.

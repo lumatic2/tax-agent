@@ -467,6 +467,14 @@ Phase 2 **Level 4 달성** (2026-04-12). Phase 3 시작.
 
 **Phase 5-A 통합 회귀**: eval_strategy_rules 12/12 + e2e 7/7 + corp_risk 8/8 + catalog_v1 30/30 = **57/57** + certify_phase1 26/26 유지
 
+### Phase 5-B — execution_planner (2026-04-14)
+
+- [x] `execution_planner.py` — 4세목(income_tax·corporate_tax·vat·inheritance_gift)
+      신고서 초안 MVP. tax_result + strategy + judgment 통합.
+- [x] 출력 스키마: 신고서제목·과세기간·행항목·적용전략·판단이슈·체크리스트·주의사항
+- [x] `eval_execution_planner.py` 6/6 통과 (각 세목 basic + strategy/judgment 통합 + unsupported)
+- [ ] 세목별 신고서 서식(pdf) 출력은 Phase 8 이후
+
 ---
 
 ## Phase 6 — 판단형 세무 에이전트 (Judgment Layer)
@@ -519,6 +527,42 @@ strategy_engine.run(profile)
 - `eval_judgment_v1.py`: ruling_match ≥ 8/10, source_match ≥ 7/10, forbidden_avoided = 10/10
 - 기존 회귀 유지: `eval_strategy_catalog_v1.py` 57/57 + `eval_goldset.py` ≥ 80%
 - Phase 6 성공 → Phase 7에서 법인세/부가세/상증세로 횡확장
+
+### Phase 6 검증 완료 (2026-04-14)
+
+- [x] eval_judgment_v1 소득세 10/10: ruling 8/10, source 10/10, forbidden 10/10 ✅
+- [x] eval_strategy_catalog_v1: 94/94 ✅ (기존 57/57에서 확장)
+- [x] eval_goldset: 25/25 = 100% ✅
+
+---
+
+## Phase 7 — 판단 레이어 횡확장 (2026-04-14 완료)
+
+Phase 6 MVP(소득세 10) 아키텍처를 법인세·부가세·상증세로 확장.
+
+### 산출물
+
+- `reasoning_engine/issues/` 디렉토리 스캔으로 멀티 scope 로딩
+  - `corporate_tax_gray.yaml` 8 issues
+  - `vat_gray.yaml` 6 issues
+  - `inheritance_gift_gray.yaml` 6 issues
+- `data/eval/judgment_goldset_v1_{scope}.yaml` 분리 (글롭 로딩)
+- `eval_judgment_v1.py --scope {corporate_tax|vat|inheritance_gift}` 필터 추가
+
+### 결과 (26 총 케이스, 3메트릭)
+
+| 세목 | ruling | source | forbidden |
+|---|---|---|---|
+| 소득세 (기존) | 8/10 | 10/10 | 10/10 |
+| 법인세 | 7/8 (87%) | 8/8 | 8/8 |
+| 부가세 | 4/6 (67%) | 6/6 | 6/6 |
+| 상증세 | 5/6 (83%) | 6/6 | 6/6 |
+| **전체** | **24/30 (80%)** | **30/30 (100%)** | **30/30 (100%)** |
+
+부가세 67%는 3건 LLM 보수 bias(안분 선호·실질과세 약함·최신판례 미반영).
+향후 프롬프트 v6 또는 adversary_rewrites 활성화로 개선 여지.
+
+### Phase 7 완료. Phase 5 상위레이어로 이동.
 
 ---
 

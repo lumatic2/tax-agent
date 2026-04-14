@@ -1,0 +1,134 @@
+# 상속·증여세 회색지대 이슈 카탈로그 v1 — Phase 7 횡확장
+#
+# 6이슈 커버리지:
+#   비상장주식 평가 1종, 명의신탁 증여의제 1종, 가업상속 사후관리 1종,
+#   부담부증여 1종, 사전증여 합산 1종, 금전무상대부 증여 1종
+
+- id: GRAY_INH_NONLISTED_STOCK_VALUATION
+  title: 비상장주식 보충적 평가방법 적용
+  scope: inheritance_gift
+  description: |
+    비상장주식 평가 시 시가 부재로 보충적 평가(자산가치+수익가치 가중평균)
+    적용. 부동산과다보유법인·신생법인·청산법인 등에 따라 가중치·예외 다툼.
+  trigger_conditions:
+    op: and
+    of:
+      - has_inheritance_or_gift
+      - asset_type: 비상장주식
+      - market_price_unavailable: true
+  statutes:
+    - {law: 상속세 및 증여세법, article: 제60조}
+    - {law: 상속세 및 증여세법, article: 제63조}
+    - {law: 상속세 및 증여세법 시행령, article: 제54조}
+    - {law: 상속세 및 증여세법 시행령, article: 제55조}
+  ruling_spectrum: [보충적평가적용, 매매사례가적용, 감정가적용]
+  search_queries: [비상장주식, 보충적평가, 자산가치]
+  gray_reason: |
+    원칙은 자산:수익 = 2:3 가중평균. 부동산과다보유법인은 자산가치만 적용.
+    매매사례가·감정가가 시가 우선이나 진정성 다툼 잦음.
+
+- id: GRAY_INH_NAME_TRUST_DEEMED_GIFT
+  title: 명의신탁 주식 증여의제 조세회피 목적
+  scope: inheritance_gift
+  description: |
+    실소유자가 타인 명의로 주식 보유 시 명의자에게 증여세. "조세회피 목적
+    없음" 입증 시 면제. 원시취득·재증여·경영권분산 등 사례별 다툼.
+  trigger_conditions:
+    op: and
+    of:
+      - has_inheritance_or_gift
+      - name_trust_share_exists: true
+  statutes:
+    - {law: 상속세 및 증여세법, article: 제45조의2}
+  ruling_spectrum: [증여의제과세, 조세회피목적없음인정, 재증여중복과세제외]
+  search_queries: [명의신탁, 증여의제, 조세회피]
+  gray_reason: |
+    조세회피 목적 부재 입증책임은 명의자(판례 일관). 단 매도대금으로 동일인
+    명의 재취득은 중복 과세 제외(2025년 의정부 판례).
+
+- id: GRAY_INH_FAMILY_BUSINESS_AFTER_MGMT
+  title: 가업상속공제 사후관리 위배
+  scope: inheritance_gift
+  description: |
+    가업상속공제(최대 600억) 적용 후 사후관리 5년(2023 개정전 10년) 동안
+    사업 폐지·고용유지 80% 미달·자산 40% 처분 시 추징. 위배 사유·시점
+    판정 다툼.
+  trigger_conditions:
+    op: and
+    of:
+      - has_inheritance_or_gift
+      - family_business_deduction_applied: true
+      - post_inheritance_event: true
+  statutes:
+    - {law: 상속세 및 증여세법, article: 제18조}
+    - {law: 상속세 및 증여세법 시행령, article: 제15조}
+  ruling_spectrum: [사후관리유지, 추징적용, 부분추징]
+  search_queries: [가업상속, 사후관리, 추징]
+  gray_reason: |
+    2023.1.1 이후 상속분은 사후관리 5년, 그 전은 10년 — 소급 적용 다툼
+    있었으나 부정(2025 수원). 고용유지·매출유지·자산처분 3중 요건 각각 판단.
+
+- id: GRAY_INH_DEBT_GIFT_BURDEN
+  title: 부담부증여 채무인수 진정성
+  scope: inheritance_gift
+  description: |
+    부동산 증여 시 수증자가 인수하는 채무(전세보증금·근저당)는 증여재산에서
+    차감, 채무액은 증여자 양도세 과세. 채무 진정성·인수의무 입증 다툼.
+  trigger_conditions:
+    op: and
+    of:
+      - has_inheritance_or_gift
+      - asset_type: 부동산
+      - debt_assumed_by_donee: true
+  statutes:
+    - {law: 상속세 및 증여세법, article: 제47조}
+    - {law: 상속세 및 증여세법 시행령, article: 제36조}
+    - {law: 소득세법, article: 제88조}
+  ruling_spectrum: [부담부증여인정, 단순증여재구성, 일부인정]
+  search_queries: [부담부증여, 채무인수, 양도]
+  gray_reason: |
+    실제 채무 변제 능력·이자 지급·원금 상환 입증 필요. 가족간 임대보증금이나
+    명목상 채무는 단순증여로 재구성되어 양도세 분리과세 효과 무효.
+
+- id: GRAY_INH_PRIOR_GIFT_10Y_AGGREGATE
+  title: 상속개시 전 10년 사전증여재산 합산
+  scope: inheritance_gift
+  description: |
+    상속인은 10년, 비상속인은 5년 내 사전증여재산을 상속세 과세가액에 합산.
+    대습상속·재증여·증여세 신고누락 시 합산 범위·기간 다툼.
+  trigger_conditions:
+    op: and
+    of:
+      - has_inheritance_or_gift
+      - inheritance_event: true
+      - prior_gift_within_10y: true
+  statutes:
+    - {law: 상속세 및 증여세법, article: 제13조}
+    - {law: 상속세 및 증여세법 시행령, article: 제3조}
+  ruling_spectrum: [전액합산, 대습특례적용, 합산제외]
+  search_queries: [사전증여, 합산, 대습상속]
+  gray_reason: |
+    대습상속인도 10년 합산(2019 서울행정 판례). 신고누락 사전증여는 부과제척기간
+    내 추징. 상속개시 시점 기준 역산.
+
+- id: GRAY_INH_FREE_LOAN_GIFT
+  title: 금전 무상대부에 따른 이익 증여
+  scope: inheritance_gift
+  description: |
+    부모가 자녀에게 무이자 또는 적정이자율(연 4.6%) 미만 대여 시 이자상당액을
+    증여로 의제. 1년 단위 이자 누계 1천만 미만은 비과세. 차용증·상환계획 부재
+    시 원본 자체를 증여로 재구성.
+  trigger_conditions:
+    op: and
+    of:
+      - has_inheritance_or_gift
+      - free_or_low_interest_loan: true
+      - loan_amount_above: 217_000_000
+  statutes:
+    - {law: 상속세 및 증여세법, article: 제41조의4}
+    - {law: 상속세 및 증여세법 시행령, article: 제31조의4}
+  ruling_spectrum: [이자상당액과세, 원본증여재구성, 과세제외]
+  search_queries: [금전무상대부, 증여의제, 적정이자율]
+  gray_reason: |
+    2.17억 초과 대여만 과세(연 1천만 이하 면제 환산). 차용증·이자지급·상환
+    실적 없으면 원본 전액 증여로 재구성될 위험 — 소명 입증 핵심.

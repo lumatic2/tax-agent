@@ -1,0 +1,133 @@
+# 부가세 회색지대 이슈 카탈로그 v1 — Phase 7 횡확장
+#
+# 6이슈 커버리지:
+#   세금계산서 적격성 2종(자료상·명의위장), 매입세액 적격성 2종(사업관련·겸영안분),
+#   영세율 입증 1종, 과세유형 전환 1종
+
+- id: GRAY_VAT_FAKE_INVOICE
+  title: 자료상 가공세금계산서 매입세액 불공제
+  scope: vat
+  description: |
+    공급자가 자료상으로 적발된 경우, 매입자가 수취한 세금계산서가 가공이라
+    매입세액 불공제 + 가산세. 매입자의 선의·무과실(공급자 자료상임을 몰랐음)
+    입증 시 일부 구제.
+  trigger_conditions:
+    op: and
+    of:
+      - has_vat_business
+      - supplier_is_data_dealer: true
+      - input_vat_claimed: true
+  statutes:
+    - {law: 부가가치세법, article: 제39조}
+    - {law: 부가가치세법, article: 제32조}
+  ruling_spectrum: [전액불공제, 선의무과실인정, 부분공제]
+  search_queries: [자료상, 가공세금계산서, 선의무과실]
+  gray_reason: |
+    "공급자가 자료상" 사실만으론 가공 단정 불가(예규·판례). 실물거래·대금지급·
+    배송증빙 입증되면 공제 인정. 매입자가 거래상대방 진위 확인 노력했는지가 핵심.
+
+- id: GRAY_VAT_INPUT_BUSINESS_RELATED
+  title: 매입세액 사업관련성 판정
+  scope: vat
+  description: |
+    사업자가 취득한 자산·용역이 사업과 직접 관련 있어야 매입세액 공제. 차량·
+    골프장·임직원 사적사용 혼재 시 공제 범위 다툼.
+  trigger_conditions:
+    op: and
+    of:
+      - has_vat_business
+      - mixed_use_purchase: true
+  statutes:
+    - {law: 부가가치세법, article: 제39조}
+    - {law: 부가가치세법 시행령, article: 제77조}
+  ruling_spectrum: [전액공제, 사업비율안분, 전액불공제]
+  search_queries: [매입세액, 사업관련성, 사적사용]
+  gray_reason: |
+    8인승 이하 비영업용 승용차는 명문 불공제(법 §39①5). 골프회원권·접대성
+    지출은 판례 일관 불공제. 직원복지·통근버스는 공제 인정.
+
+- id: GRAY_VAT_ZERO_RATE_PROOF
+  title: 영세율 적용 외화획득 입증
+  scope: vat
+  description: |
+    직수출·외화획득 사업(운송·관광·중개)에 영세율(0%) 적용. 외화입금증빙·
+    수출신고필증·계약서 부재 시 영세율 부인되고 일반세율 10% 추징.
+  trigger_conditions:
+    op: and
+    of:
+      - has_vat_business
+      - zero_rate_claimed: true
+      - foreign_currency_proof_incomplete: true
+  statutes:
+    - {law: 부가가치세법, article: 제21조}
+    - {law: 부가가치세법, article: 제22조}
+    - {law: 부가가치세법, article: 제24조}
+  ruling_spectrum: [영세율인정, 영세율부인, 일부인정]
+  search_queries: [영세율, 외화획득, 입증]
+  gray_reason: |
+    수출신고필증·외화입금증명서·외국법인 계약서가 표준 증빙. 일부만 있으면
+    실질심사. 외화 아닌 원화 결제도 외화환산 기준 충족하면 영세율.
+
+- id: GRAY_VAT_MIXED_USE_APPORTIONMENT
+  title: 겸영사업자 공통매입세액 안분
+  scope: vat
+  description: |
+    과세·면세 겸영사업자가 공통으로 사용한 매입세액은 매출비율로 안분.
+    예정신고·확정신고 시 안분비율과 정산 시 비율이 달라 추가 정산 발생.
+  trigger_conditions:
+    op: and
+    of:
+      - has_vat_business
+      - mixed_taxable_exempt_business: true
+      - common_input_vat: true
+  statutes:
+    - {law: 부가가치세법, article: 제40조}
+    - {law: 부가가치세법 시행령, article: 제81조}
+    - {law: 부가가치세법 시행령, article: 제82조}
+  ruling_spectrum: [매출비율안분, 사용면적안분, 정산조정]
+  search_queries: [공통매입, 안분, 겸영]
+  gray_reason: |
+    원칙은 매출비율, 단 매출 비교가 부적절하면 사용면적·종업원 수 등 합리적
+    기준 허용. 면세사업 매출이 5% 이하면 전액 공제 특례.
+
+- id: GRAY_VAT_SIMPLIFIED_CONVERSION
+  title: 간이과세-일반과세 전환 시점·재고매입세액
+  scope: vat
+  description: |
+    간이→일반 전환 시 재고매입세액 공제 가능, 일반→간이 전환 시 재고납부세액
+    가산. 직전 1년 매출 1억 400만 기준 충족 여부 판정과 명의 분산 의심 시
+    실질사업자 판정 다툼.
+  trigger_conditions:
+    op: and
+    of:
+      - has_vat_business
+      - revenue_around_threshold: true
+  statutes:
+    - {law: 부가가치세법, article: 제62조}
+    - {law: 부가가치세법, article: 제64조}
+    - {law: 부가가치세법 시행령, article: 제109조}
+  ruling_spectrum: [간이과세유지, 일반과세전환, 명의분산부인]
+  search_queries: [간이과세, 일반과세전환, 재고매입세액]
+  gray_reason: |
+    가족 명의로 매장 분리 운영하면 명의 분산으로 일반과세 회피 시도.
+    실질사업자 합산 매출로 판정. 사업자등록 분리만으론 부족.
+
+- id: GRAY_VAT_FALSE_INVOICE_RECIPIENT
+  title: 사실과 다른 세금계산서 매입자 책임
+  scope: vat
+  description: |
+    공급자명·금액·품목이 실거래와 다른 세금계산서. 매입자가 그 사실을 알았거나
+    알 수 있었는지에 따라 매입세액 공제 부인. 위장공급·끼워넣기 거래.
+  trigger_conditions:
+    op: and
+    of:
+      - has_vat_business
+      - invoice_facts_disputed: true
+  statutes:
+    - {law: 부가가치세법, article: 제39조}
+    - {law: 국세기본법, article: 제14조}
+  ruling_spectrum: [선의무과실공제인정, 과실인정불공제, 악의불공제]
+  search_queries: [사실과다른세금계산서, 위장거래, 끼워넣기]
+  gray_reason: |
+    매입자가 공급자 사업자등록증·통장사본·현장확인 등 통상의 거래상대방
+    확인 절차를 거쳤는지가 선의·무과실 판단 기준. 형식만으론 부족.

@@ -26,16 +26,27 @@ from reasoning_engine.legal_retriever import retrieve
 from reasoning_engine.reasoner import reason
 
 ROOT = Path(__file__).parents[1]
-ISSUES_FILE = ROOT / 'reasoning_engine' / 'issues' / 'income_tax_gray.yaml'
-GOLDSET_FILE = ROOT / 'data' / 'eval' / 'judgment_goldset_v1.yaml'
+ISSUES_DIR = ROOT / 'reasoning_engine' / 'issues'
+GOLDSET_DIR = ROOT / 'data' / 'eval'
+GOLDSET_GLOB = 'judgment_goldset_*.yaml'
 
 
 def _load_issues() -> list[dict[str, Any]]:
-    return yaml.safe_load(ISSUES_FILE.read_text(encoding='utf-8'))
+    out: list[dict[str, Any]] = []
+    for path in sorted(ISSUES_DIR.glob('*.yaml')):
+        data = yaml.safe_load(path.read_text(encoding='utf-8'))
+        if data:
+            out.extend(data)
+    return out
 
 
 def _load_cases() -> list[dict[str, Any]]:
-    return yaml.safe_load(GOLDSET_FILE.read_text(encoding='utf-8'))
+    out: list[dict[str, Any]] = []
+    for path in sorted(GOLDSET_DIR.glob(GOLDSET_GLOB)):
+        data = yaml.safe_load(path.read_text(encoding='utf-8'))
+        if data:
+            out.extend(data)
+    return out
 
 
 def _find_issue(issue_id: str) -> dict[str, Any]:

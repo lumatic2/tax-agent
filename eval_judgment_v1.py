@@ -26,12 +26,18 @@ import yaml
 from reasoning_engine.orchestrator import run as orchestrate
 
 ROOT = Path(__file__).parent
-GOLDSET_FILE = ROOT / 'data' / 'eval' / 'judgment_goldset_v1.yaml'
+GOLDSET_DIR = ROOT / 'data' / 'eval'
+GOLDSET_GLOB = 'judgment_goldset_*.yaml'
 RUNS_DIR = ROOT / 'data' / 'eval' / 'judgment_runs'
 
 
 def _load_cases() -> list[dict[str, Any]]:
-    return yaml.safe_load(GOLDSET_FILE.read_text(encoding='utf-8'))
+    out: list[dict[str, Any]] = []
+    for path in sorted(GOLDSET_DIR.glob(GOLDSET_GLOB)):
+        data = yaml.safe_load(path.read_text(encoding='utf-8'))
+        if data:
+            out.extend(data)
+    return out
 
 
 def score_case(case: dict[str, Any], judgment: dict[str, Any]) -> dict[str, Any]:
@@ -82,6 +88,7 @@ def score_case(case: dict[str, Any], judgment: dict[str, Any]) -> dict[str, Any]
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument('--cases', default='', help='comma-separated case id prefixes (J001,J003)')
+    ap.add_argument('--scope', default='', help='filter by issue scope (income_tax, corporate_tax, vat, inheritance_gift)')
     ap.add_argument('--model', default=None)
     ap.add_argument('--save-runs', action='store_true')
     args = ap.parse_args()
@@ -90,6 +97,9 @@ def main() -> None:
     if args.cases:
         wanted = [w.strip() for w in args.cases.split(',') if w.strip()]
         cases = [c for c in cases if any(c['id'].startswith(w) for w in wanted)]
+    if args.scope:
+        from reasoning_engine.orchestrator import _find_issue
+        cases = [c for c in cases if _find_issue(c['issue_id']).get('scope') == args.scope]
 
     results: list[dict[str, Any]] = []
     runs: list[dict[str, Any]] = []

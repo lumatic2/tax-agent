@@ -1,0 +1,292 @@
+# 판단 품질 골드셋 v1 — Phase 7 법인세 회색지대 8케이스
+#
+# 목표: ruling_match ≥ 7/8, source_match ≥ 6/8, forbidden_avoided = 8/8
+
+- id: J101_corp_family_low_price_sale
+  issue_id: GRAY_CORP_FAMILY_FAIR_PRICE
+  description: |
+    제조업 법인이 대표이사 배우자에게 보유 토지(공시지가 12억, 감정가 18억)를
+    10억에 매각. 매매계약서·등기 완료. 외부 감정평가 1건 존재.
+  profile:
+    has_corporate_income: true
+    related_party_transaction: true
+    transaction_type: 토지매각
+    counterparty: 대표이사_배우자
+    sale_price: 1_000_000_000
+    appraised_value: 1_800_000_000
+    price_deviation: 0.444
+  expected_ruling: 부당행위계산부인
+  expected_ruling_detail: |
+    감정가(시가) 대비 매각가 차액 8억(44%)이 5% 또는 3억원 기준 초과.
+    부당행위계산부인 적용, 시가 18억으로 익금산입 후 처분.
+  authoritative_sources:
+    - type: precedent
+      precedent_id: "322592"
+      사건번호: 서울행정법원-2013-구합-9205
+      사건명: 원고와 특수관계자인 개인사업장간의 거래는 부당행위계산부인 대상 거래에 해당하고, 처분청이 계산한 시가는 적법함
+      선고일자: "2013.09.06"
+    - type: statute
+      law: 법인세법
+      article: 제52조
+    - type: statute
+      law: 법인세법 시행령
+      article: 제88조
+  forbidden_reasoning:
+    - 매매계약서가 있으므로 거래가액 인정
+    - 감정가는 참고일 뿐 매매가가 우선
+  notes: |
+    44% 차액은 5% 기준 명백 초과. 감정가 우선 원칙(법령 §89 시가 산정 순위).
+
+- id: J102_corp_exec_bonus_no_bylaw_limit
+  issue_id: GRAY_CORP_EXEC_BONUS_BYLAW
+  description: |
+    중소법인. 정관에 "임원 보수는 이사회 결의로 정한다"만 명시, 구체 한도 없음.
+    대표이사에게 정기상여 외 특별상여 5억 추가 지급. 주총 별도 결의 없음.
+  profile:
+    has_corporate_income: true
+    executive_bonus_paid: true
+    bylaw_has_specific_limit: false
+    shareholder_resolution: false
+    special_bonus_amount: 500_000_000
+  expected_ruling: 전액손금부인
+  expected_ruling_detail: |
+    정관에 한도금액·산정방식이 명시되지 않고 주총 결의도 없으면 시행령 §43
+    요건 미충족. 임원에게 지급한 특별상여 5억 전액 손금부인 + 상여처분.
+  authoritative_sources:
+    - type: precedent
+      precedent_id: "325994"
+      사건번호: 대법원-2019-두-50786
+      사건명: 임원보수 지급규정에서 정한 지급률을 초과하여 지급한 실적상여금 부분은 손금에 산입할 수 없음
+      선고일자: "2019.11.28"
+    - type: precedent
+      precedent_id: "244192"
+      사건번호: 창원지방법원-2014-구합-21422
+      사건명: 지급규정 없이 지급한 임원상여금을 손금 부인한 처분은 정당함
+      선고일자: "2015.06.16"
+    - type: statute
+      law: 법인세법 시행령
+      article: 제43조
+  forbidden_reasoning:
+    - 이사회 결의가 있으므로 손금 인정
+    - 대표이사 보수는 회사 자율
+  notes: |
+    "이사회 결의로 정한다" 위임 조항만으로는 부족. 정관에 금액·산정방식 또는
+    주총 결의 필요(예규·판례 일관).
+
+- id: J103_corp_executive_loan_no_borrowing
+  issue_id: GRAY_CORP_GAJIGEUPGEUM_INTEREST
+  description: |
+    무차입 중소법인. 대표이사에게 운영자금 3억 무이자 대여. 사후 인정이자
+    계산 시 당좌대출이자율(4.6%) 또는 가중평균차입이자율 선택 다툼.
+  profile:
+    has_corporate_income: true
+    executive_loan_outstanding: 300_000_000
+    interest_rate_charged: 0.0
+    company_has_borrowing: false
+    rate_election_filed: false
+  expected_ruling: 당좌대출이자율적용
+  expected_ruling_detail: |
+    무차입 법인은 가중평균이자율 산출 불가 — 시행령 §89④에 따라 당좌대출
+    이자율 강제 적용. 연 4.6% × 3억 = 1,380만원 인정이자 익금산입 + 상여처분.
+  authoritative_sources:
+    - type: precedent
+      precedent_id: "325938"
+      사건번호: 대구고등법원-2018-누-4923
+      사건명: 가지급금 인정이자 계산 시 당좌대출이자율로 선택하여 신고 시에는 이후 2개 사업연도에도 당좌대출이자율을 적용
+      선고일자: "2019.07.26"
+    - type: statute
+      law: 법인세법
+      article: 제28조
+    - type: statute
+      law: 법인세법 시행령
+      article: 제89조
+  forbidden_reasoning:
+    - 무이자 대여이므로 인정이자 없음
+    - 차입금이 없으므로 인정이자 산정 면제
+  notes: |
+    무차입 법인 → 당좌대출이자율 강제. 일단 선택하면 3년간 동일 이율 적용 의무.
+
+- id: J104_corp_dealer_subsidy_promotional
+  issue_id: GRAY_CORP_ENTERTAIN_VS_AD
+  description: |
+    가전 제조법인이 특정 대리점 5곳에 매장 인테리어 비용 7억 무상 지원.
+    "광고선전비" 계상. 대리점 명단·지원 조건 계약서 존재. 일반 소비자 아닌
+    대리점만 수혜.
+  profile:
+    has_corporate_income: true
+    promotional_expense: 700_000_000
+    beneficiary_type: 특정대리점
+    is_unspecified_public: false
+    has_contract_with_dealer: true
+  expected_ruling: 접대비재분류
+  expected_ruling_detail: |
+    불특정 다수가 아닌 특정 거래처(대리점)만 수혜. 광고선전비가 아닌 접대비
+    (기업업무추진비)에 해당하여 한도 규제 적용. 한도초과분 손금부인 + 사외유출.
+  authoritative_sources:
+    - type: precedent
+      precedent_id: "293016"
+      사건번호: 대법원-2005-두-8368
+      사건명: 대리점에 무상지원한 공사비가 접대비인지, 광고선전비인지를 가리는데 있음
+      선고일자: "2007.02.08"
+    - type: precedent
+      precedent_id: "308208"
+      사건번호: 서울고등법원-2009-누-40621
+      사건명: 특정거래업체에 특정조건으로 지출한 광고선전비가 접대비에 해당하는지 여부
+      선고일자: "2010.06.24"
+    - type: statute
+      law: 법인세법
+      article: 제25조
+  forbidden_reasoning:
+    - 광고선전비로 계상했으므로 전액 손금
+    - 매장 인테리어는 광고 효과 명백
+  notes: |
+    핵심 판단선: "불특정 다수" vs "특정 거래처". 대리점만 수혜면 접대비.
+
+- id: J105_corp_rd_drug_development_phase
+  issue_id: GRAY_CORP_RD_CAPITALIZE
+  description: |
+    바이오 법인이 신약 개발 단계 중 임상 2상 진입 직후 발생한 R&D 비용 50억.
+    회계는 "개발비"로 전액 자본화. 세무상 즉시 손금산입 시도. 임상 3상
+    진입 전 단계.
+  profile:
+    has_corporate_income: true
+    rd_expense: 5_000_000_000
+    rd_stage: 임상2상
+    accounting_treatment: 자본화
+    technical_feasibility_documented: false
+  expected_ruling: 일부자본화
+  expected_ruling_detail: |
+    임상 2상은 기술적 실현가능성 입증 미흡 단계. 6요건 충족 입증 부족 시
+    당기비용 처리가 원칙. 단, 회계상 자본화한 부분은 세무조정으로 신고
+    조정 가능. 사실관계상 일부만 자본화 인정.
+  authoritative_sources:
+    - type: statute
+      law: 법인세법
+      article: 제40조
+    - type: statute
+      law: 법인세법 시행령
+      article: 제24조
+    - type: statute
+      law: 조세특례제한법
+      article: 제10조
+  forbidden_reasoning:
+    - 회계상 자본화했으므로 세무도 자본화 강제
+    - 모든 R&D는 당기비용 강제
+  notes: |
+    K-IFRS 자본화 6요건 — 기술적 실현가능성 + 의도·능력 + 미래경제효익 + 자원
+    + 측정가능성. 임상 2상은 통상 미달.
+
+- id: J106_corp_bad_debt_statute_in_progress
+  issue_id: GRAY_CORP_BAD_DEBT_TIMING
+  description: |
+    매출채권 5억(2018년 발생) 채무자가 사업 폐지. 2024년 회수 포기 판단으로
+    대손금 손금산입. 2023년 채권 독촉장 발송 + 일부 지급(50만원) 수령. 소멸시효
+    미완성, 파산선고 없음.
+  profile:
+    has_corporate_income: true
+    bad_debt_writeoff_claimed: true
+    debt_amount: 500_000_000
+    debt_year: 2018
+    writeoff_year: 2024
+    statute_of_limitations_complete: false
+    bankruptcy_decision: false
+    recent_collection_attempt: true
+  expected_ruling: 손금시기부인
+  expected_ruling_detail: |
+    소멸시효 미완성 + 파산선고 없음 + 최근 일부 회수 → "회수불능 객관적
+    사유" 미충족. 2024년 손금 부인. 시효 진행 중 청구·독촉으로 시효 중단되어
+    대손 시기 미도래.
+  authoritative_sources:
+    - type: precedent
+      precedent_id: "351730"
+      사건번호: 대법원-2023-두-53393
+      사건명: 이 사건 채권이 소멸시효 완성되었다고 볼 수 없고, 회수불능 등의 사유가 객관적으로 입증된 경우에 해당하지 않아 해당 사업연도의 대손금으로 인정될 수 없음
+      선고일자: "2023.12.07"
+    - type: precedent
+      precedent_id: "359028"
+      사건번호: 서울고등법원-2014-누-63802
+      사건명: 회수불능의 사실이 객관적으로 확정된 채권에 한하는 것임
+      선고일자: "2015.05.15"
+    - type: statute
+      law: 법인세법
+      article: 제19조의2
+  forbidden_reasoning:
+    - 6년 경과했으므로 회수불능 명백
+    - 채무자 사업폐지만으로 대손사유
+  notes: |
+    "회수불능 객관적 사유" 입증 책임은 법인. 일부 회수 + 독촉 = 시효중단.
+
+- id: J107_corp_qualified_merger_loss_succession
+  issue_id: GRAY_CORP_LOSS_CARRYOVER_MERGER
+  description: |
+    중견 제조법인이 적자 자회사를 합병. 지분연속성 100%(완전자회사), 사업
+    계속성 OK, 고용승계 85%. 피합병법인 이월결손금 30억 승계 신청. 합병 후
+    피합병 사업부문 매출 감소.
+  profile:
+    has_corporate_income: true
+    merger_or_split_event: true
+    carryover_loss_amount: 3_000_000_000
+    is_wholly_owned_subsidiary: true
+    business_continuity: true
+    employment_succession_ratio: 0.85
+    post_merger_segment_revenue_change: -0.20
+  expected_ruling: 적격승계인정
+  expected_ruling_detail: |
+    적격합병 3요건 충족(지분연속성 100% > 80%, 사업계속성 O, 고용승계 85% > 80%).
+    이월결손금 승계 인정 — 단 피합병 사업부문 소득금액 한도 내에서 공제. 사후
+    관리 3년간 사업폐지·고용감소 80% 미달 시 추징.
+  authoritative_sources:
+    - type: precedent
+      precedent_id: "616273"
+      사건번호: 서울고등법원-2024-누-71161
+      사건명: 적격합병으로 피합병법인으로부터 승계한 이월결손금은 피합병법인으로부터 승계받은 사업부문의 소득금액에 이월결손금 공제한도 비율 적용함이 타당
+      선고일자: "2025.10.24"
+    - type: statute
+      law: 법인세법
+      article: 제44조
+    - type: statute
+      law: 법인세법 시행령
+      article: 제80조의2
+  forbidden_reasoning:
+    - 적격합병이면 피합병 결손금 합병법인 전체 소득에 공제
+    - 100% 자회사 합병은 무조건 비과세
+  notes: |
+    공제 한도는 "승계 사업부문 소득금액". 합병법인 본체 소득과 통산 불가.
+
+- id: J108_corp_intercompany_high_sales_ratio
+  issue_id: GRAY_CORP_THIRD_PARTY_DEEMED_GIFT
+  description: |
+    가족지배 중견기업 그룹. 수혜법인 매출 80%가 모회사·관계회사 거래.
+    지배주주(아들) 직간접 지분 30%. 수출 매출 20% 포함. 이를 제외매출
+    산정 시 정상거래비율 초과분 다툼.
+  profile:
+    has_corporate_income: true
+    intercompany_sales_ratio: 0.80
+    controlling_shareholder_stake: 0.30
+    export_sales_ratio: 0.20
+    is_sme: false
+  expected_ruling: 증여의제과세
+  expected_ruling_detail: |
+    수혜법인 특수관계 매출비율 80%(중견 30% 기준) + 지배주주 지분 30%(3% 기준)
+    모두 초과. 수출매출 등 제외매출 차감 후 정상거래비율 초과분에 대해 증여세
+    과세. 지배주주에게 증여세 신고 의무.
+  authoritative_sources:
+    - type: precedent
+      precedent_id: "317716"
+      사건번호: 대구고등법원-2017-누-7765
+      사건명: 일감몰아주기 증여의제 규정을 적용함에 있어 개인에 대하여 특수관계인이 되기 위한 요건
+      선고일자: "2018.04.06"
+    - type: precedent
+      precedent_id: "298696"
+      사건번호: 서울고등법원-2015-누-61087
+      사건명: 중소기업을 일감몰아주기 증여의제 적용대상에서 제외하고 있지 않은 이상 이 사건 처분은 적법함
+      선고일자: "2016.04.07"
+    - type: statute
+      law: 상속세 및 증여세법
+      article: 제45조의3
+  forbidden_reasoning:
+    - 법인간 거래는 증여세 대상 아님
+    - 수출매출이 있으므로 일감몰아주기 미적용
+  notes: |
+    수출매출은 제외매출 명문. 단 정상거래비율 초과 판단 분모/분자에서만 빼고
+    과세표준 산정. 지분 3% 초과는 직간접 합산.

@@ -734,11 +734,13 @@ A 정답률 > B 정답률 (도구 기여 입증)
   - [x] 7-D. 사용자 GUI 실증 완료 (절세 전략 섹션 채워짐 확인)
   - [x] 8. `local-ai-workstation/{infrastructure,phase1_automation/tax_rag,assets}` 13개 파일 `git rm` 완료 (2026-04-14, commit ec5c830)
 
-### 이어서 할 일 — Phase 5-B 마감 + Phase 6
+### 이어서 할 일 — Phase 6 준비
 
-1. **사용자 GUI 실증** — `바탕화면 → Tax Agent.lnk` 더블클릭 → 4개 탭 각각 1건씩 시나리오 테스트. 실패 시 콘솔 로그(`--streamlit` 재실행 모드)로 디버깅.
-2. 검증 완료 시 `local-ai-workstation/` 원본 13개 파일 `git rm` — 정리 대상 목록:
-   - `infrastructure/tax_dashboard.py`, `tax_app.py`, `start_tax_app.bat`, `create_shortcut.ps1`, `tax_agent.spec`
-   - `phase1_automation/track_b_poc.py`, `law_client.py`, `tax_verifier.py`, `eval_loop.py`, `tax_rag/`
-   - `assets/icon.ico`, `icon_1024.png`, `make_desktop_shortcut.ps1`
-3. (Phase 6 후보) 저가 양수 증여·비상장주식 평가 등 누락 규칙 추가, eval 하네스(`agent/eval/eval_loop.py`) 재연결.
+- [x] 사용자 GUI 실증 완료 (7-D에 기록)
+- [x] `local-ai-workstation/` 원본 13개 파일 `git rm` 완료 (commit ec5c830)
+- [x] **eval 하네스 재연결 완료** (2026-04-14): `agent/eval/{eval_loop,tax_verifier}.py`의 broken sys.path 제거 + output path 정상화 + 패키지 실행 경로(`python -m agent.eval.eval_loop`)로 전환. 스모크 테스트 통과(imports OK, ground-truth verify PASS).
+
+### Phase 6 후보
+
+- 저가 양수 증여·비상장주식 평가 등 **strategy_engine 카탈로그 공백 메우기** (현 22규칙 → 30+ 목표)
+- eval 하네스 실전 운용: qwen3:32b A/B 회귀를 정기 실행해 로컬 모델 유효성 추적

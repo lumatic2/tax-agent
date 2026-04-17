@@ -1,0 +1,103 @@
+{
+  "summary": {
+    "total": 2,
+    "rm": 1,
+    "sm": 2,
+    "fa": 2,
+    "elapsed_s": 105.4
+  },
+  "runs": [
+    {
+      "case_id": "J305_inh_substitute_heir_prior_gift",
+      "score": {
+        "case_id": "J305_inh_substitute_heir_prior_gift",
+        "issue_id": "GRAY_INH_PRIOR_GIFT_10Y_AGGREGATE",
+        "expected_ruling": "전액합산",
+        "actual_ruling": "전액합산",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 4,
+        "decisive_in_context": null,
+        "elapsed_s": 48.5
+      },
+      "judgment": {
+        "ruling": "전액합산",
+        "confidence": 0.6,
+        "reasoning": "대습상속인은 상속인에 해당하며, 상속개시 전 10년 이내 사전증여재산은 상속세 과세가액에 합산됩니다. 납세자 프로필에 따르면 대습상속인(손자)이 7년 전 5억 원을 증여받은 사례는 서울행정법원 2018 판례의 핵심 판단(10년 기준 적용)에 해당합니다. 상속세 및 증여세법 제13조와 시행령 제3조가 이 기준을 명시적으로 규정합니다.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "서울행정법원-2018-구합-63426",
+            "사건명": "대습상속인 사전증여재산 합산기간은 10년이 되는 것임"
+          },
+          {
+            "type": "precedent",
+            "사건번호": "서울행정법원-2016-구합-53142",
+            "사건명": "금원이 상속개시일 전 10년 이내에 피상속인에 의해 상속인인 원고에게 증여된 것인 이상 사전증여재산에 해당"
+          },
+          {
+            "type": "statute",
+            "law": "상속세 및 증여세법",
+            "article": "제13조"
+          },
+          {
+            "type": "statute",
+            "law": "상속세 및 증여세법 시행령",
+            "article": "제3조"
+          }
+        ],
+        "caveats": [
+          "증여세 신고 누락 여부나 재증여 여부가 추가 확인 필요",
+          "대습상속인 지위 인정 여부에 대한 증거가 명확해야 적용 가능",
+          "adversary_flagged[severity=0.8]: 납세자 측은 대습상속인의 사전증여 합산 기준 적용 시 '증여 당시 상속인 지위'를 명시적으로 검토하지 않았습니다. 대습상속인의 상속인 지위는 상속개시 시점에 발생하므로, 증여 당시 피상속인의 직계비속(즉, 대습상속인의 상속인 지위를 대체할 자)이 생존 중이었는지 여부가 핵심입니다."
+        ]
+      }
+    },
+    {
+      "case_id": "J205_vat_simplified_name_split",
+      "score": {
+        "case_id": "J205_vat_simplified_name_split",
+        "issue_id": "GRAY_VAT_SIMPLIFIED_CONVERSION",
+        "expected_ruling": "일반과세전환",
+        "actual_ruling": "간이과세유지",
+        "ruling_match": false,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.85,
+        "cited_count": 3,
+        "decisive_in_context": null,
+        "elapsed_s": 57.0
+      },
+      "judgment": {
+        "ruling": "간이과세유지",
+        "confidence": 0.85,
+        "reasoning": "원고와 배우자의 동일 사업장·동일 업종에서 각각 8천만 원의 매출 발생은 직전 1년 합산 1억 6천만 원으로, 부가가치세법 제62조의 1억 4천만 원 기준을 초과하지 않음. 서울행정법원 2013 판례는 명의 분산 의심 시 실질사업자 기준으로 매출 합산을 인정하지만, 본 사례의 합산 매출은 기준 미달로 일반과세 전환 요건 미충족. 명의 분산 여부 판단 시 사업장·업종 일치 등 실질적 통합 운영 여부가 핵심이지만, 명확한 증거 없이 단순 명의 분할로 간주될 가능성 낮음.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "서울행정법원-2012-구합-41073",
+            "사건명": "간이과세자에서 일반과세자로 전환되는 것을 회피하기 위해 타인 명의로 사업을 한 것에 대하여 실사업자인 원고에게 한 처분은 정당함"
+          },
+          {
+            "type": "statute",
+            "law": "부가가치세법",
+            "article": "제62조"
+          },
+          {
+            "type": "statute",
+            "law": "부가가치세법",
+            "article": "제64조"
+          }
+        ],
+        "caveats": [
+          "사업장·업종 일치 여부 외에 자금 흐름, 인적 구성 등 실질적 통합 운영 여부 추가 확인 필요",
+          "명의 분산 여부 판단 시 가족 관계 외에 사업 목적의 독립성 증빙 자료 부재 가능성"
+        ]
+      }
+    }
+  ]
+}

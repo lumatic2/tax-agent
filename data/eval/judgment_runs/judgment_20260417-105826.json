@@ -1,0 +1,1338 @@
+{
+  "summary": {
+    "total": 30,
+    "rm": 30,
+    "sm": 30,
+    "fa": 30,
+    "elapsed_s": 1367.8
+  },
+  "runs": [
+    {
+      "case_id": "J001_car_business_ratio_weak_log",
+      "score": {
+        "case_id": "J001_car_business_ratio_weak_log",
+        "issue_id": "GRAY_CAR_BUSINESS_RATIO",
+        "expected_ruling": "한도내인정",
+        "actual_ruling": "한도내인정",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 3,
+        "decisive_in_context": null,
+        "elapsed_s": 37.7
+      },
+      "judgment": {
+        "ruling": "한도내인정",
+        "confidence": 0.6,
+        "reasoning": "운행기록부가 부분적으로만 작성된 상태에서 업무사용비율 60%를 주장한 경우, 행정규칙(2100000257314) 제2조에 명시된 운행기록부의 필수 항목(사용일자, 운행내역 등)이 누락된 것으로 보인다. 소득세법 제33조의2 및 시행령 제78조의3은 운행기록부 미비 시 연간 1,500만원 한도 인정을 규정하고 있으나, 납세자의 부분적 기록은 쟁점 발생 요인으로 작용할 수 있다. 실무상 부실 기록은 사적 사용 혼재 의심으로 한도 내 인정이 일반적이다.",
+        "cited_sources": [
+          {
+            "type": "admin_rule",
+            "rule_id": "2100000257314",
+            "행정규칙명": "업무용승용차 운행기록 방법에 관한 고시"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법",
+            "article": "제33조의2"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법 시행령",
+            "article": "제78조의3"
+          }
+        ],
+        "caveats": [
+          "운행기록부의 '부분 작성'이 행정규칙 제2조의 필수 항목을 어느 정도 충족하는지 구체적 증거 검토 필요",
+          "사적 사용 증빙 자료(출장명령서 등)의 유무에 따라 인정 범위가 달라질 수 있음",
+          "adversary_flagged[severity=0.8]: 납세자 측은 운행기록부의 '부분적 작성'을 단순히 한도 인정 사유로만 해석했으나, 행정규칙 제2조는 '필수 항목 누락'을 기준으로 하며, 납세자가 제출한 기록이 필수 항목 중 일부라도 충족하는 경우 실비율 인정이 가능하다는 점을 누락했다."
+        ]
+      }
+    },
+    {
+      "case_id": "J002_household_expense_home_office",
+      "score": {
+        "case_id": "J002_household_expense_home_office",
+        "issue_id": "GRAY_HOUSEHOLD_EXPENSE",
+        "expected_ruling": "안분인정",
+        "actual_ruling": "안분인정",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 3,
+        "decisive_in_context": null,
+        "elapsed_s": 31.5
+      },
+      "judgment": {
+        "ruling": "안분인정",
+        "confidence": 0.6,
+        "reasoning": "자택 사업장 면적비율(10㎡/85㎡=11.76%)에 따라 가사혼합비용(4,800,000원)을 안분 인정해야 한다. 대법원 2022두32382 판결은 면적비율과 같은 객관적 기준이 제시되면 100% 부인은 비례원칙에 반한다고 명시하며, 납세자의 1.0(100%) 주장은 실제 업무면적과 차이가 있어 면적비율을 기준으로 해야 한다. 소득세법 제33조 및 시행령 제78조의 원칙적 불산입 규정에도 객관적 구분이 가능하면 예외적으로 인정된다.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "대법원-2022-두-32382",
+            "사건명": "종합소득세경정거부처분취소"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법",
+            "article": "제33조"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법 시행령",
+            "article": "제78조"
+          }
+        ],
+        "caveats": [
+          "납세자가 주장한 업무비율(1.0)이 실제 업무면적(11.76%)과 차이가 있어 추가 증빙 필요",
+          "면적비율 외 통신비·월세 등 항목별 구분 가능성 검토 필요",
+          "adversary_flagged[severity=0.8]: 납세자 측은 자택 전체 사용 비율(1.0)을 주장하면서 동시에 업무사용면적(10㎡/85㎡)을 근거로 하였는데, 이는 논리적 모순이 발생하며 소득세법 시행령 제78조의 '객관적 구분 가능성' 요건을 충족시키지 못한다."
+        ]
+      }
+    },
+    {
+      "case_id": "J003_donation_unregistered_religious",
+      "score": {
+        "case_id": "J003_donation_unregistered_religious",
+        "issue_id": "GRAY_DONATION_ELIGIBILITY",
+        "expected_ruling": "공제불인정",
+        "actual_ruling": "공제불인정",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 4,
+        "decisive_in_context": null,
+        "elapsed_s": 30.4
+      },
+      "judgment": {
+        "ruling": "공제불인정",
+        "confidence": 0.6,
+        "reasoning": "납세자가 종교단체에 지출한 500만 원 기부금은 '지정기부금단체'가 아닌 경우 기부금세액공제 대상에 해당하지 않음(서울고등법원-2025-누-6431, 서울고등법원2023누57540 판례 참조). 소득세법 제34조 및 시행령 제80조는 기부금 공제 대상이 법정·지정기부금에 한정되며, 비지정단체에 대한 기부는 세액공제 인정이 배제됨. 행정규칙 2200000107701도 기부금품 접수 절차상 지정기부금단체에 한해 영수증 발급이 유효함을 시사.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "서울고등법원-2025-누-6431",
+            "사건명": "비지정기부금단체에 지출된 기부금은 필요경비 산입 및 기부금 특별세액공제 대상에 해당하지 않음"
+          },
+          {
+            "type": "precedent",
+            "사건번호": "서울고등법원2023누57540",
+            "사건명": "기부금세액공제의 규정은 엄격해석에 따라야하고, 쟁점금액 지출 당시 지정기부금단체가 아닌 한, 기부금세액공제 대상에 해당하지 아니함"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법",
+            "article": "제34조"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법 시행령",
+            "article": "제80조"
+          }
+        ],
+        "caveats": [
+          "기부금영수증 발급 시점의 공익법인 지정 여부 확인 필요",
+          "종교단체의 공익성 인정 여부에 대한 추가 행정규칙 해석 가능성",
+          "adversary_flagged[severity=0.6]: 납세자 측은 '법정기부금'과 '지정기부금'의 구분을 명확히 하지 못한 채 단순히 '지정기부금단체 여부'만 강조한 점이 오류입니다. 소득세법 제34조는 법정기부금(공익법인 등)에 대한 공제 한도를 규정하며, 종교단체가 공익법인에 해당하는지 여부가 핵심 판단 요소입니다."
+        ]
+      }
+    },
+    {
+      "case_id": "J004_entertainment_vs_meeting_sales_promotion",
+      "score": {
+        "case_id": "J004_entertainment_vs_meeting_sales_promotion",
+        "issue_id": "GRAY_ENTERTAINMENT_VS_MEETING",
+        "expected_ruling": "접대비인정",
+        "actual_ruling": "접대비인정",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 5,
+        "decisive_in_context": null,
+        "elapsed_s": 38.0
+      },
+      "judgment": {
+        "ruling": "접대비인정",
+        "confidence": 0.6,
+        "reasoning": "납세자는 거래처와의 계약/협약 없이 식사·선물비용을 지출했고, 지급기록도 없어 '업무협의' 목적을 입증하지 못함. 서울고등법원2022누34236 판례는 '계약 없이 임의 지급된 비용은 접대비'로 판단하며, 대전고등법원2025누397 판례도 판매촉진비가 접대비 해당 여부를 엄격히 검토한 사례임. 행정규칙 2100000257314는 업무목적 소명을 강조하지만, 본 사안의 식사·선물은 업무용차량 운행기록과 무관함.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "서울고등법원-2022-누-34236",
+            "사건명": "(항소기각) 자동차 판매대리인인 원고가 차량 구매자들에게 임의로 지급한 할인금은 그 지급경위와 액수, 내용 등 제반사정에 비추어 매출에누리나 필요경비에 해당하지 않고 접대비에 해당함"
+          },
+          {
+            "type": "precedent",
+            "사건번호": "대전고등법원2025누397",
+            "사건명": "판매촉진비의 접대비 해당 여부 및 소취하 간주 해당 여부"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법",
+            "article": "제35조"
+          },
+          {
+            "type": "statute",
+            "law": "법인세법",
+            "article": "제25조"
+          },
+          {
+            "type": "admin_rule",
+            "rule_id": "2100000257314",
+            "행정규칙명": "업무용승용차 운행기록 방법에 관한 고시"
+          }
+        ],
+        "caveats": [
+          "실제 식사·선물이 업무협의 목적으로 이루어졌는지에 대한 구체적 증거(예: 회의록, 참석자 명단)가 없어 판단 근거가 약함",
+          "1인당 금액·빈도·장소 등 세부 내역이 명시되지 않아 실질 판단 기준 적용에 한계가 있음",
+          "adversary_flagged[severity=0.8]: 납세자 측은 '계약/협약' 및 '지급기록'의 유무만으로 업무협의 목적을 부정하고 있으나, 회의비 인정 요건은 '실질적인 업무협의 목적'과 '통상금액'에 대한 종합적 판단이 요구되며, 계약서나 지급기록이 필수 조건이 아님."
+        ]
+      }
+    },
+    {
+      "case_id": "J005_cash_receipt_mandatory_industry",
+      "score": {
+        "case_id": "J005_cash_receipt_mandatory_industry",
+        "issue_id": "GRAY_DOUBLE_CASH_RECEIPT",
+        "expected_ruling": "전액부과",
+        "actual_ruling": "전액부과",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 3,
+        "decisive_in_context": null,
+        "elapsed_s": 31.4
+      },
+      "judgment": {
+        "ruling": "전액부과",
+        "confidence": 0.6,
+        "reasoning": "의무발행업종(실내건축공사업)이 1,500만원 현금거래 시 현금영수증 미발행한 사실이 명확하며, 판례(대법원-2025-두-34506)는 의무발행업종 여부를 명확히 판단한 바 있습니다. 행정규칙(2100000241122)은 현금영수증 미발행 시 가산세 부과 근거를 제공하며, 사후 자진발급 여부나 거래처 구분 관련 증거가 없는 점에서 감면 요건 미충족으로 판단됩니다.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "대법원-2025-두-34506",
+            "사건명": "원고의 사업이 현금영수증 의무발행업종에 해당하는지 여부"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법",
+            "article": "제162조의3"
+          },
+          {
+            "type": "admin_rule",
+            "rule_id": "2100000241122",
+            "행정규칙명": "현금영수증가맹점이 지켜야 할 사항"
+          }
+        ],
+        "caveats": [
+          "거래처가 개인/법인 구분 여부, 사후 자진발급 시점 등 추가 사실관계 확인 필요",
+          "현금영수증 대체 문서 발급 여부에 대한 반대 해석 가능성",
+          "adversary_flagged[severity=0.6]: 납세자 측은 거래처 구분(개인/법인)에 대한 증거 부재를 근거로 감면 요건 미충족을 주장했으나, 의무발행업종의 현금거래 대상이 반드시 개인에 한정되는지에 대한 명확한 법리 검토 누락이 있습니다."
+        ]
+      }
+    },
+    {
+      "case_id": "J006_officetel_residential_use",
+      "score": {
+        "case_id": "J006_officetel_residential_use",
+        "issue_id": "GRAY_RENTAL_VS_BUSINESS",
+        "expected_ruling": "부동산임대로분류",
+        "actual_ruling": "부동산임대로분류",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 4,
+        "decisive_in_context": null,
+        "elapsed_s": 37.4
+      },
+      "judgment": {
+        "ruling": "부동산임대로분류",
+        "confidence": 0.6,
+        "reasoning": "건축물대장 용도가 '업무시설'이며 임차인이 레지던스업자인 점, 부가가치세 포함 임대료 수령 사실 등은 주택임대용역 요건 미충족을 시사함. 대법원 2016년 판례는 유사한 경우 주택임대인정을 배제한 바 있고, 서울행정법원 2020년 판례도 오피스텔 신축분양업이 주거용 임대에 해당하지 않는다고 판단함. 다만 2025년 대법원 판례는 건축물 용도보다 소방경비율 고시상 '주거용 건물' 분류를 우선시하는 사례가 있으나, 본 건은 건축물대장 용도가 명확히 '업무시설'로 등록되어 있어 반대 해석 가능성 존재.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "대법원-2016-두-61587",
+            "사건명": "레지던스업 영위를 위하여 임차인이 이 사건 오피스텔을 임차하였고, 부가가치세가 포함된 차임을 수령하였으므로 주택임대용역으로 보기 어려움"
+          },
+          {
+            "type": "precedent",
+            "사건번호": "서울행정법원-2020-구합-75569",
+            "사건명": "오피스텔 신축분양업의 사업자는 상시주거용 주택 임대 용역에 해당하지 않는다고 본 사례"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법",
+            "article": "제19조"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법 시행령",
+            "article": "제122조의2"
+          }
+        ],
+        "caveats": [
+          "소방경비율 고시상 '주거용 건물' 분류 여부 추가 확인 필요",
+          "임차인의 실제 사용실태(실거주 여부)에 대한 증거 수집 필요",
+          "2025년 대법원 판례 적용 가능성에 대한 세무서 해석 차이 발생 가능성",
+          "adversary_flagged[severity=0.8]: 납세자 측은 건축물대장 용도만을 근거로 판단했으나, 주택임대용역 인정 요건 중 '실제 거주 가능성'과 '임차인 사용실태'를 충분히 검토하지 않았음."
+        ]
+      }
+    },
+    {
+      "case_id": "J007_dependent_spouse_retirement_lumpsum",
+      "score": {
+        "case_id": "J007_dependent_spouse_retirement_lumpsum",
+        "issue_id": "GRAY_DEPENDENT_QUALIFICATION",
+        "expected_ruling": "공제부인",
+        "actual_ruling": "공제부인",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 3,
+        "decisive_in_context": null,
+        "elapsed_s": 81.7
+      },
+      "judgment": {
+        "ruling": "공제부인",
+        "confidence": 0.6,
+        "reasoning": "판례 부산지방법원-2017-구합-22603에 따르면 근속 5년 기준 퇴직소득공제는 500만원이며, 3,000만원의 퇴직금에서 공제 후 2,500만원이 과세표준이 됨. 소득세법 제50조의 부양가족 소득기준(100만원)을 현저히 초과하므로 공제 불인정. 근로소득 외 기타소득 포함 여부는 판례에서 명확히 적용된 계산식과 일관됨.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "부산지방법원-2017-구합-22603",
+            "사건명": "퇴직소득공제 계산시 근속연수는 입사일 부터 희망퇴직일까지임"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법",
+            "article": "제50조"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법 시행령",
+            "article": "제106조"
+          }
+        ],
+        "caveats": [
+          "기타 비과세 소득 항목이 별도로 존재하는 경우 추가 검토 필요",
+          "판례는 퇴직소득에 특화된 계산식을 적용한 사례로, 다중 소득원 혼재 시 적용 범위 한계 존재",
+          "adversary_flagged[severity=0.9]: 납세자 측은 부양가족의 소득기준 산정 시 **세무상 과세대상자 본인의 퇴직소득**을 혼동하여 적용한 오류가 있음. 부양가족의 소득은 **해당 개인의 직접적인 소득**에 한정되며, 배우자의 퇴직소득은 부양가족 소득기준 산정 대상이 아님."
+        ]
+      }
+    },
+    {
+      "case_id": "J008_deemed_dividend_spouse_crossgift_buyback",
+      "score": {
+        "case_id": "J008_deemed_dividend_spouse_crossgift_buyback",
+        "issue_id": "GRAY_DEEMED_DIVIDEND",
+        "expected_ruling": "의제배당과세",
+        "actual_ruling": "의제배당과세",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 3,
+        "decisive_in_context": null,
+        "elapsed_s": 36.3
+      },
+      "judgment": {
+        "ruling": "의제배당과세",
+        "confidence": 0.6,
+        "reasoning": "대법원 판례(대법원-2025-두-34754)는 배우자에게 증여한 주식을 회사가 증여가액으로 매수·소각하는 경우 의제배당으로 보는 당초 처분이 적법하다고 판단했습니다. 증여가액(5억원)과 회사의 매수대가(5억원)가 일치하더라도 주주(배우자)의 취득가액 초과분은 의제배당에 해당하며, 소득세법 제17조 및 시행령 제27조의 취지에 부합합니다.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "대법원-2025-두-34754",
+            "사건명": "보유주식을 배우자게 증여하고 다시 회사가 증여가액으로 매수하여 소각한 이 거래를 의제배당에 대한 회피로 본 당초 처분은 적법함"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법",
+            "article": "제17조"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법 시행령",
+            "article": "제27조"
+          }
+        ],
+        "caveats": [
+          "증여 당시 취득가액 산정 방법에 대한 구체적 증빙이 필요합니다.",
+          "감자대가의 시가와 회사의 내부 평가기준 차이가 있는지 추가 확인이 필요합니다.",
+          "adversary_flagged[severity=0.8]: 납세자 측은 대법원 판례(대법원-2025-두-34754)를 과도하게 확장해 적용하고 있으나, 해당 판례는 '증여가액 초과분'에 대한 의제배당 인정을 전제로 한 것으로, 본 건의 경우 '감자대가=증여가액=취득가액'이라는 동일성으로 인해 소득세법 제17조 제1항 제1호의 '취득가액 초과분' 요건 자체가 충족되지 않음."
+        ]
+      }
+    },
+    {
+      "case_id": "J009_lecture_fee_irregular_professor",
+      "score": {
+        "case_id": "J009_lecture_fee_irregular_professor",
+        "issue_id": "GRAY_OTHER_INCOME_VS_BUSINESS",
+        "expected_ruling": "사업소득재분류",
+        "actual_ruling": "사업소득재분류",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 3,
+        "decisive_in_context": null,
+        "elapsed_s": 47.3
+      },
+      "judgment": {
+        "ruling": "사업소득재분류",
+        "confidence": 0.6,
+        "reasoning": "납세자는 1년 내 15회 이상의 강연 실적과 6개월 간의 시리즈 계약을 보유한 점에서 '계속·반복성' 요건을 충족할 가능성이 높습니다. 서울고등법원 2008누38010 판례는 유사한 강연 빈도와 계약 형태를 사업소득으로 인정한 사례로, 2,000만 원의 고액 수입 역시 사업성 판단에 부정적 영향을 미치지 않습니다. 다만 일시적 강연과 시리즈 계약의 구분이 명확하지 않은 경우 추가 검토가 필요합니다.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "서울고등법원-2008-누-38010",
+            "사건명": "계속성과 반복성이 있는 강연료는 사업소득으로 보는 것임"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법",
+            "article": "제19조"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법 시행령",
+            "article": "제87조"
+          }
+        ],
+        "caveats": [
+          "시리즈 계약의 구체적인 수행 조건(정기성, 내용 일관성 등)에 대한 추가 증빙 필요",
+          "일반 강연과 시리즈 강연의 수입 비중이 명확히 구분되지 않은 경우 반대 해석 가능성",
+          "adversary_flagged[severity=0.6]: 납세자 측은 '계속·반복성' 요건을 강연 빈도와 계약 기간으로만 단정하고, 서울고등법원 2008누38010 판례의 구체적 사실관계와 판단 기준을 일치시키지 못한 채 형식적 유사성만 강조한 점이 오류입니다."
+        ]
+      }
+    },
+    {
+      "case_id": "J010_one_house_false_transfer",
+      "score": {
+        "case_id": "J010_one_house_false_transfer",
+        "issue_id": "GRAY_ONE_HOUSE_TRANSFER_NONTAXABLE",
+        "expected_ruling": "과세전환",
+        "actual_ruling": "과세전환",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 3,
+        "decisive_in_context": null,
+        "elapsed_s": 42.2
+      },
+      "judgment": {
+        "ruling": "과세전환",
+        "confidence": 0.6,
+        "reasoning": "납세자는 종전주택 양도 후 신규주택 취득 후 3년 이내 재양도 요건을 충족하지 못한 것으로 보임. 대구지방법원 2025.08.27 판례에 따르면 이혼 후 2년 거주요건 미충족 시 비과세 특례 적용이 배제되며, 친족매매 시 거주실질성 검증이 필수적임. 2개월 이내의 신속한 거래와 현금흐름 미확인은 일시적 2주택 요건 미충족을 암시함.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "대구지방법원-2024-구합-22701",
+            "사건명": "이혼 후 2년 거주요건 미충족 시 비과세 특례 배제"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법",
+            "article": "제89조"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법 시행령",
+            "article": "제155조"
+          }
+        ],
+        "caveats": [
+          "친족매매 거주실질성에 대한 추가 증빙 필요",
+          "신규주택 취득 시점과 종전주택 양도 시점의 정확한 일자 확인 필요",
+          "세대 분리 시점과 조정대상지역 지정 여부 검토 필요",
+          "adversary_flagged[severity=0.6]: 납세자 측은 이혼 관련 판례를 일시적 2주택 요건과 혼동하여 적용한 것으로, 해당 판례는 이 사건의 사실관계와 직접적 관련이 없음."
+        ]
+      }
+    },
+    {
+      "case_id": "J101_corp_family_low_price_sale",
+      "score": {
+        "case_id": "J101_corp_family_low_price_sale",
+        "issue_id": "GRAY_CORP_FAMILY_FAIR_PRICE",
+        "expected_ruling": "부당행위계산부인",
+        "actual_ruling": "부당행위계산부인",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 4,
+        "decisive_in_context": null,
+        "elapsed_s": 40.2
+      },
+      "judgment": {
+        "ruling": "부당행위계산부인",
+        "confidence": 0.6,
+        "reasoning": "매매가격(10억원)이 감정가(18억원) 대비 44.4% 하회하며, 상증법 §60에 따른 5% 또는 3억원 차액 기준을 훨씬 초과함. 인천지방법원 2018년 판례(인천지방법원-2017-구합-50489)는 유사한 차액 비율이 부당행위 요건에 해당한다고 판단한 바 있으며, 법인세법 제52조·시행령 제88조의 특수관계자 거래 시가산정 규정과도 일치함.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "인천지방법원-2017-구합-50489",
+            "사건명": "부당행위계산부인 및 비지정기부금 해당여부"
+          },
+          {
+            "type": "statute",
+            "law": "법인세법",
+            "article": "제52조"
+          },
+          {
+            "type": "statute",
+            "law": "법인세법 시행령",
+            "article": "제88조"
+          },
+          {
+            "type": "statute",
+            "law": "상속세 및 증여세법",
+            "article": "제60조"
+          }
+        ],
+        "caveats": [
+          "2026년 오피스텔 기준시가 고시(2100000275186)의 구체적 적용 범위가 토지에 해당하는지 추가 확인 필요",
+          "판례에서 제시한 5% 기준이 토지 거래에 직접 적용되는지에 대한 법리 검토 필요",
+          "adversary_flagged[severity=0.8]: 납세자 측은 상증법 §60의 5% 또는 3억원 차액 기준을 법인세법 상 특수관계자 거래 시가산정 규정(법인세법 시행령 제88조)에 직접 적용하고 있으나, 이는 법령 적용 범위 오류이다. 상증법 기준은 증여·상속 거래에 한하며, 법인세법 상 거래는 별도의 시가산정 기준(예: 거래당사자 간 독립적 거래 원칙)을 적용해야 한다."
+        ]
+      }
+    },
+    {
+      "case_id": "J102_corp_exec_bonus_no_bylaw_limit",
+      "score": {
+        "case_id": "J102_corp_exec_bonus_no_bylaw_limit",
+        "issue_id": "GRAY_CORP_EXEC_BONUS_BYLAW",
+        "expected_ruling": "전액손금부인",
+        "actual_ruling": "전액손금부인",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 4,
+        "decisive_in_context": null,
+        "elapsed_s": 36.2
+      },
+      "judgment": {
+        "ruling": "전액손금부인",
+        "confidence": 0.6,
+        "reasoning": "정관에 구체적 상여금 한도 규정이 없고 주주총회 결의도 없이 이사회 단독 결정으로 지급한 경우, 법인세법 제26조 및 시행령 제43조의 '명확한 기준' 요건 미충족으로 손금산입 불인정 가능. 판례에서 기부금·접대비 등 엄격한 해석 기준이 적용된 사례와 유사한 법리 적용 가능성.",
+        "cited_sources": [
+          {
+            "type": "statute",
+            "law": "법인세법",
+            "article": "제26조"
+          },
+          {
+            "type": "statute",
+            "law": "법인세법 시행령",
+            "article": "제43조"
+          },
+          {
+            "type": "precedent",
+            "사건번호": "서울고등법원2023누57540",
+            "사건명": "기부금세액공제의 규정은 엄격해석에 따라야하고, 쟁점금액 지출 당시 지정기부금단체가 아닌 한, 기부금세액공제 대상에 해당하지 아니함"
+          },
+          {
+            "type": "precedent",
+            "사건번호": "서울고등법원-2025-누-6431",
+            "사건명": "비지정기부금단체에 지출된 기부금은 필요경비 산입 및 기부금 특별세액공제 대상에 해당하지 않음"
+          }
+        ],
+        "caveats": [
+          "정관에 '이사회 결의'만 규정한 경우의 구체적 한도 기준에 대한 명확한 행정해석 또는 판례가 미비함",
+          "이사회 결의 내용이 세부적 기준을 담고 있는지 여부가 추가 확인 필요사항임",
+          "adversary_flagged[severity=0.8]: 납세자 측은 기부금·접대비 판례를 임원 상여금 쟁점에 부적절히 유추하여 법리 적용 오류 발생"
+        ]
+      }
+    },
+    {
+      "case_id": "J103_corp_executive_loan_no_borrowing",
+      "score": {
+        "case_id": "J103_corp_executive_loan_no_borrowing",
+        "issue_id": "GRAY_CORP_GAJIGEUPGEUM_INTEREST",
+        "expected_ruling": "당좌대출이자율적용",
+        "actual_ruling": "당좌대출이자율적용",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 2,
+        "decisive_in_context": null,
+        "elapsed_s": 34.4
+      },
+      "judgment": {
+        "ruling": "당좌대출이자율적용",
+        "confidence": 0.6,
+        "reasoning": "납세자 프로필에 따르면 법인이 차입 없이 대표이사에게 무상대여한 상태이며, 관련 조문(법인세법 제28조, 시행령 제89조)은 자금조달 실태에 따라 이율 선택 가능성을 열어둠. 그러나 검색된 판례 및 행정규칙 중 직접 관련 사례가 없어 기존 사례에서 유추한 판단임.",
+        "cited_sources": [
+          {
+            "type": "statute",
+            "law": "법인세법",
+            "article": "제28조"
+          },
+          {
+            "type": "statute",
+            "law": "법인세법 시행령",
+            "article": "제89조"
+          }
+        ],
+        "caveats": [
+          "직접 관련 판례 및 행정규칙 미발견으로 반대 해석 가능성 존재",
+          "자금조달 실태에 대한 구체적 증거가 없어 가중평균이자율 적용 여부 판단 불확실",
+          "adversary_flagged[severity=0.8]: 납세자 측은 법인세법 제28조 및 시행령 제89조의 '자금조달 실태' 판단 기준을 단순히 '차입 유무'로 한정해 해석한 것으로, 법인의 실질 자금조달 필요성 및 자본조달 구조를 종합적으로 검토하지 않은 점이 오류입니다."
+        ]
+      }
+    },
+    {
+      "case_id": "J104_corp_dealer_subsidy_promotional",
+      "score": {
+        "case_id": "J104_corp_dealer_subsidy_promotional",
+        "issue_id": "GRAY_CORP_ENTERTAIN_VS_AD",
+        "expected_ruling": "접대비재분류",
+        "actual_ruling": "접대비재분류",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 3,
+        "decisive_in_context": null,
+        "elapsed_s": 45.1
+      },
+      "judgment": {
+        "ruling": "접대비재분류",
+        "confidence": 0.6,
+        "reasoning": "특정대리점 대상의 향응·선물은 법인세법 시행령 제45조에 따라 접대비로 분류되어 한도 규제를 적용받습니다. 서울고등법원 2022누34236 판례는 특정 거래처에 제공된 혜택이 접대비에 해당한다고 판단한 사례로, 납세자의 특정대리점 대상 지출은 동일한 법리를 적용받아야 합니다. 판매촉진비와 접대비의 구분은 수혜자 범위(불특정 vs 특정)에 달려 있으며, 본 사안은 특정대리점 대상이라는 점에서 광고선전비 인정 근거가 부족합니다.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "서울고등법원-2022-누-34236",
+            "사건명": "(항소기각) 자동차 판매대리인인 원고가 차량 구매자들에게 임의로 지급한 할인금은 그 지급경위와 액수, 내용 등 제반사정에 비추어 매출에누리나 필요경비에 해당하지 않고 접대비에 해당함"
+          },
+          {
+            "type": "statute",
+            "law": "법인세법 시행령",
+            "article": "제45조"
+          },
+          {
+            "type": "statute",
+            "law": "법인세법",
+            "article": "제25조"
+          }
+        ],
+        "caveats": [
+          "판촉물의 구체적 성격(향응 vs 영업지원)에 대한 추가 증빙이 필요한 경우가 있음",
+          "1인당 5만원 한도 적용 시 연간 총액 7억원의 경우 과세관청과 협의 필요",
+          "adversary_flagged[severity=0.8]: 납세자 측은 특정대리점 대상이라는 점만 강조하며 수혜자 범위를 기준으로 판단했으나, 판매촉진비와 접대비의 구분은 '지출 목적'과 '경제적 효과'에 더 중대한 영향을 받는다. 특정대리점에 제공된 판촉물이 업무추진 목적의 광고선전 활동에 해당하는지 여부를 고려하지 않았다."
+        ]
+      }
+    },
+    {
+      "case_id": "J105_corp_rd_drug_development_phase",
+      "score": {
+        "case_id": "J105_corp_rd_drug_development_phase",
+        "issue_id": "GRAY_CORP_RD_CAPITALIZE",
+        "expected_ruling": "일부자본화",
+        "actual_ruling": "일부자본화",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.49,
+        "cited_count": 4,
+        "decisive_in_context": null,
+        "elapsed_s": 40.0
+      },
+      "judgment": {
+        "ruling": "일부자본화",
+        "confidence": 0.49,
+        "reasoning": "임상2상 단계는 결과의 불확실성이 높아 기술적 실현가능성 입증이 곤란(서울고등법원-2025-누-43281). 회계상 자본화 처리된 50억 중 6요건 일부 항목(미래경제효익 기대, 자원 이용 가능성 등)이 충족된 부분은 자본화 인정 가능(서울행정법원-2014-구합-68188). 다만 기술적 실현가능성 미기록으로 전액 자본화는 부적합하나, 세무조정 시 일부 자본화·일부 손금 처리가 일반적.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "서울행정법원-2014-구합-68188",
+            "사건명": "개발비 회계처리가 회계기준을 위배하였다고 볼 수 없고, 자산인식요건을 충족한 것으로 볼 수 없어 손금인정됨"
+          },
+          {
+            "type": "statute",
+            "law": "법인세법",
+            "article": "제40조"
+          },
+          {
+            "type": "statute",
+            "law": "법인세법 시행령",
+            "article": "제24조"
+          },
+          {
+            "type": "statute",
+            "law": "조세특례제한법",
+            "article": "제10조"
+          }
+        ],
+        "caveats": [
+          "기술적 실현가능성 외 6요건 중 구체적으로 충족된 항목에 대한 증빙 자료가 추가로 필요함",
+          "회계기준(K-IFRS)과 세무기준 간 처리 차이로 세무당국의 현장 조정 기준이 다를 가능성 있음",
+          "rejected_non_whitelist_sources: ['precedent:서울고등법원-2025-누-43281']",
+          "adversary_flagged[severity=0.8]: 납세자 측은 기술적 실현가능성 미기록을 전제로 하면서도 6요건 일부 항목 충족을 근거로 자본화를 주장하고 있으나, 기술적 실현가능성은 자산인식 6요건 중 핵심적 필수 조건으로, 이 요건 미충족 시 나머지 항목도 자본화 근거가 무효화된다."
+        ]
+      }
+    },
+    {
+      "case_id": "J106_corp_bad_debt_statute_in_progress",
+      "score": {
+        "case_id": "J106_corp_bad_debt_statute_in_progress",
+        "issue_id": "GRAY_CORP_BAD_DEBT_TIMING",
+        "expected_ruling": "손금시기부인",
+        "actual_ruling": "손금시기부인",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 2,
+        "decisive_in_context": null,
+        "elapsed_s": 39.8
+      },
+      "judgment": {
+        "ruling": "손금시기부인",
+        "confidence": 0.6,
+        "reasoning": "채무자 파산·소멸시효 완성 등 명백한 대손사유 발생 없이 2024년 회수 노력만으로는 법인세법 제19조의2 제1항의 '회수불능 확정' 기준 미달. 서울고등법원 2025누10058 판례는 '회수불능 확정'을 명시적 사유로 요구하며, 채권소각 사유 발생연도에만 손금산입 가능하다고 판단. 채무자 파산 결정도 소멸시효 완성도 없는 본 건은 대손사유 발생 시점이 명확하지 않아 손금산입 시기 부인.",
+        "cited_sources": [
+          {
+            "type": "statute",
+            "law": "법인세법",
+            "article": "제19조의2"
+          },
+          {
+            "type": "precedent",
+            "사건번호": "서울고등법원 (인천)-2025-누-10058",
+            "사건명": "회생계획인가 결정에 따라 매출채권을 출자전환하고 발행된 신주를 무상감자하여 소각하는 경우 그 매출채권이 회수불능으로 확정된 채권에 해당함"
+          }
+        ],
+        "caveats": [
+          "채권 회수 가능성에 대한 구체적 증거(채권추심 결과, 채무자 재무상태 등) 추가 검토 필요",
+          "채권자 측 회수 노력의 실효성에 대한 세무당국 해석 차이 가능성",
+          "adversary_flagged[severity=0.8]: 납세자 측은 서울고등법원 2025누10058 판례를 오용하여 '명시적 대손사유'만을 강조하고, 채권의 회수불능이 '채무자 재무상태'와 '회수 노력'의 종합적 판단을 통해 인정될 수 있음을 간과하였다."
+        ]
+      }
+    },
+    {
+      "case_id": "J107_corp_qualified_merger_loss_succession",
+      "score": {
+        "case_id": "J107_corp_qualified_merger_loss_succession",
+        "issue_id": "GRAY_CORP_LOSS_CARRYOVER_MERGER",
+        "expected_ruling": "적격승계인정",
+        "actual_ruling": "적격승계인정",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 3,
+        "decisive_in_context": null,
+        "elapsed_s": 37.5
+      },
+      "judgment": {
+        "ruling": "적격승계인정",
+        "confidence": 0.6,
+        "reasoning": "피합병법인이 100% 자회사(지분연속성 100%)이며, 사업계속성과 고용승계비율(85%)이 각각 충족됨. 법인세법 제44조 및 시행령 제80조의2에 따른 적격요건을 충족하므로 이월결손금 승계 인정. 다만, 합병 후 매출 감소(-20%)가 사업계속성 판단에 영향을 미칠 수 있으나, 관련 판례에서 이 사안을 직접 다루지 않아 보수적 해석 필요.",
+        "cited_sources": [
+          {
+            "type": "statute",
+            "law": "법인세법",
+            "article": "제44조"
+          },
+          {
+            "type": "statute",
+            "law": "법인세법",
+            "article": "제45조"
+          },
+          {
+            "type": "statute",
+            "law": "법인세법 시행령",
+            "article": "제80조의2"
+          }
+        ],
+        "caveats": [
+          "합병 후 매출 감소(-20%)가 사업계속성 판단에 미칠 잠재적 영향",
+          "판례 및 행정규칙에서 매출변동과 승계요건의 직접적 연계성에 대한 구체적 기준 미제시",
+          "adversary_flagged[severity=0.6]: 납세자 측은 매출 감소(-20%)가 사업계속성 판단에 미치는 영향을 명시적으로 검토하지 않았으며, 이는 사업구조의 실질적 변화를 시사할 수 있다."
+        ]
+      }
+    },
+    {
+      "case_id": "J108_corp_intercompany_high_sales_ratio",
+      "score": {
+        "case_id": "J108_corp_intercompany_high_sales_ratio",
+        "issue_id": "GRAY_CORP_THIRD_PARTY_DEEMED_GIFT",
+        "expected_ruling": "증여의제과세",
+        "actual_ruling": "증여의제과세",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 2,
+        "decisive_in_context": null,
+        "elapsed_s": 39.0
+      },
+      "judgment": {
+        "ruling": "증여의제과세",
+        "confidence": 0.6,
+        "reasoning": "수혜법인의 특수관계법인 일감 비중(80%)이 30% 초과 기준을 훨씬 상회하고, 지배주주 직간접 지분(30%)이 3%를 초과하여 상속세 및 증여세법 제45조의3 적용 대상임. 중소기업이 아닌 점에서 50% 기준 미적용. 판례 및 행정규칙에서 직접적 관련 규정은 없으나, 조문상 명확한 수치 기준 충족.",
+        "cited_sources": [
+          {
+            "type": "statute",
+            "law": "상속세 및 증여세법",
+            "article": "제45조의3"
+          },
+          {
+            "type": "statute",
+            "law": "상속세 및 증여세법 시행령",
+            "article": "제34조의3"
+          }
+        ],
+        "caveats": [
+          "정상거래비율 산정 시 제3자 거래 내역이 명확히 구분되어야 하며, 수출매출(20%)이 제외매출에 포함될 수 있는지에 대한 추가 검토 필요",
+          "지배주주 지분 3% 초과 기준 적용 시 '직간접 지분'의 구체적 계산 방법에 대한 해석 차이 가능성",
+          "adversary_flagged[severity=0.6]: 납세자 측은 상속세 및 증여세법 제45조의3 적용 시 '정상거래비율 미달'이라는 핵심 요건을 누락하고 수치 기준만 강조한 오류가 있음."
+        ]
+      }
+    },
+    {
+      "case_id": "J301_inh_nonlisted_stock_supplemental",
+      "score": {
+        "case_id": "J301_inh_nonlisted_stock_supplemental",
+        "issue_id": "GRAY_INH_NONLISTED_STOCK_VALUATION",
+        "expected_ruling": "보충적평가적용",
+        "actual_ruling": "보충적평가적용",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 3,
+        "decisive_in_context": null,
+        "elapsed_s": 37.0
+      },
+      "judgment": {
+        "ruling": "보충적평가적용",
+        "confidence": 0.6,
+        "reasoning": "상속세법 제60조 및 시행령 제54조에 따르면 시가 부재 시 자산가치와 수익가치의 가중평균을 적용해야 한다. 쟁점 회사가 부동산과다보유법인이 아닌 점(실적비율 25%)과 3년 평균 순이익 30억 원을 고려할 때 수익가치 산정이 타당하다. 검색된 판례는 기부금/접대비 관련이므로 직접적 관련성이 없으나, 행정규칙도 평가방법과 무관하다.",
+        "cited_sources": [
+          {
+            "type": "statute",
+            "law": "상속세 및 증여세법",
+            "article": "제60조"
+          },
+          {
+            "type": "statute",
+            "law": "상속세 및 증여세법 시행령",
+            "article": "제54조"
+          },
+          {
+            "type": "statute",
+            "law": "상속세 및 증여세법 시행령",
+            "article": "제55조"
+          }
+        ],
+        "caveats": [
+          "검색된 판례는 평가방법과 무관하므로 반대 해석 가능성 존재",
+          "청산법인 여부 등 추가 사실관계 확인 필요",
+          "adversary_flagged[severity=0.6]: 납세자 측은 부동산과다보유법인이 아닌 점을 강조하지만, 부동산 보유비율 25%는 상속세법 시행령 제55조 제2항의 '부동산 비중 25% 초과' 기준에 미달하지만, 부동산이 회사 운영에 미치는 실질적 영향을 고려하지 않은 채 단순히 수치적 기준만을 적용한 점이 문제이다."
+        ]
+      }
+    },
+    {
+      "case_id": "J302_inh_name_trust_resale",
+      "score": {
+        "case_id": "J302_inh_name_trust_resale",
+        "issue_id": "GRAY_INH_NAME_TRUST_DEEMED_GIFT",
+        "expected_ruling": "재증여중복과세제외",
+        "actual_ruling": "재증여중복과세제외",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.95,
+        "cited_count": 2,
+        "decisive_in_context": null,
+        "elapsed_s": 58.5
+      },
+      "judgment": {
+        "ruling": "재증여중복과세제외",
+        "confidence": 0.95,
+        "reasoning": "의정부지방법원 2024-구합-12806 판례에 따르면, 증여의제 과세된 주식의 매도대금으로 동일 명의자에게 재취득한 주식에 대해 중복 과세는 위법하다. 납세자 프로필에서 재매도대금 재투자 및 동일 명의신탁 유지 사실이 명확히 드러나므로, 재증여 과세 배제 요건을 충족한다. 상속세 및 증여세법 제45조의2의 일반적 적용보다 판례의 구체적 판단이 우선 적용된다.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "의정부지방법원-2024-구합-12806",
+            "사건명": "명의신탁 주식 재취득 시 중복과세 배제"
+          },
+          {
+            "type": "statute",
+            "law": "상속세 및 증여세법",
+            "article": "제45조의2"
+          }
+        ],
+        "caveats": [
+          "재투자 자금이 명의신탁 주식 매도대금에서 직접 유래했는지에 대한 구체적 증빙 필요",
+          "재취득 시점의 명의신탁 계약 변경 여부에 대한 추가 확인 필요"
+        ]
+      }
+    },
+    {
+      "case_id": "J303_inh_family_business_employment_drop",
+      "score": {
+        "case_id": "J303_inh_family_business_employment_drop",
+        "issue_id": "GRAY_INH_FAMILY_BUSINESS_AFTER_MGMT",
+        "expected_ruling": "추징적용",
+        "actual_ruling": "추징적용",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 2,
+        "decisive_in_context": null,
+        "elapsed_s": 53.7
+      },
+      "judgment": {
+        "ruling": "추징적용",
+        "confidence": 0.6,
+        "reasoning": "납세자는 가업상속공제 적용 후 2026년 현재 고용비율 75%(80% 미달)로 사후관리 위반. 상속세법 제18조 및 시행령 제15조에 따라 고용유지 미달 시 추징 적용. 검색된 판례는 직간접 관련 없으나 행정규칙도 해당 사안과 무관. 사실관계는 명확하나 2023년 개정 후 5년 사후관리 기간 적용 여부는 추가 검토 필요.",
+        "cited_sources": [
+          {
+            "type": "statute",
+            "law": "상속세 및 증여세법",
+            "article": "제18조"
+          },
+          {
+            "type": "statute",
+            "law": "상속세 및 증여세법 시행령",
+            "article": "제15조"
+          }
+        ],
+        "caveats": [
+          "2023년 개정 후 5년 사후관리 기간 적용 시점 명확화 필요",
+          "매출유지 여부가 고용비율 미달을 상쇄할 수 있는지 행정해석 확인 필요",
+          "adversary_flagged[severity=0.8]: 납세자 측은 2023년 개정 후 5년 사후관리 기간 적용 여부를 명확히 검토하지 않은 채 단순히 고용비율 75% 미달을 근거로 추징적용을 판단한 것으로, 법적 적용 시기와 전후 관리 기간의 연계성을 고려하지 않은 오류가 있음."
+        ]
+      }
+    },
+    {
+      "case_id": "J304_inh_burden_gift_jeonse",
+      "score": {
+        "case_id": "J304_inh_burden_gift_jeonse",
+        "issue_id": "GRAY_INH_DEBT_GIFT_BURDEN",
+        "expected_ruling": "단순증여재구성",
+        "actual_ruling": "단순증여재구성",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 3,
+        "decisive_in_context": null,
+        "elapsed_s": 65.4
+      },
+      "judgment": {
+        "ruling": "단순증여재구성",
+        "confidence": 0.6,
+        "reasoning": "채무 진정성을 입증하지 못한 경우 부담부증여 인정이 어려움. 프로필에 명시된 '전세보증금' 채무액 8억원에 대한 실제 인수 의무나 이행 내역(payment_history: false)이 없어 경제적 실질성이 결여됨. 대법원 2025두34916 판례는 거래의 경제적 실질을 중시하며 형식적 구조보다 실질적 의도를 판단하는 기준을 제시함.",
+        "cited_sources": [
+          {
+            "type": "statute",
+            "law": "상속세 및 증여세법",
+            "article": "제47조"
+          },
+          {
+            "type": "statute",
+            "law": "상속세 및 증여세법 시행령",
+            "article": "제36조"
+          },
+          {
+            "type": "precedent",
+            "사건번호": "대법원-2025-두-34916",
+            "사건명": "(심리불속행) 배우자가 증여받은 주식을 법인에 양도하고 법인이 이를 소각한 거래의 경제적 실질의 귀속을 원고로 보아 의제배당소득으로 부과한 이 사건 처분은 적법함"
+          }
+        ],
+        "caveats": [
+          "채무 진정성을 입증하는 문서(계약서, 이전 내역 등)의 존재 여부 확인 필요",
+          "가족지인 간 거래의 특수성으로 인한 형식적 구조화 가능성 검토 필요",
+          "adversary_flagged[severity=0.8]: 납세자 측은 '채무 진정성 입증'을 단순히 '지급 이력 유무'로 한정해 해석하고 있으나, 상속세법 제47조 및 시행령 제36조는 채무의 경제적 실질성과 수증자의 인수 의무 존재 여부를 종합적으로 판단하도록 규정하고 있습니다."
+        ]
+      }
+    },
+    {
+      "case_id": "J305_inh_substitute_heir_prior_gift",
+      "score": {
+        "case_id": "J305_inh_substitute_heir_prior_gift",
+        "issue_id": "GRAY_INH_PRIOR_GIFT_10Y_AGGREGATE",
+        "expected_ruling": "전액합산",
+        "actual_ruling": "전액합산",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 4,
+        "decisive_in_context": null,
+        "elapsed_s": 69.4
+      },
+      "judgment": {
+        "ruling": "전액합산",
+        "confidence": 0.6,
+        "reasoning": "대습상속인은 상속인에 해당하며, 상속개시 전 10년 이내 사전증여재산은 상속세 과세가액에 합산됩니다. 납세자 프로필에 따르면 대습상속인(손자)이 7년 전 5억 원을 증여받은 사례는 서울행정법원 2018 판례의 핵심 판단(10년 기준 적용)에 해당합니다. 상속세 및 증여세법 제13조와 시행령 제3조가 이 기준을 명시적으로 규정합니다.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "서울행정법원-2018-구합-63426",
+            "사건명": "대습상속인 사전증여재산 합산기간은 10년이 되는 것임"
+          },
+          {
+            "type": "precedent",
+            "사건번호": "서울행정법원-2016-구합-53142",
+            "사건명": "금원이 상속개시일 전 10년 이내에 피상속인에 의해 상속인인 원고에게 증여된 것인 이상 사전증여재산에 해당"
+          },
+          {
+            "type": "statute",
+            "law": "상속세 및 증여세법",
+            "article": "제13조"
+          },
+          {
+            "type": "statute",
+            "law": "상속세 및 증여세법 시행령",
+            "article": "제3조"
+          }
+        ],
+        "caveats": [
+          "증여세 신고 누락 여부나 재증여 여부가 추가 확인 필요",
+          "대습상속인 지위 인정 여부에 대한 증거가 명확해야 적용 가능",
+          "adversary_flagged[severity=0.8]: 납세자 측은 대습상속인의 사전증여 합산 기준 적용 시 '증여 당시 상속인 지위'를 명시적으로 검토하지 않았습니다. 대습상속인의 상속인 지위는 상속개시 시점에 발생하므로, 증여 당시 피상속인의 직계비속(즉, 대습상속인의 상속인 지위를 대체할 자)이 생존 중이었는지 여부가 핵심입니다."
+        ]
+      }
+    },
+    {
+      "case_id": "J306_inh_free_loan_no_promissory",
+      "score": {
+        "case_id": "J306_inh_free_loan_no_promissory",
+        "issue_id": "GRAY_INH_FREE_LOAN_GIFT",
+        "expected_ruling": "원본증여재구성",
+        "actual_ruling": "원본증여재구성",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 2,
+        "decisive_in_context": null,
+        "elapsed_s": 65.2
+      },
+      "judgment": {
+        "ruling": "원본증여재구성",
+        "confidence": 0.6,
+        "reasoning": "차용증·상환계획 부재 및 부채자 상환능력 부재로 금전대부의 실질적 성립 여부가 의심되므로, 원본 자체를 증여로 재구성 가능. 상속세법 제41조의4는 무이자 대출 시 이자상당액을 증여로 의제하지만, 상환기록이 전혀 없고 부채자 상환능력이 없는 경우 원본의 증여성 추정이 강화됨.",
+        "cited_sources": [
+          {
+            "type": "statute",
+            "law": "상속세 및 증여세법",
+            "article": "제41조의4"
+          },
+          {
+            "type": "statute",
+            "law": "상속세 및 증여세법 시행령",
+            "article": "제31조의4"
+          }
+        ],
+        "caveats": [
+          "판례 검색 결과 해당 이슈에 직접 관련된 결정판례 미발견",
+          "차용증 부재 시 증여 재구성 여부는 구체적 거래실태에 따라 달라질 수 있음",
+          "adversary_flagged[severity=0.8]: 납세자 측은 상속세법 제41조의4가 원본 증여재구성을 규정하는 것으로 오인하고 있으며, 이 조문은 단지 이자상당액 증여의의제를 규정할 뿐 원본 재구성은 별도의 증여의의제 요건(상속세법 제4조)에 의거해야 한다는 점을 누락하였다."
+        ]
+      }
+    },
+    {
+      "case_id": "J201_vat_data_dealer_real_transaction",
+      "score": {
+        "case_id": "J201_vat_data_dealer_real_transaction",
+        "issue_id": "GRAY_VAT_FAKE_INVOICE",
+        "expected_ruling": "선의무과실인정",
+        "actual_ruling": "선의무과실인정",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 2,
+        "decisive_in_context": null,
+        "elapsed_s": 54.5
+      },
+      "judgment": {
+        "ruling": "선의무과실인정",
+        "confidence": 0.6,
+        "reasoning": "납세자는 실제 거래 증빙(은행이체, 배송기록)을 보유하고 있어 부가가치세법 제39조 제1항의 '실제 거래 존재' 요건을 충족합니다. 판례에서 보듯이 선의의 납세자에 대한 구제 가능성은 인정되나, 가공세금계산서 적발 시 전액공제를 인정한 판례가 없어 부분적 구제가 타당합니다. 다만 검색된 판례는 동일한 가공세금계산서 쟁점과 무관하므로 법원의 구체적 판단에 따라 결과가 달라질 수 있습니다.",
+        "cited_sources": [
+          {
+            "type": "statute",
+            "law": "부가가치세법",
+            "article": "제39조"
+          },
+          {
+            "type": "statute",
+            "law": "부가가치세법",
+            "article": "제32조"
+          }
+        ],
+        "caveats": [
+          "검색된 판례는 가공세금계산서 쟁점과 직접 관련 없음",
+          "공급자 적발 시점과 납세자의 세금계산서 수령 시점 간 시간적 차이가 구제 판단에 영향을 줄 수 있음",
+          "세무서의 구체적 조사 결과에 따라 선의 여부 판단이 달라질 수 있음",
+          "adversary_flagged[severity=0.8]: 납세자 측은 실제 거래 증빙 존재를 '선의' 입증의 유일한 기준으로 오인하고 있으며, 부가가치세법 제39조 제1항은 '실제 거래 존재' 외에도 '세금계산서의 적법성'을 병렬적 요건으로 규정하고 있음."
+        ]
+      }
+    },
+    {
+      "case_id": "J202_vat_golf_membership_input",
+      "score": {
+        "case_id": "J202_vat_golf_membership_input",
+        "issue_id": "GRAY_VAT_INPUT_BUSINESS_RELATED",
+        "expected_ruling": "전액불공제",
+        "actual_ruling": "전액불공제",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 3,
+        "decisive_in_context": null,
+        "elapsed_s": 42.4
+      },
+      "judgment": {
+        "ruling": "전액불공제",
+        "confidence": 0.6,
+        "reasoning": "골프회원권은 대법원 판례(2021두46810)에 따르면 접대비 성격의 비영업 목적 자산으로, 사업 관련성이 명백히 결여된 경우 전액 불공제가 원칙입니다. 납세자의 사용 목적(영업접대)이 명시되어 있으므로 부가가치세법 제39조의 사업관련성 요건을 충족하지 못합니다.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "대법원-2021-두-46810",
+            "사건명": "사업 관련성이 없는 지출에 대한 매입세액은 매출세액에서 공제할 수 없다"
+          },
+          {
+            "type": "statute",
+            "law": "부가가치세법",
+            "article": "제39조"
+          },
+          {
+            "type": "statute",
+            "law": "부가가치세법 시행령",
+            "article": "제77조"
+          }
+        ],
+        "caveats": [
+          "사용 내역의 혼합 비율 증빙이 없는 경우 사업비율안분 판단 가능성 있으나, 현재 자료상 영업접대 목적만 명시되어 있어 적용 불필요",
+          "adversary_flagged[severity=0.6]: 납세자 측은 대법원 판례(2021두46810)의 핵심 요건인 '사업과 직접 관련된 사용 여부'를 단순히 '영업접대 목적'이라는 단일 요인으로 판단한 것으로, 실제 자산 사용 내역에 대한 구체적 검토 없이 전액 불공제 결론을 도출한 점에서 법리 적용 오류가 있다."
+        ]
+      }
+    },
+    {
+      "case_id": "J203_vat_export_no_documents",
+      "score": {
+        "case_id": "J203_vat_export_no_documents",
+        "issue_id": "GRAY_VAT_ZERO_RATE_PROOF",
+        "expected_ruling": "영세율부인",
+        "actual_ruling": "영세율부인",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 3,
+        "decisive_in_context": null,
+        "elapsed_s": 45.9
+      },
+      "judgment": {
+        "ruling": "영세율부인",
+        "confidence": 0.6,
+        "reasoning": "납세자는 외화획득 사업에서 영세율을 주장하지만, 외화입금증빙·수출신고필증·계약서를 제시하지 못함. 부가가치세법 제21조 제2항은 수출입 거래의 경우 외화수취 증빙을 필수적으로 요구하며, 서울고등법원 2025누6431 판례는 엄격한 규정 해석을 요구함. 온라인 결제기록만으로는 외화획득 사실을 입증하기 부족함.",
+        "cited_sources": [
+          {
+            "type": "statute",
+            "law": "부가가치세법",
+            "article": "제21조"
+          },
+          {
+            "type": "statute",
+            "law": "부가가치세법",
+            "article": "제22조"
+          },
+          {
+            "type": "precedent",
+            "사건번호": "서울고등법원-2025-누-6431",
+            "사건명": "비지정기부금단체에 지출된 기부금은 필요경비 산입 및 기부금 특별세액공제 대상에 해당하지 않음"
+          }
+        ],
+        "caveats": [
+          "온라인 결제기록이 외화획득을 간접적으로 입증할 수 있는지에 대한 추가 법리 검토 필요",
+          "운송·관광·중개 업종별로 외화획득 입증 기준이 상이할 가능성",
+          "adversary_flagged[severity=0.8]: 납세자 측 판단은 외화획득 입증의 대체적 방법을 고려하지 않은 채 단순히 서류 부재를 근거로 영세율 부인한 점에서 법리적 오류가 있다."
+        ]
+      }
+    },
+    {
+      "case_id": "J204_vat_mixed_use_below_5pct",
+      "score": {
+        "case_id": "J204_vat_mixed_use_below_5pct",
+        "issue_id": "GRAY_VAT_MIXED_USE_APPORTIONMENT",
+        "expected_ruling": "매출비율안분",
+        "actual_ruling": "매출비율안분",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 3,
+        "decisive_in_context": null,
+        "elapsed_s": 49.7
+      },
+      "judgment": {
+        "ruling": "매출비율안분",
+        "confidence": 0.6,
+        "reasoning": "부가가치세법 제40조 및 시행령 제81조는 겸영사업자의 공통매입세액을 매출비율에 따라 안분하도록 규정합니다. 납세자의 과세매출비율(95%)과 면세매출비율(5%)은 명확히 구분되어 있어, 행정규칙 및 판례에서 별도의 사용면적 또는 정산조정 근거가 제시되지 않은 한 매출비율 안분이 원칙입니다. 검색된 판례는 VAT 안분과 직접 관련되지 않아 적용 가능성 없음.",
+        "cited_sources": [
+          {
+            "type": "statute",
+            "law": "부가가치세법",
+            "article": "제40조"
+          },
+          {
+            "type": "statute",
+            "law": "부가가치세법 시행령",
+            "article": "제81조"
+          },
+          {
+            "type": "statute",
+            "law": "부가가치세법 시행령",
+            "article": "제82조"
+          }
+        ],
+        "caveats": [
+          "사용면적이 실제 비율과 현저히 차이난 경우 추가 조정 가능성 있음",
+          "판례 검색 결과 VAT 안분 관련 구체적 판단 근거 미발견",
+          "adversary_flagged[severity=0.8]: 납세자 측은 부가가치세법 시행령 제81조의 '사용비율' 또는 '면적비율' 등 보다 정확한 안분 방법이 적용 가능한 경우를 고려하지 않았습니다."
+        ]
+      }
+    },
+    {
+      "case_id": "J205_vat_simplified_name_split",
+      "score": {
+        "case_id": "J205_vat_simplified_name_split",
+        "issue_id": "GRAY_VAT_SIMPLIFIED_CONVERSION",
+        "expected_ruling": "일반과세전환",
+        "actual_ruling": "일반과세전환",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 3,
+        "decisive_in_context": null,
+        "elapsed_s": 49.4
+      },
+      "judgment": {
+        "ruling": "일반과세전환",
+        "confidence": 0.6,
+        "reasoning": "본인(8천만원)과 배우자 명의(8천만원)의 동일 업종·위치 사업으로 직전 1년 합산 매출 1억 6천만원 발생. 서울행정법원 2013 판례에 따르면 가족 명의 분산으로 간이과세 기준 회피 시 실질과세 원칙 적용되어 합산 매출 기준 적용. 1억 400만원을 초과하므로 일반과세자로 강제 전환되어야 함.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "서울행정법원-2012-구합-41073",
+            "사건명": "간이과세자에서 일반과세자로 전환되는 것을 회피하기 위해 타인 명의로 사업을 한 것에 대하여 실사업자인 원고에게 한 처분은 정당함"
+          },
+          {
+            "type": "statute",
+            "law": "부가가치세법",
+            "article": "제62조"
+          },
+          {
+            "type": "statute",
+            "law": "부가가치세법 시행령",
+            "article": "제109조"
+          }
+        ],
+        "caveats": [
+          "명의 분산 외에 별도의 사업 운영 증빙(예: 독립된 계약서, 인건비 내역)이 있는지 추가 확인 필요",
+          "동일 장소 운영 여부에 대한 구체적 증거가 명확하지 않은 경우 반대 해석 가능성",
+          "adversary_flagged[severity=0.8]: 납세자 측은 서울행정법원 2013 판례의 핵심 요건인 '실질적 통제관계'를 입증하지 못한 채 단순히 가족관계와 동일 업종·위치만으로 명의분산을 인정한 오류가 있음"
+        ]
+      }
+    },
+    {
+      "case_id": "J206_vat_intermediate_invoice_recipient",
+      "score": {
+        "case_id": "J206_vat_intermediate_invoice_recipient",
+        "issue_id": "GRAY_VAT_FALSE_INVOICE_RECIPIENT",
+        "expected_ruling": "과실인정불공제",
+        "actual_ruling": "과실인정불공제",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 3,
+        "decisive_in_context": null,
+        "elapsed_s": 50.7
+      },
+      "judgment": {
+        "ruling": "과실인정불공제",
+        "confidence": 0.6,
+        "reasoning": "매입자는 공급자명(B)과 실제 공급자(C)의 차이를 확인할 의무가 있었으나, 현장방문 기록이 없어 실질 거래 검증을 소홀히 한 것으로 판단됩니다. 부가가치세법 제39조는 부적격 세금계산서에 대해 매입세액 공제를 제한하며, 국세기본법 제14조는 납세자의 신의칙 준수를 요구합니다. 판례에서 엄격한 해석이 요구된 사례(서울고등법원2023누57540)와 유사한 책임 기준이 적용됩니다.",
+        "cited_sources": [
+          {
+            "type": "statute",
+            "law": "부가가치세법",
+            "article": "제39조"
+          },
+          {
+            "type": "statute",
+            "law": "국세기본법",
+            "article": "제14조"
+          },
+          {
+            "type": "precedent",
+            "사건번호": "서울고등법원2023누57540",
+            "사건명": "기부금세액공제의 규정은 엄격해석에 따라야하고, 쟁점금액 지출 당시 지정기부금단체가 아닌 한, 기부금세액공제 대상에 해당하지 아니함"
+          }
+        ],
+        "caveats": [
+          "현장방문 여부 외에도 추가 거래 내역(예: 계약서, 입출고 기록)이 없다면 반대 해석 가능성 있음",
+          "B와 C의 공모 여부에 따라 책임 범위 달라질 수 있음",
+          "adversary_flagged[severity=0.8]: 납세자 측 판단은 현장방문 유무를 유일한 검증 기준으로 삼았으나, 부가가치세법 제39조는 '실질 거래 여부 확인 의무'를 규정하며, 현장방문 외에도 거래명세서, 계약서, 지급내역 등 객관적 증빙을 통한 검증 의무가 병행된다."
+        ]
+      }
+    }
+  ]
+}

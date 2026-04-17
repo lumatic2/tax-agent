@@ -1,0 +1,105 @@
+{
+  "summary": {
+    "total": 2,
+    "rm": 2,
+    "sm": 2,
+    "fa": 2,
+    "elapsed_s": 78.1
+  },
+  "runs": [
+    {
+      "case_id": "J007_dependent_spouse_retirement_lumpsum",
+      "score": {
+        "case_id": "J007_dependent_spouse_retirement_lumpsum",
+        "issue_id": "GRAY_DEPENDENT_QUALIFICATION",
+        "expected_ruling": "공제부인",
+        "actual_ruling": "공제부인",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.6,
+        "cited_count": 3,
+        "decisive_in_context": null,
+        "elapsed_s": 41.3
+      },
+      "judgment": {
+        "ruling": "공제부인",
+        "confidence": 0.6,
+        "reasoning": "판례 부산지방법원-2017-구합-22603에 따르면 근속 5년 기준 퇴직소득공제는 500만원이며, 3,000만원의 퇴직금에서 공제 후 2,500만원이 과세표준이 됨. 소득세법 제50조의 부양가족 소득기준(100만원)을 현저히 초과하므로 공제 불인정. 근로소득 외 기타소득 포함 시 기준 초과 여부는 별도 검토 필요.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "부산지방법원-2017-구합-22603",
+            "사건명": "퇴직소득공제 계산시 근속연수는 입사일 부터 희망퇴직일까지임"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법",
+            "article": "제50조"
+          },
+          {
+            "type": "statute",
+            "law": "소득세법 시행령",
+            "article": "제106조"
+          }
+        ],
+        "caveats": [
+          "기타소득·사업소득 포함 여부 및 비과세 항목 분리 여부 확인 필요",
+          "판례는 퇴직소득 계산에 초점, 부양가족 소득기준 적용 시 소득종합산정 방법에 대한 추가 검토 요망",
+          "adversary_flagged[severity=0.9]: 납세자 측은 부양가족 소득기준(100만원) 적용 대상이 부양가족 본인의 소득인지, 배우자의 소득인지 혼동한 것으로 보임. 소득세법 제50조는 '부양가족의 연간 소득금액'을 기준으로 하며, 배우자의 퇴직소득은 부양가족 소득기준과 무관함."
+        ]
+      }
+    },
+    {
+      "case_id": "J105_corp_rd_drug_development_phase",
+      "score": {
+        "case_id": "J105_corp_rd_drug_development_phase",
+        "issue_id": "GRAY_CORP_RD_CAPITALIZE",
+        "expected_ruling": "일부자본화",
+        "actual_ruling": "일부자본화",
+        "ruling_match": true,
+        "source_match": true,
+        "forbidden_avoided": true,
+        "forbidden_hits": [],
+        "confidence": 0.49,
+        "cited_count": 4,
+        "decisive_in_context": null,
+        "elapsed_s": 36.8
+      },
+      "judgment": {
+        "ruling": "일부자본화",
+        "confidence": 0.49,
+        "reasoning": "임상2상 단계는 결과의 불확실성이 높아 기술적 실현가능성 입증이 곤란(서울고등법원-2025-누-43281). 회계상 자본화 처리된 50억 중 6요건 일부 항목(미래경제효익 기대, 자원 이용 가능성 등)이 충족된 부분은 자본화 인정 가능(서울행정법원-2014-구합-68188). 다만 기술적 실현가능성 미기록으로 전액 자본화는 부적합하나, 세무조정 시 일부 자본화·일부 손금 처리가 일반적.",
+        "cited_sources": [
+          {
+            "type": "precedent",
+            "사건번호": "서울행정법원-2014-구합-68188",
+            "사건명": "개발비 회계처리가 회계기준을 위배하였다고 볼 수 없고, 자산인식요건을 충족한 것으로 볼 수 없어 손금인정됨"
+          },
+          {
+            "type": "statute",
+            "law": "법인세법",
+            "article": "제40조"
+          },
+          {
+            "type": "statute",
+            "law": "법인세법 시행령",
+            "article": "제24조"
+          },
+          {
+            "type": "statute",
+            "law": "조세특례제한법",
+            "article": "제10조"
+          }
+        ],
+        "caveats": [
+          "기술적 실현가능성 외 6요건 중 구체적으로 충족된 항목에 대한 증빙 자료가 추가로 필요함",
+          "회계기준(K-IFRS)과 세무기준 간 처리 차이로 세무당국의 현장 조정 기준이 다를 가능성 있음",
+          "rejected_non_whitelist_sources: ['precedent:서울고등법원-2025-누-43281']",
+          "adversary_flagged[severity=0.8]: 납세자 측은 기술적 실현가능성 미기록을 전제로 하면서도 6요건 일부 항목 충족을 근거로 자본화를 주장하고 있으나, 기술적 실현가능성은 자산인식 6요건 중 핵심적 필수 조건으로, 이 요건 미충족 시 나머지 항목도 자본화 근거가 무효화된다."
+        ]
+      }
+    }
+  ]
+}

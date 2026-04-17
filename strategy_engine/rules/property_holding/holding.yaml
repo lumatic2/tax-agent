@@ -1,0 +1,132 @@
+- id: CHT_SPOUSE_JOINT
+  name: "부부 공동명의 전환 (종부세 공제 확대)"
+  category: deduction
+  tax_type: 종합부동산세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - op: "=="
+        left: "profile.has_holding_property"
+        right: true
+      - op: "=="
+        left: "profile.is_spouse_joint"
+        right: false
+      - op: ">"
+        left: "profile.total_published_price"
+        right: 1200000000
+
+  diagnosis: "단독명의 1주택자 공제 12억 → 부부 공동명의 시 각 9억 합산 18억으로 확대"
+  recommendation:
+    action: "등기 지분을 부부 공동명의로 변경 후 종부세 신고"
+    detail: "공시가 12억 초과 1주택 가구 주된 대상. 1세대1주택 특례(12억·세액공제)와 공동명의(18억·공제없음) 중 유리한 쪽 선택"
+
+  estimator:
+    type: formula
+    name: cht_spouse_joint_savings
+    params:
+      total_price_ref: "profile.total_published_price"
+      house_count_ref: "profile.house_count"
+      is_one_house_ref: "profile.is_one_house_household"
+
+  legal_basis:
+    - { law: 종합부동산세법, article: "제8조" }
+    - { law: 종합부동산세법, article: "제10조의2" }
+
+  risk:
+    level: medium
+    flags: [증여세_발생, 취득세_발생]
+    caveat: "지분 이전 시 증여세·취득세 별도 발생. 장기 보유·상속 설계 함께 검토"
+
+  source:
+    ref: "종부세법 §8, §10의2 — 2026 개정"
+    updated: 2026-04-17
+
+
+- id: CHT_RENTAL_EXCLUSION
+  name: "임대주택 합산배제"
+  category: reduction
+  tax_type: 종합부동산세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - op: "=="
+        left: "profile.has_holding_property"
+        right: true
+      - op: ">"
+        left: "profile.rental_eligible_price"
+        right: 0
+
+  diagnosis: "임대사업자 등록 주택은 종부세 과세표준에서 합산배제 (3주택 중과 회피 효과)"
+  recommendation:
+    action: "지자체 임대사업자 등록 + 9/16까지 세무서 합산배제 신고"
+    detail: "국민주택규모·공시가 상한 요건 충족 필요. 조정지역 신규 등록 제한 주의"
+
+  estimator:
+    type: formula
+    name: cht_rental_exclusion_savings
+    params:
+      excluded_price_ref: "profile.rental_eligible_price"
+      total_price_ref: "profile.total_published_price"
+      house_count_ref: "profile.house_count"
+      is_one_house_ref: "profile.is_one_house_household"
+
+  legal_basis:
+    - { law: 종합부동산세법, article: "제8조" }
+
+  risk:
+    level: medium
+    flags: [의무임대기간_10년]
+    caveat: "의무임대기간(10년) 미충족 시 감면세액 추징"
+
+  source:
+    ref: "종부세법 §8② — 2026 개정"
+    updated: 2026-04-17
+
+
+- id: CHT_ONE_HOUSE_CREDIT
+  name: "1세대 1주택 고령·장기보유 세액공제"
+  category: credit
+  tax_type: 종합부동산세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - op: "=="
+        left: "profile.has_holding_property"
+        right: true
+      - op: "=="
+        left: "profile.is_one_house_household"
+        right: true
+      - op: ">"
+        left: "profile.total_published_price"
+        right: 1200000000
+
+  diagnosis: "만 60세 이상 또는 5년 이상 보유 1세대1주택자 — 세액의 최대 80% 공제"
+  recommendation:
+    action: "종부세 신고서 고령자·장기보유 공제란 체크"
+    detail: "고령(60/65/70 → 20/30/40%) + 장기보유(5/10/15 → 20/40/50%) 합산, 한도 80%"
+
+  estimator:
+    type: formula
+    name: cht_one_house_credit_savings
+    params:
+      total_price_ref: "profile.total_published_price"
+      owner_age_ref: "profile.owner_age"
+      holding_years_ref: "profile.property_holding_years"
+
+  legal_basis:
+    - { law: 종합부동산세법, article: "제9조의2" }
+
+  risk:
+    level: low
+    flags: []
+    caveat: "세대원 전원 무주택 요건. 지분 공동명의 시 특례 선택 필요"
+
+  source:
+    ref: "종부세법 §9의2 — 2026 개정"
+    updated: 2026-04-17

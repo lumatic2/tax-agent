@@ -9,6 +9,7 @@ estimator.type:
 
 from __future__ import annotations
 
+import property_holding_tax
 import tax_calculator
 
 
@@ -199,6 +200,50 @@ def sme_employment_reduction_savings(
     approx_tax = int(int(gross_salary or 0) * 0.1)
     cap = 2_000_000
     return min(int(approx_tax * ratio), cap)
+
+
+def sme_special_reduction_savings(
+    business_income: int = 0,
+    size: str = "small",
+    region: str = "non_metro",
+    industry: str = "manufacturing",
+) -> int:
+    """중소기업 특별세액감면 (조특 §7).
+
+    업종·규모·소재지별 감면율. 산출세액 × 감면율, 연 1억 한도.
+    size: "small" | "medium"
+    region: "metro" | "non_metro"
+    industry: "manufacturing" | "retail_medical" | "knowledge" | "other"
+    """
+    bi = int(business_income or 0)
+    if bi <= 0:
+        return 0
+    table = {
+        ("small", "metro", "manufacturing"): 0.20,
+        ("small", "non_metro", "manufacturing"): 0.30,
+        ("small", "metro", "retail_medical"): 0.10,
+        ("small", "non_metro", "retail_medical"): 0.10,
+        ("small", "metro", "knowledge"): 0.10,
+        ("small", "non_metro", "knowledge"): 0.20,
+        ("small", "metro", "other"): 0.10,
+        ("small", "non_metro", "other"): 0.15,
+        ("medium", "metro", "manufacturing"): 0.0,
+        ("medium", "non_metro", "manufacturing"): 0.15,
+        ("medium", "metro", "knowledge"): 0.10,
+        ("medium", "non_metro", "knowledge"): 0.15,
+        ("medium", "metro", "retail_medical"): 0.05,
+        ("medium", "non_metro", "retail_medical"): 0.05,
+        ("medium", "metro", "other"): 0.0,
+        ("medium", "non_metro", "other"): 0.05,
+    }
+    key = (str(size or "small").lower(), str(region or "non_metro").lower(), str(industry or "manufacturing").lower())
+    rate = table.get(key, 0.0)
+    if rate <= 0:
+        return 0
+    approx_tax = tax_calculator.calculate_tax(bi)
+    income_tax = int(approx_tax.get("산출세액", 0) or 0)
+    saving = int(income_tax * rate)
+    return min(saving, 100_000_000)
 
 
 def yellow_umbrella_savings(paid: int = 0, marginal_rate: float = 0.15) -> int:
@@ -689,6 +734,65 @@ def transfer_expropriation_savings(
     return min(saved, 100_000_000)
 
 
+# --- 종합부동산세 v1 확장 (Phase 8-A) --------------------------------------
+
+def cht_spouse_joint_savings(
+    total_price: int = 0,
+    house_count: int = 1,
+    is_one_house: bool = False,
+) -> int:
+    """1주택 단독 vs 부부 공동명의 종부세 절감액."""
+    total = int(total_price or 0)
+    if total <= 0:
+        return 0
+    hc = int(house_count or 1)
+    single = property_holding_tax.calculate_housing_cht(
+        total, hc, bool(is_one_house), is_spouse_joint=False
+    )
+    joint = property_holding_tax.calculate_housing_cht(
+        total, hc, False, is_spouse_joint=True
+    )
+    return max(int(single["산출세액"]) - int(joint["산출세액"]), 0)
+
+
+def cht_rental_exclusion_savings(
+    excluded_price: int = 0,
+    total_price: int = 0,
+    house_count: int = 1,
+    is_one_house: bool = False,
+) -> int:
+    """임대주택 합산배제로 과세표준 감소에 따른 종부세 절감액."""
+    total = int(total_price or 0)
+    excluded = int(excluded_price or 0)
+    if excluded <= 0 or total <= 0:
+        return 0
+    hc = int(house_count or 1)
+    before = property_holding_tax.calculate_housing_cht(total, hc, bool(is_one_house))
+    remaining_count = max(hc - 1, 1)
+    after_one_house = bool(is_one_house) and remaining_count == 1
+    after = property_holding_tax.calculate_housing_cht(
+        max(total - excluded, 0), remaining_count, after_one_house
+    )
+    return max(int(before["산출세액"]) - int(after["산출세액"]), 0)
+
+
+def cht_one_house_credit_savings(
+    total_price: int = 0,
+    owner_age: int = 0,
+    holding_years: int = 0,
+) -> int:
+    """1세대1주택 고령·장기보유 세액공제액."""
+    total = int(total_price or 0)
+    if total <= 1_200_000_000:
+        return 0
+    base = property_holding_tax.calculate_housing_cht(total, 1, True)
+    return int(
+        property_holding_tax.calculate_one_house_credit(
+            int(base["산출세액"]), int(owner_age or 0), int(holding_years or 0)
+        )
+    )
+
+
 FORMULAS = {
     "financial_separation_savings": financial_separation_savings,
     "double_entry_savings": double_entry_savings,
@@ -701,6 +805,7 @@ FORMULAS = {
     "donation_credit_savings": donation_credit_savings,
     "credit_card_deduction_savings": credit_card_deduction_savings,
     "sme_employment_reduction_savings": sme_employment_reduction_savings,
+    "sme_special_reduction_savings": sme_special_reduction_savings,
     "yellow_umbrella_savings": yellow_umbrella_savings,
     "housing_rental_separation_savings": housing_rental_separation_savings,
     "other_income_separation_savings": other_income_separation_savings,
@@ -730,6 +835,9 @@ FORMULAS = {
     "transfer_multi_house_savings": transfer_multi_house_savings,
     "transfer_farmland_savings": transfer_farmland_savings,
     "transfer_expropriation_savings": transfer_expropriation_savings,
+    "cht_spouse_joint_savings": cht_spouse_joint_savings,
+    "cht_rental_exclusion_savings": cht_rental_exclusion_savings,
+    "cht_one_house_credit_savings": cht_one_house_credit_savings,
 }
 
 

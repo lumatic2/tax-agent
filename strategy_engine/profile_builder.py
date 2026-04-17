@@ -79,6 +79,8 @@ _FLAT_TRIGGERS = {
     "low_price_transfer_market_value",
     "inheritance_total",
     "family_business_asset_value",
+    # Phase 8-A 종합부동산세
+    "has_holding_property",
 }
 
 

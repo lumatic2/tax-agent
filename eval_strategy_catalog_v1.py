@@ -31,11 +31,12 @@ def test_catalog_counts_by_tax_type():
     counts = {}
     for r in rules:
         counts[r.tax_type] = counts.get(r.tax_type, 0) + 1
-    assert len(rules) == 51, f"전체 51개 예상, 실제 {len(rules)}"
-    assert counts.get("소득세") == 27
+    assert len(rules) == 55, f"전체 55개 예상, 실제 {len(rules)}"
+    assert counts.get("소득세") == 28
     assert counts.get("법인세") == 14
     assert counts.get("상속세") == 3
     assert counts.get("증여세") == 7
+    assert counts.get("종합부동산세") == 3
 
 
 # --- 소득세 신규 규칙 ------------------------------------------------------
@@ -94,6 +95,44 @@ def test_sme_employment_applies_youth():
     assert "RED_SME_EMPLOYMENT" in _ids(r["candidates"])
     # approx_tax = 3M × 90% = 2.7M → cap 2M
     assert _saving(r["candidates"], "RED_SME_EMPLOYMENT") == 2_000_000
+
+
+def test_sme_special_section7_small_manufacturing_non_metro():
+    r = run({
+        "has_business_income": True,
+        "business_revenue": 100_000_000,
+        "business_income": 50_000_000,
+        "is_sme_business": True,
+        "sme_size": "small",
+        "sme_region": "non_metro",
+        "sme_industry": "manufacturing",
+    })
+    # 산출세액 6,240,000 × 30% = 1,872,000
+    assert _saving(r["candidates"], "RED_SME_SPECIAL_SECTION7") == 1_872_000
+
+
+def test_sme_special_section7_medium_metro_other_zero_rate_skips():
+    r = run({
+        "has_business_income": True,
+        "business_revenue": 100_000_000,
+        "business_income": 50_000_000,
+        "is_sme_business": True,
+        "sme_size": "medium",
+        "sme_region": "metro",
+        "sme_industry": "other",
+    })
+    # rate 0 → saving 0 → 카탈로그에서 제외
+    assert "RED_SME_SPECIAL_SECTION7" not in _ids(r["candidates"])
+
+
+def test_sme_special_section7_not_sme_skips():
+    r = run({
+        "has_business_income": True,
+        "business_revenue": 100_000_000,
+        "business_income": 50_000_000,
+        "is_sme_business": False,
+    })
+    assert "RED_SME_SPECIAL_SECTION7" not in _ids(r["candidates"])
 
 
 def test_sme_employment_expired_after_5years():
@@ -851,6 +890,96 @@ def test_transfer_expropriation_not_public_skips():
     assert "TRANSFER_PUBLIC_EXPROPRIATION" not in _ids(r["candidates"])
 
 
+# --- Phase 8-A 종합부동산세 ------------------------------------------------
+
+def test_cht_spouse_joint_applies():
+    r = run({
+        "has_holding_property": True,
+        "is_spouse_joint": False,
+        "total_published_price": 2_000_000_000,
+        "house_count": 1,
+        "is_one_house_household": True,
+    })
+    # single: (2B - 1.2B) × 0.6 = 480M → 480M × 0.7% - 600k = 2,760,000
+    # joint:  (2B - 1.8B) × 0.6 = 120M → 120M × 0.5% = 600,000
+    assert _saving(r["candidates"], "CHT_SPOUSE_JOINT") == 2_160_000
+
+
+def test_cht_spouse_joint_already_joint_skips():
+    r = run({
+        "has_holding_property": True,
+        "is_spouse_joint": True,
+        "total_published_price": 2_000_000_000,
+        "house_count": 1,
+        "is_one_house_household": True,
+    })
+    assert "CHT_SPOUSE_JOINT" not in _ids(r["candidates"])
+
+
+def test_cht_spouse_joint_under_12eok_skips():
+    r = run({
+        "has_holding_property": True,
+        "is_spouse_joint": False,
+        "total_published_price": 1_000_000_000,
+        "house_count": 1,
+        "is_one_house_household": True,
+    })
+    assert "CHT_SPOUSE_JOINT" not in _ids(r["candidates"])
+
+
+def test_cht_rental_exclusion_applies_3house():
+    r = run({
+        "has_holding_property": True,
+        "total_published_price": 3_000_000_000,
+        "rental_eligible_price": 1_000_000_000,
+        "house_count": 3,
+        "is_one_house_household": False,
+    })
+    # before (heavy): base (3B-900M)×0.6 = 1.26B → 1.26B×2% - 7.5M = 17.7M
+    # after  (general, 2 houses): base (2B-900M)×0.6 = 660M → 660M×1% - 1.5M = 5.1M
+    assert _saving(r["candidates"], "CHT_RENTAL_EXCLUSION") == 12_600_000
+
+
+def test_cht_rental_exclusion_zero_skips():
+    r = run({
+        "has_holding_property": True,
+        "total_published_price": 3_000_000_000,
+        "rental_eligible_price": 0,
+        "house_count": 3,
+    })
+    assert "CHT_RENTAL_EXCLUSION" not in _ids(r["candidates"])
+
+
+def test_cht_one_house_credit_max_80pct():
+    r = run({
+        "has_holding_property": True,
+        "is_one_house_household": True,
+        "total_published_price": 2_000_000_000,
+        "owner_age": 70,
+        "property_holding_years": 15,
+    })
+    # base tax 2,760,000 × 80% = 2,208,000
+    assert _saving(r["candidates"], "CHT_ONE_HOUSE_CREDIT") == 2_208_000
+
+
+def test_cht_one_house_credit_multi_house_skips():
+    r = run({
+        "has_holding_property": True,
+        "is_one_house_household": False,
+        "total_published_price": 2_000_000_000,
+        "owner_age": 70,
+        "property_holding_years": 15,
+    })
+    assert "CHT_ONE_HOUSE_CREDIT" not in _ids(r["candidates"])
+
+
+def test_cht_rules_skip_on_income_only_profile():
+    r = run({"has_earned_income": True, "gross_salary": 60_000_000})
+    ids = _ids(r["candidates"])
+    for rid in ("CHT_SPOUSE_JOINT", "CHT_RENTAL_EXCLUSION", "CHT_ONE_HOUSE_CREDIT"):
+        assert rid not in ids, f"{rid} 오발동 (소득세 프로필)"
+
+
 if __name__ == "__main__":
     tests = [
         ("catalog counts", test_catalog_counts_by_tax_type),
@@ -862,6 +991,9 @@ if __name__ == "__main__":
         ("card under skip", test_credit_card_below_threshold),
         ("sme youth", test_sme_employment_applies_youth),
         ("sme expired skip", test_sme_employment_expired_after_5years),
+        ("sme special §7 apply", test_sme_special_section7_small_manufacturing_non_metro),
+        ("sme special §7 zero rate skip", test_sme_special_section7_medium_metro_other_zero_rate_skips),
+        ("sme special §7 non-sme skip", test_sme_special_section7_not_sme_skips),
         ("yellow biz", test_yellow_umbrella_applies_for_business),
         ("yellow emp skip", test_yellow_umbrella_skips_for_employee_only),
         ("housing 20m", test_housing_rental_separation_under_20m),
@@ -947,6 +1079,14 @@ if __name__ == "__main__":
         ("transfer farmland skip", test_transfer_farmland_under_8yr_skips),
         ("transfer exprop", test_transfer_expropriation_bond_5y_applies),
         ("transfer exprop skip", test_transfer_expropriation_not_public_skips),
+        ("cht spouse joint", test_cht_spouse_joint_applies),
+        ("cht spouse joint already skip", test_cht_spouse_joint_already_joint_skips),
+        ("cht spouse joint <12억 skip", test_cht_spouse_joint_under_12eok_skips),
+        ("cht rental excl 3house", test_cht_rental_exclusion_applies_3house),
+        ("cht rental excl zero skip", test_cht_rental_exclusion_zero_skips),
+        ("cht 1house credit 80%", test_cht_one_house_credit_max_80pct),
+        ("cht 1house credit multi skip", test_cht_one_house_credit_multi_house_skips),
+        ("cht skip on income", test_cht_rules_skip_on_income_only_profile),
     ]
     passed = 0
     for name, fn in tests:

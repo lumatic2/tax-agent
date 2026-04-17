@@ -433,10 +433,12 @@ def calculate_tax(taxable_income):
     for upper, rate, deduction in _brackets_2024():
         if upper is None or taxable_income <= upper:
             tax = int(taxable_income * rate - deduction)
+            computed = max(tax, 0)
             return {
-                "산출세액": max(tax, 0),
+                "산출세액": computed,
                 "적용세율": rate,
                 "누진공제액": deduction,
+                "지방소득세": int(computed * 0.10),
             }
 
 

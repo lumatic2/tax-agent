@@ -82,3 +82,46 @@
   source:
     ref: "세이브택스 개인사업자 절세 팁 6가지"
     updated: 2026-04-14
+
+
+- id: RED_SME_SPECIAL_SECTION7
+  name: "중소기업 특별세액감면 (조특 §7)"
+  category: reduction
+  tax_type: 소득세
+  priority: high
+
+  applies_when:
+    op: and
+    of:
+      - op: "=="
+        left: "profile.has_business_income"
+        right: true
+      - op: "=="
+        left: "profile.is_sme_business"
+        right: true
+
+  diagnosis: "중소기업 특별세액감면 — 업종·규모·소재지별 5~30% 감면, 연 1억 한도"
+  recommendation:
+    action: "종합소득세 신고 시 세액감면 신청서 제출"
+    detail: "감면율은 업종(제조/도소매·의료/지식기반/기타) × 규모(소/중) × 소재지(수도권/비수도권) 조합으로 결정"
+
+  estimator:
+    type: formula
+    name: sme_special_reduction_savings
+    params:
+      business_income_ref: "profile.business_income"
+      size_ref: "profile.sme_size"
+      region_ref: "profile.sme_region"
+      industry_ref: "profile.sme_industry"
+
+  legal_basis:
+    - { law: 조세특례제한법, article: "제7조" }
+
+  risk:
+    level: low
+    flags: []
+    caveat: "중소기업 기준(매출·자산·종업원수) 매년 점검. 창업중소기업(§6) 감면과 중복적용 불가"
+
+  source:
+    ref: "조특법 §7 — 2026 개정 기준"
+    updated: 2026-04-17

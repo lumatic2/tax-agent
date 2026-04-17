@@ -967,7 +967,30 @@ A 정답률 > B 정답률 (도구 기여 입증)
   - 프롬프트 v4: `acquisition_docs_available`, `business_revenue` 매핑 umbrella 추가
   - 회귀 94/94 + ideal-goldset 25/25 + certify 26/26 무회귀
 - [ ] **남은 5건 변동성 대응**: LLM 출력 분산으로 재실행마다 20~22/25 진동. G022 GIFT_INSURANCE는 qwen3:32b가 상속/증여 오분류하는 지식 한계.
-- [ ] 조특법 중소기업 특별세액감면 (조특 7)
-- [ ] 종부세(종합부동산세) 규칙 신설
-- [ ] strategy_engine orchestrator 튜닝 (우선순위 가중치·리스크 필터)
+
+---
+
+## 다음 세션 작업 순서 (2026-04-17 확정, 2→1→3)
+
+### 🥇 Phase 8-A — 규칙 추가 (소형, 각 반나절)
+`strategy_engine` 37규칙 → 40+. 커버리지 부채를 값싸게 갚는다.
+- [ ] **조특법 중소기업 특별세액감면** (조특 §7) — 중소기업 소득세/법인세 30~50% 감면. 업종·규모·소재지별 감면율 테이블 구현. estimator + YAML + eval_strategy_catalog 회귀 +N/+N.
+- [ ] **종부세(종합부동산세) 규칙 신설** — 주택·토지 공시가 기준 과세표준·세율 엔진 신설. 현재 양도세만 있고 보유세 미지원. 새 모듈 `property_holding_tax.py` + 규칙 카탈로그 편입.
+- [ ] **개인지방소득세** (지방세법 §103의52) — 소득세 10% 자동 산출. 종소세 결과 dict에 필드 추가.
+
+### 🥈 Phase 5-C-2 — 홈택스 전자신고 (중기, 1~2주)
+`execution_planner` dict → 홈택스 XML/ENC 파일. PRD "사용자가 에이전트 제안만으로 신고서 독립 완성" 기준 충족.
+- [ ] 홈택스 개발자 가이드 XML 포맷 분석 (종소세·법인세·부가세·상증세 4종)
+- [ ] `execution_planner_hometax.py` — dict → XML 변환기
+- [ ] 파일 유효성 검증 테스트 (실제 제출은 금지, 포맷 valid만 확인)
+- [ ] 세무사 검증 1회 요청
+- [ ] 제약 정책: 자동 제출 안 함. 공인인증서 로그인·제출은 사용자 직접. ANTHROPIC_API_KEY 금지 유지.
+
+### 🥉 Phase 8-B — orchestrator 튜닝 (중형, 2~3일)
+`strategy_engine/orchestrator.py`의 결과 제시 로직 업그레이드. "정답 37개 나열" → "실행 가능한 3~5개 우선순위 추천".
+- [ ] **다중 기준 스코어링** — 절세액 × 확실성 × 실행 난이도 가중합. registry에 weight 파라미터 노출.
+- [ ] **리스크 필터** — 세무조사 트리거 높은 전략(부당행위계산부인·실질과세·조세회피)은 경고 배지 + confidence cap.
+- [ ] **상호작용 처리** — 상충 규칙(분리 vs 합산, 이연 vs 즉시) 감지 후 시뮬레이터로 세액 비교 → 1개만 top 추천.
+- [ ] **사용자 프로필 적응** — `risk_tolerance: conservative|balanced|aggressive` 필드로 추천 필터링.
+- [ ] UI 탭에 "추천 전략 Top 3" 섹션 표시 (현재 LangGraph tool 출력 개선).
 

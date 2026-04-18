@@ -21,6 +21,9 @@ dependencies = [
   "langchain-ollama>=0.2",
   "pywebview>=5.0",
   "reportlab>=4.4.10",
+  "claude-agent-sdk>=0.1.63",
+  "fastapi>=0.136.0",
+  "sse-starlette>=3.3.4",
 ]
 
 [project.scripts]

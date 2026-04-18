@@ -994,3 +994,62 @@ A 정답률 > B 정답률 (도구 기여 입증)
 - [ ] **사용자 프로필 적응** — `risk_tolerance: conservative|balanced|aggressive` 필드로 추천 필터링.
 - [ ] UI 탭에 "추천 전략 Top 3" 섹션 표시 (현재 LangGraph tool 출력 개선).
 
+---
+
+## Phase 9 — 개인 세무 에이전트 UI (2026-04-18 **중단**)
+
+> **중단 결정 (2026-04-18)**: 대화형 "나만의 세무사" 기능은 **Claude Code 터미널 + `/tax` 스킬 + Claude 채널(텔레그램)** 조합으로 이미 모두 커버됨. 별도 웹 UI를 만들 실익이 없다고 판단해 9-4부터 중단. 9-1~9-3 코드(`agent/sdk/*`)와 의존성(`claude-agent-sdk`, `fastapi`, `sse-starlette`)은 exploration 흔적으로 남겨둠.
+>
+> 아래 섹션은 중단 시점 스냅샷.
+
+### 아키텍처
+
+```
+[PC/휴대폰 브라우저] → Next.js 채팅 UI (:3000)
+                    ↓ SSE
+                FastAPI (:8000)
+                    ↓
+            Claude Agent SDK (Python)
+                    ↓ spawns
+            `claude` CLI subprocess  ← Claude Code 구독, 비용 0, Opus 4.7
+                    │
+    ┌──────────────┼──────────────┐
+    ↓              ↓              ↓
+tax_calculator  strategy_engine  RAG(decisive_sources)
+ (기존 엔진)    (37규칙)         법령·판례
+```
+
+### 단계
+
+- [x] **9-1. Agent SDK 스모크** (2026-04-18): `claude-agent-sdk==0.1.63` 설치, `claude` CLI 2.1.114. `agent/sdk/smoke.py` — tax_calculator 1개 tool 붙여 왕복 성공 (16.2s, Opus 4.7).
+- [x] **9-2. Tool 전체 포팅** (2026-04-18): `agent/sdk/tools.py` — 7개 tool(`calculate_income_tax` / `get_income_tax_strategies` / `search_tax_law` / `get_corporate_tax_strategies` / `get_inheritance_strategies` / `get_gift_strategies` / `retrieve_legal_sources`) Agent SDK `@tool`로 재등록. `smoke_full.py`로 2-tool 체이닝 + 법령 인용 답변 검증.
+- [x] **9-3. FastAPI + SSE** (2026-04-18): `agent/sdk/server.py`. `/chat` SSE 스트림(system/assistant/tool_use/tool_result/result/done), `/sessions` 목록, `/sessions/{id}` 메시지, `/sessions/{id}` DELETE. `resume` 파라미터로 세션 이어가기 확인(2회차 3.2s). 포트 8321. 남은 이슈: `list_sessions()`가 Claude CLI 전체 세션을 반환 → 9-4에서 SQLite 필터 테이블로 정리.
+- [~] **9-4 ~ 9-9 중단 (2026-04-18)** — Claude Code 터미널 + `/tax` 스킬이 같은 목적을 더 싸게 달성하므로 미착수.
+
+---
+
+## Phase 10 — /tax 스킬 전면 보강 (2026-04-18 완료)
+
+> **결정**: Phase 9 웹앱 대신 `/tax` 스킬을 Phase 1~8-A 전체 기능을 직접 호출하도록 확장. 진입점은 Claude Code 터미널 + `/tax` + Claude 채널(모바일).
+
+`custom-skills/tax/SKILL.md` 4 커밋(+491/-23줄):
+
+- [x] **10-1. strategy_engine catalog 업그레이드** (`dc0e757`) — legacy `generate_strategy` → `run()` catalog 37규칙. 세목별 profile 필드 매핑표 + 호출 예시 5종.
+- [x] **10-2. 세목 확장** (`70db866`) — description 확장(6개 세목 + 세무사 시험문제). 새 섹션 1-B에 corporate_tax·inheritance_gift·vat·property_holding·unlisted_stock 모듈 호출 가이드. 응답 흐름 7종(법인·상속·증여·부가·종부·양도·시험문제) 추가. 한계 명시에서 법인세·부가세 제거.
+- [x] **10-3. 회색지대 reasoning_engine** (`146c606`) — 새 섹션 6 + 30 이슈 카탈로그(법인 8·소득 10·상증 6·부가 6, decisive_sources 핀 7건). 회색지대 질문은 법령 MCP 대신 `reasoning_engine.run(issue_id, profile)` 우선. 기본 원칙 업데이트.
+- [x] **10-4+5. 시험 파이프라인 + 8-A 템플릿** (`84a2d83`) — 새 섹션 7에 `parse_exam_papers`·`mcq_eval`·`exam_eval` 문서화. 조특§7 중소기업 특별세액감면 16셀 감면율표 + 개인지방소득세(§103의52) 10% 표기 규칙.
+
+### Phase 10 다음 (선택)
+- [ ] 실사용 테스트 — /tax 스킬이 새 경로를 올바르게 선택하는지 실제 질의로 확인
+- [ ] Phase 5-C-2 홈택스 전자신고 XML 변환 (기존 계획, 중기)
+- [ ] Phase 8-B orchestrator 튜닝 — Top-3 추천 (기존 계획)
+
+
+
+### 결정 사항 (2026-04-18)
+
+- **모델**: Opus 4.7 (claude CLI 기본값 그대로)
+- **비용**: 0 — Claude Code 구독으로 CLI 사용
+- **보안**: 로컬·개인용이라 인증 없음. LAN 밖 접속 막기
+- **DB**: SQLite 유지 (PostgreSQL 불필요)
+

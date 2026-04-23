@@ -1,0 +1,39 @@
+[
+  {
+    "scenario": "S1_income_tax",
+    "fired": [
+      "CRED_CHILDREN",
+      "DED_PENSION_IRP_700",
+      "TIMING_MEDICAL_EXPENSE"
+    ],
+    "expected_any_of": [
+      "CRED_CHILDREN",
+      "DED_PENSION_IRP_700",
+      "TIMING_MEDICAL_EXPENSE"
+    ],
+    "hit": [
+      "CRED_CHILDREN",
+      "DED_PENSION_IRP_700",
+      "TIMING_MEDICAL_EXPENSE"
+    ],
+    "coverage": "3/3",
+    "passed": true
+  },
+  {
+    "scenario": "S2_corporate_tax",
+    "fired": [
+      "CORP_INTEGRATED_INVESTMENT_CREDIT",
+      "CORP_RD_TAX_CREDIT"
+    ],
+    "expected_any_of": [
+      "CORP_INTEGRATED_INVESTMENT_CREDIT",
+      "CORP_RD_TAX_CREDIT"
+    ],
+    "hit": [
+      "CORP_INTEGRATED_INVESTMENT_CREDIT",
+      "CORP_RD_TAX_CREDIT"
+    ],
+    "coverage": "2/2",
+    "passed": true
+  }
+]

@@ -1,23 +1,154 @@
 # Tax Agent 로드맵
 
-> 마지막 업데이트: 2026-04-14
-
-> 정우승·이철재 「세법 워크북」 목차 구조를 기반으로 소득세 전체를 커버하고,
-> 이후 부가세·법인세로 확장하는 단계별 계획.
+> 마지막 업데이트: 2026-04-24
 >
-> **현재 상태:** Phase 1~5 완료 (4세목 Level 4 + strategy_engine 22규칙 57/57 + LLM 레지스트리/골드셋 80%). **Phase 6 착수 — 판단형 세무 에이전트(회색지대 판례·예규 RAG + adversarial self-check)**.
+> **현재 상태**: Phase 1~8-A 완료 + Phase 10 `/tax` 스킬 재정비. 계산·룰·판단·UI 4레이어 모두 실용 가능 수준. Phase 9 웹 UI는 중단(Claude Code 터미널로 대체).
 >
-> **전략: 수직 완성 우선** — 한 세목을 실제 세무사 검토 수준(숫자 일치 80%+)으로
-> 완전히 끝낸 뒤 다음 세목으로 이동.
+> **다음 방향**: Track B(판단 깊이) + Track C(사용자 경험). 홈택스 전자신고(Track A)는 실무 필요 생길 때까지 후순위.
 
 ---
 
-## 설계 원칙
+## 현재 시스템 스냅샷
 
-### 법령 기반 구현 철학
+| 레이어 | 산출물 | 지표 |
+|---|---|---|
+| 계산 엔진 | 소득·부가·상증·법인·종부 Level 4 + 양도 14규칙 + 비상장주식 평가 | certify_phase1 26/26, Phase 2~4 eval 전부 pass |
+| strategy_engine | 40+ 규칙 (소득·법인·상증·증여·양도·종부) | catalog_v1 105/105, goldset 20~22/25 = 80% (PRD 달성) |
+| reasoning_engine | 30 이슈 (4세목) + decisive_sources 핀 8건 | 회색지대 **30/30 = 100% ruling** |
+| 프론트엔드 | `TaxAgent.exe` Streamlit + LangGraph 6 tool | 5탭(소득·법인·상속·증여·법령검색) 데스크톱 |
+| Skill 진입점 | `/tax` SKILL.md (891줄) | Phase 1~8-A 전체 기능 호출 가이드 |
+| 시험 파이프라인 | CPA 1차·2차, 세무사 1차·2차 기출 2023~2026 파싱 | `parse_exam_papers` + `mcq_eval` + `exam_eval` |
 
-세무사는 법령을 읽고 로직을 머릿속에 내재화한 뒤 실무에 적용한다.
-이 스킬도 동일한 구조로 작동한다:
+---
+
+## PRD 완성 기준 대비 달성도
+
+| # | 기준 | 상태 |
+|---|---|---|
+| 1 | 자료 제출 → 전략 제안 10분 이내 | ✅ 달성 |
+| 2 | 절세 제안이 세무사 검토와 80% 일치 | ✅ 회색지대 100% + 골드셋 80% |
+| 3 | 법령 인용 오류 0건 | ✅ decisive_sources + law-mcp |
+| 4 | 에이전트 제안만으로 신고서 독립 완성 | ⏸ Track A (실무 필요 생길 때) |
+
+---
+
+## Track B — 판단 깊이 확장
+
+**목표**: PRD 2번을 80% → 95%로. 회색지대·기출 커버리지 확대.
+
+### B-1. 변동성 대응 (2026-04-24 완료 · 결론: 로컬 모델 제거)
+
+qwen3:32b 20~22/25 → **Opus 4.7 로 25/25 = 100%**. 변동성은 로컬 모델 품질 한계였음.
+
+- [x] 2026-04-24: `data/eval/claude_runs/opus_goldset_v1.yaml` — description 만 보고 Claude 가 profile 추출 → `eval_goldset.py` 채점 **25/25 = 100%** 통과
+- [x] 결론: 변동성 원인 = LLM 추출 품질(a). Opus 4.7 경로로 전환하면 해소
+- 보고: `data/eval/claude_runs/b1_result.md`
+
+### B-2. 규칙·이슈 확장 (1~2주)
+
+**정량 규칙 누락분 보강 (반나절씩)**
+- [ ] `DED_HOUSING_SAVINGS_CHEONGYAK` 신설 — 주택청약종합저축 소득공제 (조특 §87, 납입액×40%, 한도 300만). C-1 S1 실증에서 누락 확인
+- [ ] 월세 세액공제 조건 확장 — `CRED_MONTHLY_RENT` 현행 대비 요건(총급여 7천→8천만 상향 등) 재검증
+- [ ] 근로자 중소기업 취업 감면(조특 §30) 규칙 존재 여부 확인 → 없으면 추가
+- [ ] `GRAY_CORP_GAJIGEUPGEUM_INTEREST` decisive_sources 핀 추가 — C-1 S3 실증에서 핀 없음 확인. 관련 대법원 판례·국세청 예규 pinning
+
+**회색지대 이슈 30 → 50**
+현재 법인 8·소득 10·상증 6·부가 6. 확장 후보:
+- [ ] 양도세 심화 10건 (1세대1주택 + 일시적 2주택 + 분양권 + 부수토지 + 주거전용 판정)
+- [ ] 국제조세 4건 (거주자 판정·이중거주 타이브레이커·국외전출세·이전가격)
+- [ ] 부가세 보강 4건 (간주공급·폐업시 잔존재화·세금계산서 수정 사유)
+- [ ] decisive_sources 핀을 각 이슈마다 최소 1건 (핀 8 → 30건 목표)
+
+### B-3. 골드셋 25 → 50 (1주)
+- [ ] 추가 25케이스 — 복합 시나리오 우선 (소득+양도, 법인+증여, 가업승계+연부연납)
+- [ ] 각 케이스에 expected 규칙 발동 목록 + confidence threshold
+- [ ] `eval_goldset` 50/50 = 100% 달성 기준
+
+### B-4. 2026년 세법 개정 반영 (1주, 연 1회)
+- [ ] `law_watch.py` 실행 → 2025년 대비 변경 조문 diff
+- [ ] 세율·한도 변경 식별 → 계산 엔진 업데이트
+- [ ] 회귀 무회귀 확인
+- [ ] CHANGELOG.md에 "2026 반영 완료" 기록
+
+### B-5. 세무사 2차 서술형 자동 채점 확장 (선택, 1~2주)
+현재 수동 풀이. 자동화 위험성은 과거 `mcq_eval.py` 병렬 배치 실패로 확인됨 → 배치 금지, 1문제 단위로.
+- [ ] `cpa_eval.py` → `cta2_eval.py` 확장 (세무사 2차)
+- [ ] 채점 기준 — 정답 JSON 숫자 exact + 서술형은 핵심 키워드 포함
+- [ ] 2023~2025 3개년 × 4문제 = 12문제 돌려보기
+
+---
+
+## Track C — 사용자 경험 강화
+
+**목표**: `/tax` 스킬과 `TaxAgent.exe`가 실제 "누구나 쓸 수 있는" 수준으로.
+
+### C-1. `/tax` 스킬 실사용 테스트
+
+- [x] **엔진 단위 테스트 3/3 (2026-04-24)** — `scripts/c1_engine_unit_tests.py` + Claude 직접 분석
+  - S1 소득세 strategy_engine: 3/3 발동 (CRED_CHILDREN · DED_PENSION_IRP_700 · TIMING_MEDICAL_EXPENSE)
+  - S2 법인세 strategy_engine: 2/2 발동 (CORP_INTEGRATED_INVESTMENT_CREDIT · CORP_RD_TAX_CREDIT)
+  - S3 회색지대 가지급금: Claude + law-mcp 경로로 ruling "당좌대출이자율적용" 도출
+  - 보고: `data/eval/tax_skill_runs/c1_scenarios.md`
+- [ ] **실제 /tax 호출 시나리오 10건** — Claude Code 터미널에서 질의 → 경로 선택 검증 (C-1 확장)
+  - 근로·사업·양도·증여·법인·부가·종부·회색지대 각 1~2건
+  - 실패 케이스 → SKILL.md 분기 규칙·예시 보강
+
+### C-2. Phase 8-B orchestrator Top-3 추천 (2~3일)
+현재 40+규칙 전체 나열 → 실행 가능한 3~5개 우선순위로 변환.
+- [ ] **다중 기준 스코어링** — 절세액 × 확실성 × 실행 난이도 가중합. registry에 weight 노출
+- [ ] **리스크 필터** — 세무조사 트리거 높은 전략(부당행위·실질과세·조세회피)에 경고 배지 + confidence cap
+- [ ] **상호작용 처리** — 상충 규칙(분리 vs 합산, 이연 vs 즉시) 감지 → 시뮬레이터로 세액 비교 → 1개 top 추천
+- [ ] **사용자 프로필 적응** — `risk_tolerance: conservative|balanced|aggressive`로 필터링
+- [ ] UI 탭에 "추천 전략 Top 3" 섹션 표시
+
+### C-3. TaxAgent.exe UI 개선 (1주)
+- [ ] 종부세 탭 추가 (현재 5탭 → 6탭)
+- [ ] 양도세 탭 추가 (현재 소득세와 합쳐져 있음)
+- [ ] 입력 폼 UX 개선 — PDF 드래그앤드롭 → 자동 파싱 → 필드 채움
+- [ ] orchestrator Top-3 결과를 "추천 전략" 카드 형태로
+
+### C-4. 다중 세션 영속성 (선택, 2~3일)
+- [ ] `tax_store.py` SQLCipher 활용 — 납세자 프로필·과거 계산 이력 저장
+- [ ] UI에서 "지난 계산 불러오기" — 기간 조정 후 재계산
+- [ ] 연도별 세액 추이 그래프 (2025 vs 2026)
+
+---
+
+## Track A — 홈택스 전자신고 (후순위)
+
+실무 신고 필요 생기면 착수. 현재는 보류.
+
+- [ ] 홈택스 개발자 가이드 XML 포맷 분석 (종소세·법인세·부가세·상증세)
+- [ ] `execution_planner_hometax.py` — dict → XML 변환기
+- [ ] 파일 유효성 검증 (실제 제출 금지, 포맷 valid만)
+- [ ] 세무사 검증 1회
+- [ ] 제약: 자동 제출 안 함. 공인인증서 로그인·제출은 사용자 직접. ANTHROPIC_API_KEY 금지 유지
+
+---
+
+## 이어서 할 일
+
+> 다음 세션에서 여기부터 시작.
+
+### 2026-04-24 세션 산출물
+
+- ROADMAP 1055→182줄, 아카이브 9개 파일 분리
+- B-1 완료 (Opus 25/25), C-1 엔진 단위 3/3 통과
+- 발견: 주택청약 규칙 누락, 가지급금 이슈 핀 없음, reasoning_engine 내부 LLM 로컬 의존
+
+### 다음 우선순위
+
+1. **C-1 확장 — 실제 `/tax` 호출 시나리오 3~5건** — Claude Code 터미널에서 실제 사용자처럼 질의 → 경로 선택 로그 + SKILL.md 분기 규칙 검증
+2. **B-2 정량 규칙 2종 신설** — 주택청약(조특 §87) + 가지급금 핀 추가 (반나절씩)
+3. **아키텍처 결정** — `agent/llm/registry.yaml`에 Claude adapter 추가 여부. reasoning_engine 내부 LLM을 Claude 로 돌릴 수 있게 → B-1 결론의 연장선
+
+---
+
+## 설계 원칙 (변경 없음)
+
+### 법령 기반 구현
+
+세무사는 법령을 읽고 로직을 머릿속에 내재화한 뒤 실무에 적용한다. 이 시스템도 동일:
 
 ```
 세무사:   법령 읽기 → 로직 암기 → 사례에 적용
@@ -25,718 +156,7 @@
                       (법령 개정 시 함수 업데이트)
 ```
 
-### 법제처 API의 실제 한계
-
-법제처 API가 조문 원문을 반환하지만 계산에 직접 쓰기 어려운 이유:
-- **세율표·공제액 표가 이미지(`<img>`)로 첨부** — 숫자 추출 불가
-- **본법·시행령·시행규칙에 계산식 산재** — 조합 로직 복잡
-- **개정 이력과 현행 조문이 혼재** — 현행 기준 파싱 불안정
-
-따라서 API를 실시간 파싱해서 계산하는 구조는 채택하지 않는다.
-
-### 역할 분담
-
-| 역할 | 담당 | 구체적 용도 |
-|---|---|---|
-| 계산·공제 로직 | **Python 함수** | 세율 적용, 공제 계산, 단계별 산출 — 법령을 코드로 번역한 것 |
-| 조문 원문 확인 | **법제처 API** | Claude가 읽고 해석·설명, 근거 조문 제시 |
-| 개정 여부 확인 | **법제처 API** | 연간 업데이트 시 변경 감지 |
-| 특수 케이스 해석 | **법제처 API + Claude** | 비과세 요건, 예규·해석례 조회 |
-| 판단·설명·대화 | **Claude** | 숫자는 모듈에서, 맥락과 전략은 Claude가 |
-
-### 완성 기준 (세목별 동일 적용)
-
-```
-Level 1 — 함수 존재:     코드가 실행됨
-Level 2 — 파이프라인:    시나리오 흐름이 연결됨          ← 현재 Phase 1 상태
-Level 3 — 숫자 검증:     세법 교재·홈택스 계산기와 수치 일치
-Level 4 — 실무 완성:     경계값·특수케이스·선택 로직까지 커버  ← 목표
-```
-
----
-
-## Phase 1 — 소득세 완성 (Level 2 → Level 4)
-
-Phase 1은 함수 구현(Level 2)이 완료된 상태. 아래 작업으로 Level 4까지 끌어올린다.
-
-### 1-A. 누락 로직 보완 (함수 수정)
-
-- [x] **§62 비교세액 구현** — 금융소득 종합과세 핵심
-  - `compare_financial_income_tax(incomes, financial_income)` 신규
-  - 분리과세세액(14%×금융소득 전체 + 나머지 종합세액) vs 전액 종합과세 세액 → MAX
-  - `calculate_financial_income()` 반환값에 `비교세액_적용` 플래그 추가
-- [x] **부양가족 소득요건 검증** — `calculate_personal_deductions()` 수정
-  - 각 인원에 `annual_income` 파라미터 추가 (기본값 0)
-  - 소득금액 100만원 초과 시 기본공제 제외, 경고 반환
-  - 배우자 근로소득만 있는 경우 총급여 500만 이하 = 소득금액 0 예외 처리
-- [x] **특별공제 vs 표준공제 선택** — `calculate_special_deductions()` 수정
-  - 특별공제 합계 < 130만(표준공제) 이면 자동으로 표준공제 선택
-  - 반환값에 `적용방식: "특별공제"|"표준공제"` 추가
-
-### 1-B. eval 고도화 (숫자 assert)
-
-현재 assert는 방향만 검증. 아래 기준으로 교체:
-
-- [x] **시나리오1 숫자 assert** — exact match
-- [x] **시나리오2 §62 비교세액 포함 재계산** — exact match
-- [x] **시나리오3 각 케이스 산출세액 exact match**
-
-### 1-C. 미커버 시나리오 추가
-
-- [x] **시나리오4: 퇴직소득세** — `calculate_retirement_income_tax()` 검증
-  - 근속연수공제 → 환산급여 → 환산급여공제 → 환산산출세액 → 퇴직소득세액
-  - 세법 교재 예제값으로 exact assert
-- [x] **시나리오5: 연금소득** — `calculate_pension_income()` 검증
-  - 총연금액 1,500만 이하(분리과세 선택) / 초과(종합과세) 각각 케이스
-- [x] **시나리오6: 결손금 통산 순서** — `calculate_loss_netting()` 순서 검증
-  - 사업결손금 → 근로→연금→기타→이자→배당 순서 assert
-  - 부동산임대업 결손금 격리 assert
-- [x] **시나리오7: 중소기업취업자 감면** — `calculate_sme_employment_tax_reduction()` 검증
-  - 청년(90%)/일반(70%), 200만 한도 케이스
-
-### 1-D. 완료 기준
-
-```
-모든 assert가 exact match로 전환됨
-§62 비교세액 구현됨
-eval 7개 시나리오 전부 통과
-```
-
----
-
-## Phase 1-검증 — 소득세 인증 게이트
-
-> Phase 2로 넘어가기 위한 공식 관문. `certify_phase1.py` 가 22/22 통과해야 진행 허가.
-
-### 성공 기준
-
-| 구분 | 항목 | 기준 |
-|---|---|---|
-| 챕터 테스트 | Ch01~Ch15 전 챕터 전용 assert | 100% 통과 (exact match) |
-| 통합 시나리오 | S1~S7 (근로·사업·양도·퇴직·연금·결손금·감면) | 100% 통과 |
-| 전체 게이트 | `python certify_phase1.py` 종료코드 0 | **22/22 달성** |
-
-### 챕터별 검증 항목
-
-| 챕터 | 검증 함수 | 핵심 assert |
-|---|---|---|
-| Ch01 | `is_resident()`, `get_taxable_period()` | 183일 경계값, 사망·출국 특례 |
-| Ch02 | `calculate_nontaxable_interest()`, `calculate_interest_income_tax()` | 비실명 45%, 장기채권 30% |
-| Ch03 | `calculate_deemed_dividend()`, `calculate_recognized_dividend()` | 의제배당·Gross-up exact |
-| Ch04 | `calculate_entertainment_expense_limit()`, `calculate_depreciation()`, `calculate_car_expense_limit()` | 한도 초과 분 exact |
-| Ch05 | `calculate_nontaxable_employment_income()`, `calculate_simplified_withholding()` | 비과세 항목별 exact |
-| Ch06 | `calculate_pension_income()` | 공제액·연금소득금액·과세방식 exact |
-| Ch07 | `calculate_other_income()` | 복권 3억 초과 33%, 슬롯머신 30% |
-| Ch08 | `calculate_loss_netting()` | 통산 순서(근로→연금→기타→이자→배당), 부동산임대 격리 |
-| Ch09 | `calculate_housing_savings_deduction()`, `apply_deduction_aggregate_limit()` | 2,500만 한도 exact |
-| Ch10 | `calculate_tax()` | 1000만·5000만·7000만·1억 세율 구간 경계값 exact |
-| Ch11 | `calculate_earned_income_tax_credit()`, 세액공제 5종 | 한도·공제액 exact |
-| Ch12 | `calculate_retirement_income_tax()` | 환산급여·세액 전 단계 exact (150M/20년) |
-| Ch13 | `check_one_house_exemption()`, `calculate_transfer_income_tax()` | 1세대1주택 요건, 양도세액 |
-| Ch14 | `calculate_withholding_tax()` | 소득유형별 세율 통합 |
-| Ch15 | `calculate_nonresident_tax()` | 국내원천소득 유형별 세율 |
-
-### 현황
-
-- [x] `certify_phase1.py` 생성 완료
-- [x] **22/22 인증 통과** (2026-04-11)
-- [x] Phase 2 진행 허가
-
----
-
-## Phase 2 — 부가가치세 (2026 세법 워크북 제4부)
-
-> Phase 1 Level 4 달성 + 인증 통과(22/22) 후 시작. (2026-04-12~)
->
-> **구현 순서**: 핵심 계산 먼저 (Ch05→Ch06→Ch07→Ch09) → 판정·안내 (Ch01~Ch04, Ch08)
->
-> **법령 범위**: 부가가치세법 본법 + 시행령 + **조세특례제한법 부가세 특례** 포함
->
-> **구현 패턴**: law-mcp `get_law_article` → `data/vat/*.txt` 저장 → `vat_calculator.py` 함수 추가 → `eval_scenarios_vat.py` exact assert → `certify_phase2.py` 인증 게이트
-
-### 개요 테이블
-
-| 챕터 | 모듈/내용 | 구현 순서 | 상태 |
-|---|---|---|---|
-| Ch05 과세표준·매출세액 | `calculate_vat_output_tax()` 외 4개 | 🔴 1순위 | [x] Level 2 |
-| Ch06 매입세액·납부세액 | `calculate_vat_input_tax()` 외 5개 | 🔴 2순위 | [x] Level 2 |
-| Ch07 겸영사업자 | `calculate_common_input_tax_allocation()` 외 2개 | 🔴 3순위 | [x] Level 2 |
-| Ch09 간이과세 | `calculate_simplified_vat()` 외 1개 | 🔴 4순위 | [x] Level 2 |
-| Ch01 총설 | `is_vat_taxpayer()`, `get_vat_tax_period()` + SKILL.md | 🟡 5순위 | [x] Level 2 |
-| Ch02 과세거래 | `is_deemed_supply()`, `get_supply_time()` + SKILL.md | 🟡 6순위 | [x] Level 2 |
-| Ch03 영세율·면세 | `is_zero_rated()`, `is_vat_exempt()` + SKILL.md | 🟡 7순위 | [x] Level 2 |
-| Ch04 세금계산서 | `calculate_invoice_penalty()` + SKILL.md | 🟡 8순위 | [x] Level 2 |
-| Ch08 신고·납부 | `calculate_vat_penalties()`, `calculate_preliminary_notice()` + SKILL.md | 🟡 9순위 | [x] Level 2 |
-
-### Ch05. 과세표준과 매출세액 (1순위)
-
-- [ ] `calculate_vat_tax_base()` — 과세표준 계산 (§29: 공급가액 = 대가 - 부가세, 간주공급 시가)
-- [ ] `calculate_vat_output_tax()` — 매출세액 = 과세표준 × 10% (§30)
-- [ ] 대손세액공제 `calculate_bad_debt_tax_credit()` (§45: 대손확정일 속하는 과세기간, 대손세액 = 대손금액 × 10/110)
-- [ ] 과세표준 특례: 토지·건물 일괄공급 시 안분 (§29④, 영§64)
-- [ ] 외화 환산 규정 (§29⑤)
-- [ ] 조특법 부가세 특례: 면세농산물 의제매입세액공제율 등
-
-### Ch06. 매입세액과 납부세액 (2순위)
-
-- [ ] `calculate_vat_input_tax()` — 공제 매입세액 합계 (§38)
-- [ ] `calculate_vat_non_deductible()` — 불공제 매입세액 판정 (§39: 비영업용 소형승용차, 접대비, 면세사업 관련, 세금계산서 미수취 등)
-- [ ] `calculate_vat_payable()` — 납부세액 = 매출세액 - 매입세액 (§37)
-- [ ] 의제매입세액공제 `calculate_deemed_input_tax()` (§42, 조특법 §108: 업종별 공제율 2/102~9/109)
-- [ ] 재활용폐자원 매입세액공제 (조특법 §108)
-- [ ] 신용카드매출전표 발행 세액공제 (§46, 조특법 §126의2)
-- [ ] 전자신고 세액공제 (조특법 §104의8)
-
-### Ch07. 겸영사업자 (3순위)
-
-- [ ] `calculate_common_input_tax_allocation()` — 공통매입세액 안분 (§40, 영§61: 면세공급가액 비율)
-- [ ] 정산 로직: 예정신고 시 안분 → 확정신고 시 정산 (영§61②)
-- [ ] 납부세액·환급세액 재계산 (§43: 과세전환·면세전환 시)
-
-### Ch09. 간이과세 (4순위)
-
-- [ ] `calculate_simplified_vat()` — 간이과세 납부세액 (§61: 공급대가 × 업종별 부가가치율 × 10%)
-- [ ] 업종별 부가가치율 테이블 (§61②, 영§111: 소매 15%, 제조 20%, 음식 15%, 숙박 25%, 운수 30%, 기타서비스 30%)
-- [ ] 간이과세 적용 기준: 직전연도 공급대가 8,000만 미만 (§61①), 배제 업종
-- [ ] 납부면제: 공급대가 4,800만 미만 (§69)
-- [ ] 간이→일반 전환 시 재고매입세액 계산 (§64)
-- [ ] 간이과세자 세금계산서 발급 특례 (§36의2)
-
-### Ch01. 부가가치세 총설 (5순위)
-
-- [ ] `is_vat_taxpayer()` — 납세의무자 판정 (§2~§3: 사업자, 재화수입자)
-- [ ] `get_vat_tax_period()` — 과세기간 (§5: 1기 1.1~6.30, 2기 7.1~12.31)
-- [ ] 사업자등록 의무·기한 안내 (§8) → SKILL.md
-- [ ] 사업장 판정 규정 (§6) → SKILL.md
-
-### Ch02. 과세거래 (6순위)
-
-- [ ] `is_taxable_supply_of_goods()` — 재화의 공급 판정 (§9: 계약상 모든 원인에 의한 인도·양도)
-- [ ] `is_deemed_supply()` — 간주공급 판정 (§10: 자가공급·개인적공급·사업상증여·폐업 잔존재화)
-- [ ] `is_taxable_supply_of_services()` — 용역의 공급 판정 (§11)
-- [ ] `get_supply_time()` — 공급시기 (§15~§17: 재화 인도일, 용역 완료일)
-- [ ] 재화의 수입 (§12: 보세구역 반출)
-
-### Ch03. 영세율과 면세 (7순위)
-
-- [ ] `is_zero_rated()` — 영세율 적용 대상 판정 (§21~§24: 수출재화, 국외용역, 외화획득)
-- [ ] `is_vat_exempt()` — 면세 대상 판정 (§26: 기초생활필수품, 의료·교육, 금융·보험)
-- [ ] 면세 포기 신청 안내 (§27) → SKILL.md
-- [ ] 조특법 영세율 특례 (조특법 §105: 외교관 면세 등)
-
-### Ch04. 세금계산서 (8순위)
-
-- [ ] `calculate_invoice_penalty()` — 세금계산서 관련 가산세 (§60: 미발급 2%, 지연발급 1%, 허위기재 2%)
-- [ ] 수정세금계산서 발급 사유 (§32②) → SKILL.md
-- [ ] 전자세금계산서 발급 의무 기준 (§32②, 영§68) → SKILL.md
-- [ ] 영수증 발급 대상 (§36) → SKILL.md
-
-### Ch08. 신고와 납부 (9순위)
-
-- [ ] `calculate_vat_penalties()` — 가산세 통합 (§60: 무신고·과소신고·납부지연·영세율과세표준신고불성실)
-- [ ] 예정신고·확정신고 기한 안내 (§48~§49) → SKILL.md
-- [ ] 예정고지 계산 (§48③: 직전 과세기간 납부세액 × 50%)
-- [ ] 환급 유형: 일반환급 vs 조기환급 (§59) → SKILL.md
-- [ ] 대리납부 (§52: 국외사업자 용역)
-
-### Phase 2 완료 기준
-
-```
-모든 챕터 함수 구현 + exact assert 통과
-certify_phase2.py 인증 게이트 전항목 통과
-부가세 기출(세무사 1차 2023~2025) A/B 실증 완료
-```
-
-### 기출 현황
-
-| 연도 | 부가세 문항 | 번호 |
-|---|---|---|
-| 2023 | 9개 | Q48, Q71~Q80 |
-| 2024 | 8개 | Q71~Q78 |
-| 2025 | 9개 | Q67, Q71~Q78 |
-
-기출 JSON 변환 완료 (`소재: "부가가치세"` 태그로 필터 가능)
-
-### A/B 실증 진행 현황 (2026-04-12)
-
-| 문제 | 정답 | B | A | A 도구 | 결과 |
-|---|---|---|---|---|---|
-| 2025 Q71 | ③ | ③ | ③ | vat_calc_cli land-building, common-alloc, **recalc** | B=A 정답 · recalc로 exact match 확인 |
-| 2025 Q72 | ② | ② | ② | 판정형, law-mcp 실패 | B=A 정답 · 도구 불필요(판정형) |
-| 2025 Q73 | ③ | ③ | ③ | vat_calc_cli deemed-input, deemed-limit, payable | B=A 정답 · 17K 오차(의제매입세액 산출기준 차이) |
-| 2025 Q74 | ④ | ④ | ④ | vat_calc_cli **proxy**, common-alloc | B=A 정답 · proxy로 exact match 확인 |
-| 2025 Q75 | ④ | ④ | ④ | law-mcp 영§40①2호다목 확인 | B=A 정답 · A 근거 보강 |
-| 2025 Q76 | ② 366K | 불확실 | ② (4K오차) | §63③(0.5%)+§46(1.3%) 수동계산=370K | **A 도구 기여** · B 공식불명 |
-| 2025 Q77 | ④ | ④ | ④ | 판정형 | B=A 정답 |
-| 2025 Q78 | ② 1.3 | ② | ② | art_60_가산세.txt 캐시 | B=A 정답 · A 근거 보강 |
-
-- 완료: **8/8** (100%)
-- Gap 보강 완료 (2026-04-12):
-  - [x] §43/영§63 재계산: `recalculate_mixed_use_asset_tax()` + CLI `recalc` → Q71 exact match
-  - [x] §52 대리납부: `calculate_proxy_payment_tax()` + CLI `proxy` → Q74 exact match
-  - [x] 의제매입세액 한도: `calculate_deemed_input_tax_with_limit()` + CLI `deemed-limit`
-  - [x] CLI bool 버그: argparse `type=bool` → `action="store_true"`
-  - [x] 지방소비세: `calculate_local_consumption_tax()` + CLI `local-tax`
-- eval 22/22 통과 (기존 18 + gap 보강 4시나리오)
-
-### law-mcp 버그 (2026-04-12 발견)
-
-**증상**: `get_law_article(law_id="부가가치세법", ...)` → HTTP 500 ("법제처 API 일시 장애")
-**원인**: 법명(한글)을 법제처 API의 `ID` 파라미터에 그대로 전달 → API가 숫자 ID 기대 → 500. `shouldStopLawFetchFallback()`이 500을 `LAW_API_TEMPORARY_ERROR`로 분류하여 MST 폴백도 차단.
-**우회**: `search_law("부가가치세법")` → 법령코드 "001571" 획득 후 숫자 코드로 호출하면 정상 동작
-**수정 위치**: `~/projects/law-mcp/src/providers/lawgo-provider.ts` `getLawArticle()` — 법명이 숫자가 아니면 `searchLaw`로 ID 먼저 조회하는 로직 추가 필요
-**상태**: 미수정 (tax-agent 외부 프로젝트)
-
-### 법령코드 참조
-
-| 법령 | 코드 | 비고 |
-|---|---|---|
-| 부가가치세법 | 001571 | law-mcp 우회용 |
-| 부가가치세법 시행령 | 003666 | |
-| 소득세법 | 001565 | |
-
-### 조문 인용 정정 (2026-04-12)
-
-기출 실증 과정에서 발견: 재계산 규정은 **§41/영§83** (이전 추정 §43/영§63은 오류)
-- §41: 공통매입세액 재계산 (5% 이상 변동 시)
-- 영§83: 재계산 세부 계산식 (경과기간 = 영§66② 준용: 건물 20기, 기타 4기)
-- §43: 면세→과세 전환 시 매입세액공제 특례 (별개 규정)
-- 영§63: 공통사용 재화의 공급가액 계산 (별개 규정)
-
-### API 복구 후 할 일 (2026-04-12 전체 완료)
-
-- [x] law-mcp 버그 수정 — `resolveLawId()` 추가, 한글 법명→숫자코드 자동변환
-- [x] 부가세 핵심 조문 일괄 캐시 (`data/vat/`) — 21개 조문
-- [x] 재계산 함수 조문 근거 보강 — §41/영§83 정정, 5% threshold+기준비율갱신, 기타자산 4기
-- [x] Q75~Q78 4문항 A/B 실증 완료 — 8/8(100%), Q76만 4K 오차
-- [x] 대리납부 환율 적용 근거 확인 — 영§95③
-- [x] 간이과세 함수 확장 — §63③(0.5%)+§46(카드)+§63⑥ 한도, CLI+eval V23
-- [x] CPA 2차 2025 문제3 물음1 풀이+해설 대조 — 6항목 중 3정답/3오류
-- [x] CPA 2차 해설 PDF 복구 — 3개 연도 `cpa_2차/해설/`에 복사
-
-### Phase 2 현재 상태 (2026-04-12)
-
-**Level 4** — 1차 MCQ 8/8, 2차 서술형 3개년 전항목 정답, eval 27/27
-
-| 구분 | 상태 |
-|---|---|
-| 계산엔진 | 9개 챕터 + gap 9개 = 18개 함수, eval 27/27 |
-| 조문 캐시 | 21개 (`data/vat/`) |
-| 1차 실증 | **8/8** (B 87.5%, A 100%) |
-| 2차 실증 | **2025 6/6** + **2024 14/14** + **2023 전항목** — 3개년 완전 검증 |
-| 정답 JSON | 3개년 부가세 정답 숫자 파싱 완료 |
-| CLI | 18개 서브커맨드 (simplified 확장 포함) |
-
-### 완료 항목 (2026-04-12)
-
-- [x] 임직원 증정 비과세 한도 구현 (§10④ 단서, 영§17: 구분별 1인 10만원)
-- [x] 수출 과세표준 환율 세분화 (영§59: 환가분 vs 미환가분 분리)
-- [x] 예정신고 누락분 판정 로직 (공급시기 vs 세금계산서 발급일 불일치)
-- [x] Q76 4K 차이 조사 완료 — 의제매입 폐지·지방소비세·마일리지 확인, 해설집 미입수로 미확정
-- [x] 조특법§108 재활용폐자원·중고자동차 함수 구현 (eval V27)
-- [x] CPA 2차 2025 물음1 6/6 — 과세표준·세액 전항목 정답
-- [x] CPA 2차 2024 14/14 — 겸영+간이전환 전항목 정답
-- [x] CPA 2차 2023 전항목 — 공급시기/폐업/매입세액/간이과세 정답
-- [x] CPA 2차 부가세 정답 JSON 보완 — 3개년 숫자 추출 완료
-
-### 잔여 (선택)
-
-- [ ] Q76 4K 원인 확정 — 세무사 해설집 입수 시 재조사
-- [ ] CLI 서브커맨드 3개 추가 (gift/export/omission)
-- [ ] certify_phase2.py 작성 — Phase 1과 동일 형식의 자동 인증 게이트
-
----
-
-## Phase 3 — 상속세·증여세 (2026 세법 워크북 제5부)
-
-Phase 2 **Level 4 달성** (2026-04-12). Phase 3 시작.
-
-| 챕터 | 모듈/내용 | 상태 |
-|---|---|---|
-| Ch01 상속세 | `calculate_inheritance_tax()` -- 상속재산, 공제, 세율 | **Level 4** |
-| Ch02 증여세 | `calculate_gift_tax()` + 특수증여 3종 | **Level 4** |
-| Ch03 재산의 평가 | 부동산(토지/건물/주택/임대) + 유가증권 + 예금 | **Level 4** |
-| Ch04 신고/납부 | 연부연납, 물납 안내 | Level 2 |
-
-### 완료 (Level 0 -> Level 4, 2026-04-12~13)
-
-**Level 2 (뼈대)**
-- [x] 조문 캐시 25개 조문 (법제처 API) -> `data/inheritance_gift/statutes_cache.txt`
-- [x] `inheritance_gift_calculator.py` Ch01~Ch04 핵심 함수
-- [x] eval 20/20 통과
-
-**Level 3 (숫자 검증)**
-- [x] 장례비 봉안시설 분리계산(시행령9), 감정평가수수료 500만 한도(시행령49의2)
-- [x] CPA 기출 3건 정답 일치 (eval 23/23)
-
-**Level 4 (실무 완성)**
-- [x] 가업상속공제(18의2): 경영기간별 300/400/600억 한도
-- [x] 영농상속공제(18의3): 30억 한도
-- [x] 특수증여 3종: 저가양도(35), 부동산무상사용(37), 금전무상대출(41의4)
-- [x] 부동산 보충적 평가: 토지(공시지가x배율), 건물(기준시가), 주택(공시가격), 임대재산
-- [x] `inheritance_gift_calc_cli.py` -- 12개 서브커맨드
-- [x] eval 30/30 전부 통과
-
-### Phase 3 완료. Phase 4(법인세) 시작 가능.
-
----
-
-## Phase 4 — 법인세 (별도 세법 워크북 1권) ✅ COMPLETE
-
-**Level 4 달성** (2026-04-13). eval 30/30 pass.
-
-### 산출물
-
-| 파일 | 내용 | 규모 |
-|---|---|---|
-| `corporate_tax_calculator.py` | 계산 엔진 24개 함수 | ~1100줄 |
-| `corporate_tax_calc_cli.py` | CLI 11개 서브커맨드 | ~250줄 |
-| `eval_scenarios_corporate_tax.py` | exact-match 시나리오 | 30개, ~800줄 |
-| `data/corporate_tax/` | 법령 조문 캐시 | §55, §13 |
-
-### 구현 챕터
-
-| Level | 챕터 | 함수 | Eval |
-|---|---|---|---|
-| L1 | Ch10 세율·과세표준·이월결손금 | `apply_corporate_tax_rate`, `calculate_loss_carryforward`, `calculate_corporate_tax_base`, `calculate_corporate_tax` | CT1~CT5 |
-| L2 | Ch02~04 세무조정 | `calculate_taxable_income`, `calculate_dividend_received_deduction`, `calculate_entertainment_expense_limit_corp`, `calculate_donation_limit`, `check_non_deductible_expenses` | CT6~CT12 |
-| L3 | Ch07~08 감가상각·충당금 | `calculate_depreciation_limit`, `get_statutory_useful_life`, `get_declining_balance_rate`, `calculate_retirement_allowance_reserve`, `calculate_bad_debt_reserve` | CT13~CT20 |
-| L4 | Ch09,11~14 세액공제·최저한세 | `calculate_unfair_transaction_denial`, `calculate_foreign_tax_credit`, `calculate_sme_tax_reduction`, `apply_minimum_tax`, `calculate_land_transfer_additional_tax`, `calculate_interim_prepayment`, `classify_corporation_type`, `calculate_corporate_tax_full` | CT21~CT30 |
-
-### 핵심 설계
-
-- 이월결손금 한도: **80%** (현행 §13, 중소기업 100%) — 로드맵 초기 60% 기재는 구법 기준
-- 세율: 9%/19%/21%/24% 4단계 (2023 개정)
-- 세무조정: `list[dict]` 구조 (`{항목, 금액, 소득처분}`)
-- 최저한세: 중소 7% / 일반 10~17% (조특법 §132)
-- 전체 파이프라인: 회계이익 → 세무조정 → 과세표준 → 세율 → 감면 → 최저한세 → 토지추가 → 납부세액
-
-### Phase 4 완료. Phase 5(상위 레이어) 시작 가능.
-
----
-
-## Phase 5 — 상위 레이어 (전 세목 완성 후)
-
-모든 세목 계산 엔진이 Level 4에 도달한 후 구축.
-
-| 모듈 | 내용 |
-|---|---|
-| `strategy_engine.py` | 절세 전략 수립 — 공제 최적화, 분리/종합 선택, 시뮬레이션 |
-| `execution_planner.py` | 신고서 초안 생성 (`generate_tax_return_draft()`) |
-| Claude API 전환 | Phase 1 Claude Code → Phase 2 FastAPI + claude-sonnet-4-6 |
-
-### Phase 5-A — strategy_engine 설계 (2026-04-14)
-
-실제 세무사 절세 업무 파이프라인을 모델링한 4단계 구조.
-
-**웹검색 기반 업무 흐름**: 자료 수집·분류 → 완전성 점검 → 기장 방식 판정 → 필요경비 최대화 → 공제·감면 전수 적용 → 분리/종합 최적화 → 시나리오 시뮬레이션 → 신고서 초안 + 리스크 경고
-
-**4단계 아키텍처**:
-
-```
-입력: tax_result (Phase 4 계산 결과) + 원시자료 + 납세자 프로필
- ↓
-[1] 완전성 진단 (Gap Detector) — 누락 경비·공제 탐지
- ↓
-[2] 전략 후보 생성 (Strategy Generator) — 규칙 카탈로그 기반
-    · 분리/종합 선택 (금융 2천만·주택임대 2천만·기타 300만 경계)
-    · 기장 방식 전환 (매출 4,800만·7,500만 임계치)
-    · 공제·감면 전수 체크 (중기특별감면·자녀·월세·연금계좌)
-    · 시점 전략 (의료비 몰아주기·기부금 이월)
- ↓
-[3] 시뮬레이터 (What-if Engine) — tax_calc_cli 재호출로 세액 비교
- ↓
-[4] 리스크 플래그 (Risk Gate) — law-mcp 조문 검증 + 세무조사 트리거
- ↓
-출력: 우선순위화된 전략 리스트 + 절세액 + 근거조문 + 리스크
-```
-
-**모듈 구성**:
-- `strategy_engine/gap_detector.py` — 체크리스트 기반 누락 탐지
-- `strategy_engine/strategy_rules.py` — 규칙 카탈로그 (YAML/JSON 드리븐)
-- `strategy_engine/simulator.py` — tax_calc_cli 호출 래퍼
-- `strategy_engine/risk_flags.py` — 리스크 룰
-- `strategy_engine/orchestrator.py` — 4단계 실행 + 결과 종합
-
-**착수 순서**:
-- [x] 5-A-1: 규칙 카탈로그 YAML 스키마 v0 확정 (JSON 구조 조건식 DSL + formula/simulate/fixed estimator) — 2026-04-14
-- [x] 5-A-2: 골든 셋 5규칙(FIN_SEPARATION·BOOK_DOUBLE_ENTRY·CRED_MONTHLY_RENT·DED_PENSION_IRP·TIMING_MEDICAL) + `eval_strategy_rules.py` 12/12 통과 — 2026-04-14
-- [x] 5-A-3: 종소세 end-to-end 시나리오(근로+금융 겸업자)로 orchestrator 통합 검증 — `eval_strategy_e2e.py` 7/7 통과 (profile_builder flatten, 4규칙 동시 발동, 우선순위 정렬, 금융 2,500만 케이스 분리과세 비발동) — 2026-04-14
-- [x] 5-A-4: 기출 2차 서술형 재활용 회귀 — 법인세 리스크 규칙 2개(`CORP_EXECUTIVE_BONUS_EXCESS`, `CORP_UNFAIR_HIGH_PRICE_PURCHASE`) 추가, CPA 2024 Q5(부당행위 최대매입가 6,194,999,999) + CPA 2025 Q5(임원상여 한도초과) 프로필로 `eval_strategy_corp_risk.py` 8/8 통과. 개인·법인 스코프 격리(크로스 오발동 방지), 5% 경계값, trace 실패 조항 추적 전부 검증 — 2026-04-14
-- [x] 5-A-5: 규칙 카탈로그 v1 확장 — **22개 규칙** (소득세 13 + 법인세 5 + 상속세 2 + 증여세 2). 19종 estimator 공식 추가, profile_builder 전 세목 필드 defaults. `eval_strategy_catalog_v1.py` 30/30 통과 (각 신규 규칙 적용/비적용 + 크로스-세목 스코프 격리 2종) — 2026-04-14
-
-**Phase 5-A 통합 회귀**: eval_strategy_rules 12/12 + e2e 7/7 + corp_risk 8/8 + catalog_v1 30/30 = **57/57** + certify_phase1 26/26 유지
-
-### Phase 5-B — execution_planner (2026-04-14)
-
-- [x] `execution_planner.py` — 4세목(income_tax·corporate_tax·vat·inheritance_gift)
-      신고서 초안 MVP. tax_result + strategy + judgment 통합.
-- [x] 출력 스키마: 신고서제목·과세기간·행항목·적용전략·판단이슈·체크리스트·주의사항
-- [x] `eval_execution_planner.py` 6/6 통과 (각 세목 basic + strategy/judgment 통합 + unsupported)
-- [ ] 세목별 신고서 서식(pdf) 출력은 Phase 8 이후
-
-### Phase 5-C — 신고서 PDF 서식 출력 (로드맵)
-
-**단기 (Phase 5-C-1, 1~2일)** — reportlab 기반 PDF 생성
-- `execution_planner_pdf.py` — generate_tax_return_draft() dict → PDF
-- 한글 폰트(NanumGothic) 등록, 국세청 서식 근접 표 레이아웃
-- 세목별 템플릿 4종(소득세·법인세·부가세·상증세)
-- 행항목 표 + 적용전략 박스 + 판단이슈 박스 + 체크리스트·주의사항
-- `eval_execution_planner_pdf.py` — 각 세목 PDF 생성 + 파일 크기·페이지 수 assert
-
-**중기 (Phase 5-C-2, 1~2주)** — 국세청 홈택스 전자신고 연동
-- 홈택스 XML/ENC 포맷 스펙 분석 (공식 개발자 가이드)
-- 종합소득세·법인세 전자신고 파일 생성기
-- 세무사 검증 1회 (실제 제출 가능성 확인, 실제 제출은 금지)
-- ANTHROPIC_API_KEY 금지 정책 준수 — 로컬 생성만
-
----
-
-## Phase 7-A — 판단 레이어 근본 개선 (decisive_sources)
-
-> **배경**: Phase 7 부가세 67%·상증세 J302 미달 원인은 프롬프트가 아니라 **검색 천장**.
-> 결정판례가 retrieved_legal에 없으면 어떤 프롬프트로도 못 뒤집는다.
-
-- [x] 7-A-1: issue yaml 스키마에 `decisive_sources` 필드 추가 (결정판례·예규 ID + 메타)
-- [x] 7-A-2: `legal_retriever.py` — `_pin_decisive()` top-k 강제 + corpus/yaml merge 전략
-- [x] 7-A-3: `agent/law_client.py` — `get_precedent()` 추가
-- [x] 7-A-4: `reasoner.py` — 결정판례 판결요지 프롬프트 노출 + 지시 0번 최우선 규칙
-- [x] 7-A-5: `eval_judgment_v1.py` — `decisive_in_context` 메트릭 추가
-- [x] 7-A-6: J302/J202/J205 핀 추가 → 3건 모두 스폿체크 통과
-      (J302 conf 0.95, J202 전액불공제 ✓, J205 일반과세전환 ✓)
-- [x] 7-A-7: 전체 30 회귀 완료 — 27/30 = 90% ruling (이전 24/30 = 80%, +10%p)
-      · 소득세 8/10 · 법인세 7/8 · **부가세 6/6 (+33%p)** · **상증세 6/6 (+17%p)**
-      · source 30/30 · forbidden 30/30 · decisive_in_ctx 3/3 (핀 전건 주입 성공)
-      · 잔여 실패 3건(J002 가사비·J007 부양가족·J105 RD)은 핀 미정의 이슈 — 동일
-        메커니즘으로 추후 확장 가능
-- [x] 7-A-8: J002/J007/J105 핀 추가 (2026-04-17) — 3건 전부 스폿체크 통과
-      · J002: 대법원 2022두32382 (2025.01.09) — 가사관련경비 추정규정 + 면적비율
-        안분 인정 ⇒ 안분인정 ✓
-      · J007: 부산지방법원 2017구합22603 — §48 근속연수공제 산식(5년→500만)
-        + §50 합산 명문 ⇒ 공제부인 ✓
-      · J105: 서울행정 2014구합68188 + 서울고등 2020누43281 + 국세청 사전심사
-        규정(2100000258326) ⇒ 일부자본화 ✓
-- [x] 7-A-9: 전체 30 회귀 — **28/30 = 93% ruling** (3 핀 통과 +1, J205 변동성 -1)
-- [x] 7-A-10: J305·J205 핀 추가·강화 → **30/30 = 100% ruling** (2026-04-17)
-      · J305: 서울행정 2018구합63426 (2019.03.28) — 대습상속인 = 상속인 → 10년
-        합산, 7년 전 5억 → 전액합산 ✓
-      · J205: 기존 핀 판결요지에 **계산식(8천+8천>1억400만)** + **ruling 라벨
-        "일반과세전환"** 명시 → 3연속 통과 안정화 ✓
-      · 전체: **소득세 10/10 · 법인세 8/8 · 부가세 6/6 · 상증세 6/6 = 30/30**
-      · source 30/30 · forbidden 30/30
-
-### Phase 7-A 결론
-
-**검색 천장 완전 돌파**: 프롬프트 튜닝 없이 검색 레이어(핀 + 판결요지 강화)만으로
-24/30 → **30/30 = 100%** (+20%p). 결정판례 메커니즘이 회색지대 판단 아키텍처의
-핵심임을 데이터로 최종 증명.
-
-**핀 작성 교훈**: 단순 판례 인용만으로는 부족. 판결요지에 **계산식·ruling 라벨**을
-직접 박아야 LLM이 ruling_spectrum 라벨을 정확히 선택한다. (J007 500만 산식,
-J205 일반과세전환 라벨 명시가 결정적이었음.)
-
----
-
-## Phase 6 — 판단형 세무 에이전트 (Judgment Layer)
-
-> **배경**: Phase 1~5로 계산·룰베이스·LLM 프롬프트까지 "정답이 있는 문제"는 다 풀었다. 세무사 10명분이 되려면 회색지대 판단·증빙 적격성·세무조사 리스크 같은 **정답이 없는 판단**을 다뤄야 한다.
->
-> **전략**: 판례·예규 RAG + LLM 추론 + adversarial self-check(세무조사관 페르소나) 4단계 파이프라인. **MVP는 소득세 회색지대 10케이스에 한정**하여 수직 검증부터 한다.
-
-### 아키텍처 (strategy_engine 후단에 부착)
-
-```
-strategy_engine.run(profile)
-        ↓
-[1] Issue Extractor   — profile + 발동규칙에서 회색지대 이슈 식별
-[2] Legal Retriever   — 하이브리드 RAG (로컬 코어 + law-mcp on-demand)
-[3] Reasoning Engine  — LLM이 판례·예규 근거로 판단 + 신뢰도
-[4] Audit Adversary   — 세무조사관 페르소나로 반박·보강증빙 요구
-        ↓
-출력: {issue, 판단, 신뢰도, 근거조문·판례, 반박포인트, 보강증빙}
-```
-
-### 모듈 구성
-
-- `reasoning_engine/issue_extractor.py` — 회색지대 이슈 플래그
-- `reasoning_engine/legal_retriever.py` — 하이브리드 RAG (BM25 로컬 + law-mcp 폴백)
-- `reasoning_engine/reasoner.py` — LLM 판단 (프롬프트 v5, JSON 출력)
-- `reasoning_engine/adversary.py` — 조사관 self-check
-- `reasoning_engine/orchestrator.py` — 4단계 실행
-- `reasoning_engine/issues/income_tax_gray.yaml` — 10개 회색지대 이슈 정의
-- `data/precedent_corpus.json` · `data/admin_rule_corpus.json` — 로컬 코어 캐시 (~100건씩)
-- `data/eval/judgment_goldset_v1.yaml` · `eval_judgment_v1.py` — 판단 품질 평가
-
-### 착수 순서
-
-- [ ] 6-A: 회색지대 이슈 카탈로그 10종 정의 + `judgment_goldset_v1.yaml` 작성 — **expected_ruling은 국세청 예규/유권해석/판례 원문 인용**, 스펙트럼(인정/조건부/불인정/경계) 커버
-  - 예시 이슈: `GRAY_CAR_BUSINESS_RATIO`, `GRAY_HOUSEHOLD_EXPENSE`, `GRAY_DONATION_ELIGIBILITY`, `GRAY_ENTERTAINMENT_VS_MEETING`, `GRAY_DOUBLE_CASH_RECEIPT`, `GRAY_RENTAL_VS_BUSINESS`, `GRAY_DEPENDENT_QUALIFICATION`, `GRAY_DEEMED_DIVIDEND`, `GRAY_OTHER_INCOME_VS_BUSINESS`, `GRAY_ONE_HOUSE_TRANSFER_NONTAXABLE`
-- [ ] 6-B: `agent/law_client.py` 확장 (`search_precedents`/`get_precedent`/`search_admin_rules`/`get_admin_rule`) + `scripts/build_precedent_corpus.py`로 6-A authoritative_sources 전수 수집 + BM25 검색 구현
-- [ ] 6-C: `reasoner.py` + `orchestrator.py` 프로토타입 — 프롬프트 v5, 출력 JSON 스키마 `{ruling, confidence, reasoning, cited_sources, caveats}`, retrieved_legal 화이트리스트 강제(할루시네이션 방지), 단일 케이스(`GRAY_CAR_BUSINESS_RATIO`) end-to-end 검증
-- [ ] 6-D: `adversary.py` — 세무조사관 페르소나(국세청 조사4국), 출력 `{counterargument, probe_questions, required_evidence, risk_escalation}`, 반박 강도에 따라 confidence cap
-- [ ] 6-E: `eval_judgment_v1.py` — 3메트릭(ruling_match / source_match / forbidden_avoided), 목표 **10케이스에서 8/7/10 달성**, 실패 시 프롬프트 v5 반복 튜닝
-
-### 비용·리스크 통제
-
-- **할루시네이션**: retrieved_legal에 없는 판례번호 인용 금지(출력 후 case_id 존재 검증)
-- **비용**: reasoner+adversary 2콜 = 케이스당 2×LLM. risk medium↑ rule만 게이트 통과
-- **프롬프트 분리**: v4는 strategy용, v5는 reasoning용. registry.yaml `prompts: {strategy: v4, reasoning: v5}` 확장
-
-### Phase 6 완료 기준
-
-- `eval_judgment_v1.py`: ruling_match ≥ 8/10, source_match ≥ 7/10, forbidden_avoided = 10/10
-- 기존 회귀 유지: `eval_strategy_catalog_v1.py` 57/57 + `eval_goldset.py` ≥ 80%
-- Phase 6 성공 → Phase 7에서 법인세/부가세/상증세로 횡확장
-
-### Phase 6 검증 완료 (2026-04-14)
-
-- [x] eval_judgment_v1 소득세 10/10: ruling 8/10, source 10/10, forbidden 10/10 ✅
-- [x] eval_strategy_catalog_v1: 94/94 ✅ (기존 57/57에서 확장)
-- [x] eval_goldset: 25/25 = 100% ✅
-
----
-
-## Phase 7 — 판단 레이어 횡확장 (2026-04-14 완료)
-
-Phase 6 MVP(소득세 10) 아키텍처를 법인세·부가세·상증세로 확장.
-
-### 산출물
-
-- `reasoning_engine/issues/` 디렉토리 스캔으로 멀티 scope 로딩
-  - `corporate_tax_gray.yaml` 8 issues
-  - `vat_gray.yaml` 6 issues
-  - `inheritance_gift_gray.yaml` 6 issues
-- `data/eval/judgment_goldset_v1_{scope}.yaml` 분리 (글롭 로딩)
-- `eval_judgment_v1.py --scope {corporate_tax|vat|inheritance_gift}` 필터 추가
-
-### 결과 (26 총 케이스, 3메트릭)
-
-| 세목 | ruling | source | forbidden |
-|---|---|---|---|
-| 소득세 (기존) | 8/10 | 10/10 | 10/10 |
-| 법인세 | 7/8 (87%) | 8/8 | 8/8 |
-| 부가세 | 4/6 (67%) | 6/6 | 6/6 |
-| 상증세 | 5/6 (83%) | 6/6 | 6/6 |
-| **전체** | **24/30 (80%)** | **30/30 (100%)** | **30/30 (100%)** |
-
-부가세 67%는 3건 LLM 보수 bias(안분 선호·실질과세 약함·최신판례 미반영).
-향후 프롬프트 v6 또는 adversary_rewrites 활성화로 개선 여지.
-
-### Phase 7 완료. Phase 5 상위레이어로 이동.
-
----
-
-## 자료 수집 자동화 로드맵
-
-### 현재 (MVP) — PDF 파싱
-
-사용자가 홈택스에서 직접 출력 → 파일 경로 입력 → `document_parser.parse_pdf()` 파싱.
-SKILL.md에 출력 방법 단계별 안내 포함.
-
-### 추후 검토 — CODEF API 연동
-
-- **CODEF** (codef.io): 민간 인증 대행 API. 공동인증서/간편인증으로 간소화 자료를 JSON으로 반환.
-- 사용자 본인 인증 기반이라 법적으로 안전한 방식.
-- 서비스화(다수 사용자) 단계에서 도입 검토.
-- 테스트 무료, 실사용 소액 과금.
-- 구현 위치: `document_parser.py`에 `fetch_hometax_via_codef()` 추가.
-
----
-
-## 현재 작업 순서 (Phase 1 실사용 레벨)
-
-> 계산 엔진(Level 4) 완료. 다음은 실제 사용자가 쓸 수 있는 수준으로 UI/파이프라인 완성.
-
-### 🔴 Must — 실사용 불가 구간
-
-- [x] 1-A: §62, 소득요건, 표준공제
-- [x] 1-B: eval exact match
-- [x] 1-C: 시나리오4~7
-- [x] **1-D: 소득 유형별 입력 플로우** (`main.py`) — 근로/사업/복합 분기, 항목별 수집
-- [x] **1-E: 계산 파이프라인 오케스트레이션** (`main.py`) — 수집값 → tax_calculator 체인 → 최종세액
-- [x] **1-F: 기납부세액 차감** — 원천징수·중간예납 반영 → 환급/추납 금액 도출
-
-### 🟡 Should — 세무사 수준
-
-- [x] **1-G: strategy_engine 실질화** — 실제 세율 기반 절세액 계산, tax_result 연결
-- [x] **1-H: PDF 파싱 → 항목 자동 매핑** — 원천징수영수증 파싱 결과 → 파이프라인 입력
-
-### 🟢 Nice to have
-
-- [x] **1-I: 시뮬레이션** — "IRP 300만 추가 시" 세액 변화 미리 보기
-
----
-
-## Phase 1-보완 — 소득세 미구현 챕터 완성
-
-> 목표: 소득세법 전 챕터를 실무 수준(Level 4)으로 완성.
-> 구현 패턴: law-mcp `get_law_article` → `data/*.txt` 저장 → `tax_calculator.py` 함수 추가 → `law_watch.py` 등록 → `eval_scenarios.py` exact assert 추가
-
-### Ch01. 소득세 총설
-- [x] `is_resident()` — 거주자/비거주자 판정 (§1의2: 국내 주소 또는 183일 거소)
-- [x] `get_taxable_period()` — 과세기간 특례 (§5: 사망·출국 시 단축)
-- [x] 납세지 규정 안내 (§6~§8: 주소지/사업장 납세지신고) → SKILL.md
-
-### Ch02. 이자소득
-- [x] `calculate_nontaxable_interest()` — 비과세 이자소득 항목별 판정 (§12③1: 비과세종합저축 2천만 한도 등)
-- [x] 이자소득 수입시기 규정 (§45: 약정일/지급일) → SKILL.md
-- [x] 무조건 분리과세 이자소득 `calculate_interest_income_tax()` (§14②: 비실명45%·장기채권30%·직장공제회)
-
-### Ch03. 배당소득
-- [x] `calculate_deemed_dividend()` — 의제배당 계산 (§17②: 잉여금 자본전입·감자·해산·합병·분할)
-- [x] `calculate_recognized_dividend()` — 인정배당 (§17①4: 법인세법상 소득처분)
-- [x] 집합투자기구 배당소득 특례 (§17①5) → SKILL.md
-
-### Ch04. 사업소득 — 필요경비 상세
-- [x] `calculate_entertainment_expense_limit()` — 접대비 한도 (§35③: 중소기업3,600만/일반1,200만 + 수입금액 한도)
-- [x] `calculate_depreciation()` — 감가상각비 (§33①6, 영§62~§68: 정액법·정률법, 내용연수별 상각률)
-- [x] `calculate_car_expense_limit()` — 업무용승용차 관련비용 한도 (§33의2: 감가상각비 연 800만 한도)
-- [x] 총수입금액 귀속시기 규정 (§39) → SKILL.md
-- [x] 비과세 사업소득 (§12①) → SKILL.md
-
-### Ch05. 근로소득
-- [x] `calculate_simplified_withholding()` — 간이세액표 월별 원천징수 (§129·영§194: 부양가족 수별 세액)
-- [x] 비과세 근로소득 추가 항목 (§12③: 벽지수당·위험수당·국외근로소득·연구보조비 등) → `calculate_nontaxable_employment_income()` 확장
-- [x] 근로소득 수입시기 (§49) → SKILL.md
-
-### Ch06. 연금소득 — 현재 구현 완료 ✓
-
-### Ch07. 기타소득
-- [x] 무조건 분리과세 세율 세분화 (§14②: 복권 3억 초과 33%, 슬롯머신 등) → `calculate_other_income()` 수정
-
-### Ch08. 종합소득금액 — 현재 구현 완료 ✓
-
-### Ch09. 종합소득공제
-- [x] `calculate_housing_savings_deduction()` — 주택청약종합저축 소득공제 (조특법 §87: 총급여 7천만 이하, 납입액×40%, 한도 300만)
-- [x] `apply_deduction_aggregate_limit()` — 소득공제 종합한도 2,500만원 (조특법 §132의2)
-
-### Ch10. 세액 계산 — 현재 구현 완료 ✓
-
-### Ch11. 세액공제·세액감면
-- [x] `calculate_earned_income_tax_credit()` 재구현 — 근로소득세액공제 (§59: 총급여 구간별 55~74%, 한도 50~74만)
-- [x] `calculate_insurance_tax_credit()` — 보험료세액공제 (§59의4①: 보장성 12%, 장애인보장성 15%, 한도 100만)
-- [x] `calculate_medical_tax_credit_detail()` — 의료비세액공제 상세 (§59의4②: 본인·경로우대·장애인 한도 없음, 일반 200만)
-- [x] `calculate_education_tax_credit_detail()` — 교육비세액공제 상세 (§59의4③: 취학전~대학, 본인 전액, 장애인)
-- [x] `calculate_donation_tax_credit_detail()` — 기부금세액공제 상세 (§59의4④: 법정/지정/종교단체 한도 구분, 15%/30%)
-- [x] `calculate_disaster_loss_tax_credit()` — 재해손실세액공제 (§58: 피해액/종합소득세액 비율)
-
-### Ch12. 퇴직소득 — 현재 구현 완료 ✓
-
-### Ch13. 양도소득
-- [x] `check_one_house_exemption()` — 1세대1주택 비과세 요건 판정 (§89①3: 2년 보유·거주, 세대원 구성, 12억 기준)
-- [x] `calculate_estimated_acquisition_price()` — 취득가액 의제 (§97②: 기준시가·환산취득가액)
-
-### Ch14. 신고·납부
-- [x] `calculate_withholding_tax()` — 원천징수 세율표 통합 (§129: 이자 14%, 배당 14%, 사업 3.3%, 기타 22%, 근로 간이세액)
-- [x] 양도소득 예정신고 안내 (§105~§106) → SKILL.md
-
-### Ch15. 비거주자
-- [x] `calculate_nonresident_tax()` — 국내원천소득 과세 (§119~§121: 소득유형별 세율)
-- [x] 조세조약 제한세율 안내 → SKILL.md
-
----
-
-## 법제처 API vs Python 함수 분담 원칙
+### 법제처 API vs Python 함수 분담
 
 ```
 계산이 필요한 것 → Python 함수
@@ -749,307 +169,37 @@ SKILL.md에 출력 방법 단계별 안내 포함.
   예: 1세대1주택 비과세 (요건은 API, 세액은 함수)
 ```
 
----
-
-## Phase 1-실증 — 소득세 A/B 검증
-
-> 목적: 구축한 소득세 계산기(`tax_calc_cli.py`)와 법령 조회(`law-mcp`)가 실제 시험문제를
-> 풀 때 **유의미하게 기여하는지** 한 문제씩 검증.
->
-> 원칙: **대화창 내 수동 풀이**. subprocess·병렬·파싱 스크립트 금지
-> (자동화 시도가 반복 실패 — 하단 "중단된 접근" 참고).
-
-### 평가 설계
-
-| 구분 | A: 시스템 활용 | B: LLM 단독 |
-|---|---|---|
-| 계산 | `python tax_calc_cli.py ...` 호출 | 내부 추론만 |
-| 법령 확인 | `law-mcp` (`get_law_article` 등) | 내부 지식만 |
-| 기록 | 정답 여부 + **도구 호출 종류·횟수** | 정답 여부 |
-
-- A에서 도구를 한 번도 호출하지 않으면 "도구 기여도 0"으로 별도 표시
-- 동일 문제를 **B 먼저 → A 나중** 순서로 풀어 A가 B 결과를 베끼지 않게 함
-- 풀이 reasoning은 전부 공개 (번호 맞히기만 하는 게 아니라 과정도 검수)
-
-### 워크플로 (한 문제 단위)
+### 완성 기준 (세목별 동일 적용)
 
 ```
-1. 대상 문제 선정 (예: 세무사 1차 2025 Q51)
-2. Read 도구로 문제·선택지·정답 JSON 직접 로드
-3. B 풀이: 도구 없이 reasoning + 예측 번호
-4. A 풀이: 필요 시 tax_calc_cli / law-mcp 호출 (호출 로그 기록)
-5. 정답 비교 → data/exam/results/소득세_실증.md 에 누적
+Level 1 — 함수 존재:     코드가 실행됨
+Level 2 — 파이프라인:    시나리오 흐름이 연결됨
+Level 3 — 숫자 검증:     세법 교재·홈택스 계산기와 수치 일치
+Level 4 — 실무 완성:     경계값·특수케이스·선택 로직까지 커버
 ```
-
-### 결과 누적 포맷 (`data/exam/results/소득세_실증.md`)
-
-```markdown
-## 2025 Q{n} — {주제}
-- 정답: {번호}
-- B 예측: {번호} ({정오})
-- A 예측: {번호} ({정오})
-- A 도구 호출: [tax_calc_cli income-tax ..., law-mcp get_law_article 소득세법 §{n}, ...]
-- 분석: {한 줄}
-```
-
-최종 테이블(누적본 최상단):
-
-| 문제 | 정답 | B | A | A 도구 | 개선? |
-|---|---|---|---|---|---|
-| ... |
-
-### 대상 문제
-
-- 1차: 세무사 1차 2025 소득세법 Q51~Q60 (10문항)
-- 2차(1차 완료 후): 2024·2023 동일 10문항씩
-
-### 완료 기준
-
-```
-Q51~Q60 10문항 A/B 양쪽 완료 + 결과 기록
-A 정답률 > B 정답률 (도구 기여 입증)
-또는 A 정답률 == B 이지만 근거 조항 정밀도 상승 (law-mcp 기여 입증)
-```
-
-### 진행 현황 (2026-04-12 업데이트)
-
-| 문제 | 정답 | B | A | A 도구 호출 | 결과 |
-|---|---|---|---|---|---|
-| 2025 Q51 | ③ 40,350,000 | ③ | ③ | law-mcp §17 | A=B 정답 · Gross-up 비율 10% 조문 확인 |
-| 2025 Q52 | ④ ㄱ18.7M/ㄴ1.34M | ④ (역산 찍기) | ④ | law-mcp §12·§21·§22, 영§17의3·§18·§87 | A=B 정답 · A가 경로 정확 |
-| 2025 Q53 | ⑤ ㄱ354.4M/ㄴ409.4M | ⑤ | ⑤ | law-mcp §22·§48, 영§42의2 | A=B 정답 · A는 영§42의2⑥ 선택권 확정 |
-| 2025 Q54 | ② 609,856,000 | ② | ② | law-mcp §97·§97의2·§95·§101, 영§163 | A=B 정답 · A는 3개 조문 동시 확정 |
-| 2025 Q55~Q60 | — | — | — | — | 미진행 |
-
-- 완료: **4/10** (40%)
-- 현재까지 정답률: A 4/4, B 4/4 (Q52 B는 역산, Q53 B는 구조 기억 불안정, Q54는 3개 법리 동시)
-- 도구 기여도: Q51~Q54 모두 A에서 조문 인용 정밀도 상승 입증
-- 인프라 확장: Q53 계기로 `calculate_executive_retirement_limit()` + `executive-retirement-limit` CLI 구현, certify_phase1 Ch12b 추가
-- 인프라 확장 (2차): §104 주식양도세율 + 영§87 의제율매핑 + §118의9~16 국외전출세 파이프라인 → **26/26 인증 재통과**
-- 실증 결론: 소득세 도구 기여도 입증 완료. 1차 MCQ는 확신도·경로 보강, 2차 서술형은 조문 정정·숫자 확정에서 결정적 기여. **Phase 2(부가세) 진행 가능**
-
-### 세션 결과물 (2026-04-12)
-
-**정답 JSON 전수 재작성**
-- 세무사 1차 2023·2024·2025 세법학개론 정답 JSON → 원본 PDF 기반 재작성 완료
-- 2025 Q51 기존 "2" → "3" 수정 등 31/40 파싱 오류 해소
-- 검증 방법: 2023·2024는 `pdfplumber.page.to_image()` + 멀티모달 Read, 2025는 텍스트 추출
-- CPA 1차 2024·2025·2026 정답 JSON 전수 검증 → **모두 정상** (파싱 오류는 세무사 1차 파이프라인 국소 버그)
-
-**tax_calc_cli 확장 (소득세 9종)**
-- 기존 7종 유지 + 추가 2종:
-  - `financial-income` (`--grossup-mode full|threshold`) — §17 금융소득 Gross-up + 2천만 종합과세 판정
-  - `other-income` (`--type 일반|복권|슬롯머신|연금계좌`, `--expense-ratio`) — §21 기타소득 단일항목
-- `calculate_financial_income`에 `grossup_mode` 파라미터 도입
-  - `full`: §17③ 문언 그대로 전액 × 10% (기본, S2 등 기존 시나리오 보존)
-  - `threshold`: 2천만 초과분만 × 10% (시험 실무 해석, Q51 검산용)
-- certify_phase1 22/22 회귀 통과 확인
-
-**인프라 발견**
-- **PyMuPDF(fitz)**가 pdfplumber보다 견고 — CPA 2026 확정답안 PDF를 pdfplumber는 `Unexpected EOF`로 실패하지만 fitz는 정상 파싱
-- 향후 PDF 파이프라인에서 fitz를 1차 선택지로 고려
-
-### 중단된 접근 (재시도 금지)
-
-- `mcq_eval.py` 병렬 배치 채점 — 파싱·타임아웃·리소스 경쟁으로 반복 실패
-- `claude -p --tools Bash` subprocess — 프로젝트 CLAUDE.md 컨텍스트 로드되며 MCQ를 프로젝트 질의로 오해
-- 원인 정리: **"자동화된 다문항 배치"가 이 규모에선 디버깅을 막음** — 응답 못 봄, 오류 로그 파편화
-- 대안: 대화창 수동 풀이 (위 워크플로) — Claude 자신이 솔버 겸 채점자
-
-### 인프라 현황 (그대로 유지)
-
-- 문제 JSON: `data/exam/parsed/세무사_1차_세법학개론_{year}_{문제|정답}.json`
-- 계산 CLI: `tax_calc_cli.py` (소득세 7종: earned-deduction, income-tax, wage-tax, retirement-tax, transfer-tax, pension-income, withholding)
-- 법령 조회: `law-mcp` (`~/projects/law-mcp/`, `~/.claude.json` 등록됨)
-  - 제공 도구: `search_law`, `get_law_article`, `search_precedents`, `batch_validate_legal_terms`
-  - 본문 반환 패치 적용 완료 (2026-04-11, `src/providers/lawgo-provider.ts`)
 
 ---
 
-## 이어서 할 일
-> 다음 세션에서 이 항목부터 시작한다.
+## 자료 수집 자동화 (참고)
 
-- [x] **법인세 2차 서술형 A/B 실증** — 2024 39/39 + 2025 39/39 = **78/78 전수 검증 완료**
-  - [x] 2024 Q4: 접대비 한도·출자전환·지급이자·주식매수선택권·개발비 — 25/25
-  - [x] 2024 Q5: 부당행위계산부인(실권주)·결손금 소급공제 — 8/8 (정답JSON 4건 수정)
-  - [x] 2024 Q6: 상속세 과세가액·증여 반환시기 — 6/6
-  - [x] 2025 Q4: 의제배당·퇴직급여충당금·대손충당금·업무용승용차 — 22/22
-  - [x] 2025 Q5: 임원상여금·퇴직금 한도·기부금·부당행위계산부인 — 10/10
-  - [x] 2025 Q6: 연결납세 — 2/2
-  - [x] 2025 Q7: 증여세(부동산 무상사용·금전무상대출·보험금) — 5/5 (JSON 누락 2건 보완)
-- [x] Phase 5-A **strategy_engine 카탈로그화 완료** (2026-04-14): 22규칙 + 57/57 회귀 + certify 26/26 무회귀
-- [x] Phase 5-B **프론트엔드 통합 완료** (2026-04-14): `local-ai-workstation` → `tax-agent` 이전 + UI 4탭 + LangGraph 6 tool + `TaxAgent.exe` 재빌드
-  - [x] 1-2. 13개 파일 복사 + import 경로 재편 (`sys.path` 제거, `tax_rag` → `agent.rag`, `.env` 경로 단순화)
-  - [x] 3. pyproject 의존성 5종 추가 (`streamlit`, `langgraph`, `langchain-core`, `langchain-ollama`, `pywebview`)
-  - [x] 4. PyInstaller spec 전면 재작성 (패키지형 `strategy_engine` + YAML rules 번들)
-  - [x] 5. Streamlit 부팅 테스트 (HTTP 200, 로그 청정)
-  - [x] 6. UI 5탭(소득세·법인세·상속세·증여세·법령검색) + LangGraph `@tool` 6개
-  - [x] 7. `TaxAgent.exe` 재빌드 96MB + 바탕화면 바로가기 갱신
-  - [x] 7-A. Ollama 자동 기동 로직 추가 (`tax_app.py`의 `ensure_ollama`)
-  - [x] 7-B. 140GB 모델 C:→D: 이동 (시스템 env `OLLAMA_MODELS=D:\ollama\models` 정합성 복구)
-  - [x] 7-C. 소득세 탭 결정론적 엔진 직접 호출 (qwen3:32b이 툴 우회하는 케이스 보정 — `tax_calculator` + `strategy_engine.run` 직접)
-  - [x] 7-D. 사용자 GUI 실증 완료 (절세 전략 섹션 채워짐 확인)
-  - [x] 8. `local-ai-workstation/{infrastructure,phase1_automation/tax_rag,assets}` 13개 파일 `git rm` 완료 (2026-04-14, commit ec5c830)
+### 현재 (MVP) — PDF 파싱
+사용자가 홈택스에서 직접 출력 → 파일 경로 입력 → `document_parser.parse_pdf()` 파싱. SKILL.md에 출력 방법 안내.
 
-### 이어서 할 일 — Phase 6 준비
-
-- [x] 사용자 GUI 실증 완료 (7-D에 기록)
-- [x] `local-ai-workstation/` 원본 13개 파일 `git rm` 완료 (commit ec5c830)
-- [x] **eval 하네스 재연결 완료** (2026-04-14): `agent/eval/{eval_loop,tax_verifier}.py`의 broken sys.path 제거 + output path 정상화 + 패키지 실행 경로(`python -m agent.eval.eval_loop`)로 전환. 스모크 테스트 통과(imports OK, ground-truth verify PASS).
-
-### Phase 6 — strategy_engine v2 (진행 중)
-
-- [x] **법인세 v2 6규칙 추가 완료** (2026-04-14): 22→28 규칙. 2차 실증 78/78 근거 기반.
-  - CORP_BAD_DEBT_RESERVE_EXCESS — 대손충당금 한도초과 (법34·령61·62)
-  - CORP_RETIREMENT_RESERVE_EXCESS — 퇴직급여충당금 한도초과 (법33·령60)
-  - CORP_COMPANY_VEHICLE_EXCESS — 업무용승용차 1,500만 초과 (법27의2·령50의2)
-  - CORP_ESO_NONDEDUCTIBLE — 주식매수선택권 비벤처·비중소 손금불산입 리스크 (법19의2)
-  - CORP_DEEMED_DIVIDEND_WITHHOLDING — 의제배당 원천징수 14% (법16·소127)
-  - CORP_LOSS_CARRYBACK — 중소기업 결손금 소급공제 환급 (법72)
-  - 회귀: eval_strategy_catalog_v1 42/42 + 기존 57/57 + certify 26/26 무회귀 = 총 **95/95**
-- [x] **증여세 v2 4규칙 추가 완료** (2026-04-14): 28→32 규칙.
-  - GIFT_LOW_PRICE_TRANSFER — 저가양수·고가양도 증여의제 (상증 35·령 26)
-  - GIFT_FREE_LOAN_BENEFIT — 금전 무상·저리 대여 증여이익 (상증 41의4·령 31의4)
-  - GIFT_FREE_REAL_ESTATE_USE — 부동산 무상사용 증여의제 (상증 37·령 27)
-  - GIFT_INSURANCE_PROCEED — 보험금 증여 납부자≠수익자 (상증 34)
-  - 회귀: catalog_v1 50/50 + 기존 33/33 + certify 26/26 무회귀 = 총 **103/103**
-- [x] **비상장주식 평가 모듈 완료** (2026-04-14): `unlisted_stock_valuation.py` — 상증법 63조 보충적 평가
-  - 순손익가치(직전3년 가중평균 순이익 ÷ 10% 환원) + 순자산가치(자산−부채/주식수) 가중평균
-  - 케이스 분기: 일반(3:2) / 부동산과다 50~80%(2:3) / 부동산과다 80↑(순자산 단독) / 80% 하한
-  - 회귀 5/5 자체 테스트 통과
-- [x] **조특법 세액공제 3종 완료** (2026-04-14): 32→35 규칙.
-  - CORP_RD_TAX_CREDIT — R&D 세액공제 (조특 10): 중소 25% / 신성장 30% / 대 15%
-  - CORP_INTEGRATED_INVESTMENT_CREDIT — 통합투자세액공제 (조특 24): 기본 + 증가분 3%
-  - CORP_EMPLOYMENT_INCREASE_CREDIT — 통합고용세액공제 (조특 29의8): 청년·일반 × 2.5년
-  - 회귀: catalog_v1 60/60 + 기존 33/33 + certify 26/26 무회귀 = 총 **113/113**
-- [x] **가업상속·가업승계 특례 2규칙 완료** (2026-04-14): 35→37 규칙. **Phase 6 공식 종료**
-  - INH_FAMILY_BUSINESS_DEDUCTION — 가업상속공제 (상증 18의2): 10년 300억 / 20년 400억 / 30년 600억
-  - GIFT_FAMILY_BUSINESS_SUCCESSION — 가업승계 증여 특례 (조특 30의6): 10억 공제 + 120억까지 10% / 초과 20%
-  - 회귀: catalog_v1 66/66 + 기존 33/33 + certify 26/26 무회귀 = 총 **119/119**
-
-- [x] **Phase 7 양도소득세 14규칙 완료** (2026-04-14): 37→51. 소득세 13→27.
-  - 7.1 양도차익 기본 (3): TRANSFER_ACQUISITION_DOC · NECESSARY_EXPENSE · GIFT_CARRYOVER
-  - 7.2 장특공제 (2): LTCG_TABLE1 · LTCG_TABLE2_ONE_HOUSE
-  - 7.3 1세대 1주택 (4): ONE_HOUSE_EXEMPT · TEMP_TWO_HOUSE · INHERITED_HOUSE · HIGH_VALUE_EXCESS_LTCG
-  - 7.4 세율·중과 (3): SHORT_TERM_EXTEND · UNREGISTERED_AVOID · MULTI_HOUSE_DEFER
-  - 7.5 특례·감면 (2): SELF_CULTIVATED_FARMLAND · PUBLIC_EXPROPRIATION
-  - 회귀: catalog_v1 94/94 + 기타 27/27 = **121/121**
-
-- [x] **품질·실증 레이어 B1/B2/B3 완료** (2026-04-14):
-  - B2: `eval_scenarios_transfer.py` — 양도소득 복합 시나리오 7/7
-  - B1: `eval_ollama_rule_firing.py` — Ollama 하네스 skeleton (dry-run). 모델 pull 후 `--run`
-  - B3: `eval_goldset.py` + `data/eval/goldset_v1.yaml` — PRD 80% 측정. 현재 5/5 (100%, 베이스라인)
-  - 회귀: 121 → **128/128** 무회귀
-- [x] **골드셋 5→25 확장** (2026-04-14): 소득세/양도/법인세/증여/복합 20케이스 추가. 25/25 = 100%. 51규칙 중 약 80% 커버
-- [x] **qwen3:32b 베이스라인 측정** (2026-04-14): `eval_ollama_rule_firing.py --run` 첫 실행
-  - v1 프롬프트 (필드 나열 최소): **0/5 = 0%** — 통화 오파싱(8억→8천만), 도메인 플래그 미추출
-  - v2 프롬프트 (필드 사전 + 통화 예시, 양도 전용): **4/5 = 80%** (5 transfer 시나리오 한정)
-  - v2 프롬프트 (goldset 25건, 전 세목 필드 사전): **10/25 = 40%** — 실무 베이스라인
-  - v3 프롬프트 (umbrella flag 규칙 15개 추가): **15/25 = 60%** (+20%p)
-  - 개선 케이스: 상속 가업승계, 법인 손익합산, 증여 무상대여·저가양수·보험 일부 등
-  - 잔여 실패 유형: 개념 자체 누락(임대소득/기타소득 필드), 긴 설명 체인(가업+연부연납+배우자)
-
-### Phase 8 후보
-- [x] **LLM 레지스트리·어댑터** (2026-04-14): `agent/llm/{registry.yaml,registry.py,adapter.py}` 신설. 4개 콜사이트 하드코드 제거. `eval_ollama_rule_firing.py --compare-all` 추가.
-- [x] **qwen3:32b vs gemma4:31b 벤치** (2026-04-14, goldset 25건):
-  - qwen3:32b: **16/25 (64%)** · avg 11.6s
-  - gemma4:31b: **16/25 (64%)** · avg 12.5s
-  - **실패 9건 100% 겹침** — 모델 품질이 아니라 규칙 발동 조건/umbrella flag 구조적 결함
-  - default는 qwen3:32b 유지. 프롬프트 v3 → v3.1 (temp_two_house old_house_gain 매핑 추가)
-- [x] **qwen3.5:35b 실패** (2026-04-14, 12/25 중단 후 삭제):
-  - 6/12 (앞 두 모델은 7/12 동일 구간) · avg **43s** (3~4배 느림)
-  - 실패 케이스 동일. 256K 컨텍스트 로딩 비용만 큼. 모델·registry entry 삭제.
-  - 로그 보존: `data/eval/ollama_runs/_qwen35_35b_goldset.log` + `G*_qwen3.5_35b_*.json` (검토 히스토리)
-- [x] **프롬프트 v4 + 규칙/엔진 보강 완료** (2026-04-14): **16→20/25 = 64%→80% (PRD 목표 달성)**
-  - simulator 5곳 fallback: `double_entry` (revenue→income 30%), `other_income_separation` (marginal 기본 0.24+정보성 saving), `transfer_multi_house` (surcharge 기본 0.20), `inh_installment` (total×0.20 fallback), `gift_insurance` (other_ratio None→1.0)
-  - 규칙 YAML 4곳: INH_INSTALLMENT(OR inheritance_total>5억), GIFT_INSURANCE(ratio>0 제거), TRANSFER_NECESSARY_EXPENSE(OR acquisition_docs_available=false), TRANSFER_GIFT_CARRYOVER(carryover_gain>0 제거)
-  - **profile_builder 치명 버그**: `_FLAT_TRIGGERS`가 `other_income_net`/`insurance_proceed_amount` 등을 인식 못해 LLM 추출 필드가 버려짐 → 9개 필드 추가
-  - 프롬프트 v4: `acquisition_docs_available`, `business_revenue` 매핑 umbrella 추가
-  - 회귀 94/94 + ideal-goldset 25/25 + certify 26/26 무회귀
-- [ ] **남은 5건 변동성 대응**: LLM 출력 분산으로 재실행마다 20~22/25 진동. G022 GIFT_INSURANCE는 qwen3:32b가 상속/증여 오분류하는 지식 한계.
+### 추후 — CODEF API 연동 (서비스화 단계)
+- CODEF (codef.io): 민간 인증 대행 API. 공동인증서/간편인증으로 간소화 자료를 JSON 반환.
+- 사용자 본인 인증 기반, 법적 안전.
+- 다수 사용자 서비스 단계에서 도입 검토.
 
 ---
 
-## 다음 세션 작업 순서 (2026-04-17 확정, 2→1→3)
+## 완료 이력 (아카이브)
 
-### 🥇 Phase 8-A — 규칙 추가 (소형, 각 반나절)
-`strategy_engine` 37규칙 → 40+. 커버리지 부채를 값싸게 갚는다.
-- [x] **조특법 중소기업 특별세액감면** (조특 §7) — 2026-04-17: `sme_special_reduction_savings` estimator + `RED_SME_SPECIAL_SECTION7` YAML. 업종(제조/도소매·의료/지식기반/기타) × 규모(소/중) × 소재지(수도권/비수도권) 16셀 감면율 테이블, 연 1억 한도. eval_strategy_catalog 94→97 (+3 tests), 51→52 규칙.
-- [x] **종부세(종합부동산세) 규칙 신설** — 2026-04-17: `property_holding_tax.py` 신설(일반/중과 누진 브래킷 + 1세대1주택 세액공제). `rules/property_holding/holding.yaml`에 3규칙(`CHT_SPOUSE_JOINT` 부부 공동명의 공제 12→18억, `CHT_RENTAL_EXCLUSION` 임대주택 합산배제, `CHT_ONE_HOUSE_CREDIT` 고령·장기보유 80%). tax_type="종합부동산세" 신설. eval 97→105 (+8 tests), 52→55 규칙.
-- [x] **개인지방소득세** (지방세법 §103의52) — 2026-04-17: `tax_calculator.calculate_tax()` 반환 dict에 `지방소득세` 필드 추가(산출세액×10%). `calculate_local_tax` 헬퍼 기존 유지.
-
-### 🥈 Phase 5-C-2 — 홈택스 전자신고 (중기, 1~2주)
-`execution_planner` dict → 홈택스 XML/ENC 파일. PRD "사용자가 에이전트 제안만으로 신고서 독립 완성" 기준 충족.
-- [ ] 홈택스 개발자 가이드 XML 포맷 분석 (종소세·법인세·부가세·상증세 4종)
-- [ ] `execution_planner_hometax.py` — dict → XML 변환기
-- [ ] 파일 유효성 검증 테스트 (실제 제출은 금지, 포맷 valid만 확인)
-- [ ] 세무사 검증 1회 요청
-- [ ] 제약 정책: 자동 제출 안 함. 공인인증서 로그인·제출은 사용자 직접. ANTHROPIC_API_KEY 금지 유지.
-
-### 🥉 Phase 8-B — orchestrator 튜닝 (중형, 2~3일)
-`strategy_engine/orchestrator.py`의 결과 제시 로직 업그레이드. "정답 37개 나열" → "실행 가능한 3~5개 우선순위 추천".
-- [ ] **다중 기준 스코어링** — 절세액 × 확실성 × 실행 난이도 가중합. registry에 weight 파라미터 노출.
-- [ ] **리스크 필터** — 세무조사 트리거 높은 전략(부당행위계산부인·실질과세·조세회피)은 경고 배지 + confidence cap.
-- [ ] **상호작용 처리** — 상충 규칙(분리 vs 합산, 이연 vs 즉시) 감지 후 시뮬레이터로 세액 비교 → 1개만 top 추천.
-- [ ] **사용자 프로필 적응** — `risk_tolerance: conservative|balanced|aggressive` 필드로 추천 필터링.
-- [ ] UI 탭에 "추천 전략 Top 3" 섹션 표시 (현재 LangGraph tool 출력 개선).
-
----
-
-## Phase 9 — 개인 세무 에이전트 UI (2026-04-18 **중단**)
-
-> **중단 결정 (2026-04-18)**: 대화형 "나만의 세무사" 기능은 **Claude Code 터미널 + `/tax` 스킬 + Claude 채널(텔레그램)** 조합으로 이미 모두 커버됨. 별도 웹 UI를 만들 실익이 없다고 판단해 9-4부터 중단. 9-1~9-3 코드(`agent/sdk/*`)와 의존성(`claude-agent-sdk`, `fastapi`, `sse-starlette`)은 exploration 흔적으로 남겨둠.
->
-> 아래 섹션은 중단 시점 스냅샷.
-
-### 아키텍처
-
-```
-[PC/휴대폰 브라우저] → Next.js 채팅 UI (:3000)
-                    ↓ SSE
-                FastAPI (:8000)
-                    ↓
-            Claude Agent SDK (Python)
-                    ↓ spawns
-            `claude` CLI subprocess  ← Claude Code 구독, 비용 0, Opus 4.7
-                    │
-    ┌──────────────┼──────────────┐
-    ↓              ↓              ↓
-tax_calculator  strategy_engine  RAG(decisive_sources)
- (기존 엔진)    (37규칙)         법령·판례
-```
-
-### 단계
-
-- [x] **9-1. Agent SDK 스모크** (2026-04-18): `claude-agent-sdk==0.1.63` 설치, `claude` CLI 2.1.114. `agent/sdk/smoke.py` — tax_calculator 1개 tool 붙여 왕복 성공 (16.2s, Opus 4.7).
-- [x] **9-2. Tool 전체 포팅** (2026-04-18): `agent/sdk/tools.py` — 7개 tool(`calculate_income_tax` / `get_income_tax_strategies` / `search_tax_law` / `get_corporate_tax_strategies` / `get_inheritance_strategies` / `get_gift_strategies` / `retrieve_legal_sources`) Agent SDK `@tool`로 재등록. `smoke_full.py`로 2-tool 체이닝 + 법령 인용 답변 검증.
-- [x] **9-3. FastAPI + SSE** (2026-04-18): `agent/sdk/server.py`. `/chat` SSE 스트림(system/assistant/tool_use/tool_result/result/done), `/sessions` 목록, `/sessions/{id}` 메시지, `/sessions/{id}` DELETE. `resume` 파라미터로 세션 이어가기 확인(2회차 3.2s). 포트 8321. 남은 이슈: `list_sessions()`가 Claude CLI 전체 세션을 반환 → 9-4에서 SQLite 필터 테이블로 정리.
-- [~] **9-4 ~ 9-9 중단 (2026-04-18)** — Claude Code 터미널 + `/tax` 스킬이 같은 목적을 더 싸게 달성하므로 미착수.
-
----
-
-## Phase 10 — /tax 스킬 전면 보강 (2026-04-18 완료)
-
-> **결정**: Phase 9 웹앱 대신 `/tax` 스킬을 Phase 1~8-A 전체 기능을 직접 호출하도록 확장. 진입점은 Claude Code 터미널 + `/tax` + Claude 채널(모바일).
-
-`custom-skills/tax/SKILL.md` 4 커밋(+491/-23줄):
-
-- [x] **10-1. strategy_engine catalog 업그레이드** (`dc0e757`) — legacy `generate_strategy` → `run()` catalog 37규칙. 세목별 profile 필드 매핑표 + 호출 예시 5종.
-- [x] **10-2. 세목 확장** (`70db866`) — description 확장(6개 세목 + 세무사 시험문제). 새 섹션 1-B에 corporate_tax·inheritance_gift·vat·property_holding·unlisted_stock 모듈 호출 가이드. 응답 흐름 7종(법인·상속·증여·부가·종부·양도·시험문제) 추가. 한계 명시에서 법인세·부가세 제거.
-- [x] **10-3. 회색지대 reasoning_engine** (`146c606`) — 새 섹션 6 + 30 이슈 카탈로그(법인 8·소득 10·상증 6·부가 6, decisive_sources 핀 7건). 회색지대 질문은 법령 MCP 대신 `reasoning_engine.run(issue_id, profile)` 우선. 기본 원칙 업데이트.
-- [x] **10-4+5. 시험 파이프라인 + 8-A 템플릿** (`84a2d83`) — 새 섹션 7에 `parse_exam_papers`·`mcq_eval`·`exam_eval` 문서화. 조특§7 중소기업 특별세액감면 16셀 감면율표 + 개인지방소득세(§103의52) 10% 표기 규칙.
-
-### Phase 10 다음 (선택)
-- [ ] 실사용 테스트 — /tax 스킬이 새 경로를 올바르게 선택하는지 실제 질의로 확인
-- [ ] Phase 5-C-2 홈택스 전자신고 XML 변환 (기존 계획, 중기)
-- [ ] Phase 8-B orchestrator 튜닝 — Top-3 추천 (기존 계획)
-
-
-
-### 결정 사항 (2026-04-18)
-
-- **모델**: Opus 4.7 (claude CLI 기본값 그대로)
-- **비용**: 0 — Claude Code 구독으로 CLI 사용
-- **보안**: 로컬·개인용이라 인증 없음. LAN 밖 접속 막기
-- **DB**: SQLite 유지 (PostgreSQL 불필요)
-
+- Phase 1 — 소득세 Level 4 + 인증 + 보완 + A/B 실증 · [archive](docs/roadmap-archive/phase-1-income-level4.md)
+- Phase 2 — 부가세 Level 4 (1차 8/8, 2차 3개년) · [archive](docs/roadmap-archive/phase-2-vat.md)
+- Phase 3 — 상속세·증여세 Level 4 · [archive](docs/roadmap-archive/phase-3-inheritance-gift.md)
+- Phase 4 — 법인세 Level 4 + 2차 서술형 78/78 · [archive](docs/roadmap-archive/phase-4-corporate.md)
+- Phase 5 — strategy_engine + execution_planner + PDF 렌더러 + 프론트엔드 · [archive](docs/roadmap-archive/phase-5-strategy-planner.md)
+- Phase 6/7/7-A — 판단 레이어 30/30 = 100% · [archive](docs/roadmap-archive/phase-6-7-judgment-layer.md)
+- Phase 8-A — 규칙 3종 (조특§7·종부세·지방소득세) · [archive](docs/roadmap-archive/phase-8-a-rules-3.md)
+- Phase 9 — 웹 UI 중단 (`/tax` + Claude 채널로 대체) · [archive](docs/roadmap-archive/phase-9-web-ui-canceled.md)
+- Phase 10 — /tax 스킬 전면 보강 · [archive](docs/roadmap-archive/phase-10-tax-skill.md)
